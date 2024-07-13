@@ -170,14 +170,14 @@ namespace Namespace1
          if(myRibbonTab != null)
             return;
       
-         var src = new RibbonPanelSource();
+         var source = new RibbonPanelSource();
 
          /// Add a ModalRibbonCommandButton.
          /// This button has its own CommandHandler:
 
          RibbonCommandButton button;
          button = new ModalRibbonCommandButton("REGEN");
-         src.Items.Add(button);
+         source.Items.Add(button);
          button.Text = "REGEN";
          button.Size = RibbonItemSize.Large;
          button.Orientation = Orientation.Vertical;
@@ -186,7 +186,7 @@ namespace Namespace1
 
          /// Add another ModalRibbonCommandButton:
          button = new ModalRibbonCommandButton("REGENALL");
-         src.Items.Add(button);
+         source.Items.Add(button);
          button.Text = "REGENALL";
          button.Size = RibbonItemSize.Large;
          button.Orientation = Orientation.Vertical;
@@ -218,23 +218,26 @@ namespace Namespace1
             button.Text = command;
             button.MinWidth = 80;
             button.CommandHandler = handler;
-            button.CommandParameter = button;
-            src.Items.Add(button);
+            source.Items.Add(button);
          }
 
          /// Note that each RibbonCommandButton's CommandParameter
-         /// property is assigned to the RibbonCommandButton instance.
-         /// This is necessary in order for the command handler to act
+         /// property returns the the RibbonCommandButton instance
+         /// by default.
+         /// 
+         /// This is required in order for the command handler to act
          /// as the handler for multiple RibbonCommandButtons, allowing
-         /// it to run each of their commands by receiving each Button
-         /// in the Parameter argument and calling its Execute() method.
+         /// it to run each of their commands by receiving each button
+         /// in the Parameter argument to Execute() and then delegating
+         /// to the RibbonCommandButton's Execute() method, which does
+         /// the actual work.
          /// 
          /// With the CommandHandler of each button assigned to the 
          /// ModalRibbonCommandButtonHandler, all buttons will become 
          /// disabled when there's a command or other modal operation 
          /// in progress.
 
-         /// We'll add a RibbonTextBox that allows the user to enter 
+         /// Next we'll add a RibbonTextBox allowing the user to enter 
          /// a macro that executes when they click the associated button 
          /// added below. The macro can be anything the user can type on 
          /// the command line, and also any valid menu macro string that 
@@ -250,7 +253,7 @@ namespace Namespace1
             Prompt = "Enter a command or macro"
          };
 
-         src.Items.Add(textBox);
+         source.Items.Add(textBox);
 
          /// Add another RibbonCommandButton that when clicked,
          /// executes the macro in the RibbonTextBox. This button
@@ -258,7 +261,7 @@ namespace Namespace1
          /// establish the linkage with the RibbonTextBox.
          
          button = new RibbonCommandButton("PLACEHOLDER", "ID_MACROBUTTON");
-         src.Items.Add(button);
+         source.Items.Add(button);
          button.Orientation = Orientation.Vertical;
          button.Size = RibbonItemSize.Large;
          button.ShowText = true;
@@ -271,15 +274,15 @@ namespace Namespace1
          /// and add them:
 
          RibbonPanel panel = new RibbonPanel();
+         panel.Source = source;
 
-         /// Assign the new RibbonTab to the static member
-         /// so it can be added to the ribbon when needed:
+         /// Create and assign the new RibbonTab to the static 
+         /// member so it can be added to the ribbon when needed:
 
          myRibbonTab = new RibbonTab();
          myRibbonTab.Id = "IDMyTab001";
          myRibbonTab.Name = "MyRibbonTab";
          myRibbonTab.Title = "My Ribbon Tab";
-         panel.Source = src;
          myRibbonTab.Panels.Add(panel);
       }
 
@@ -291,7 +294,7 @@ namespace Namespace1
    /// <summary>
    /// This class acts as a command handler for the button
    /// that executes the macro entered into the RibbonTextBox
-   /// as well as the RibbonTextBox.
+   /// as well as the command handler for RibbonTextBox.
    /// 
    /// It derives from one of the reusable types included in
    /// this library that provides the logic for synchronizing
@@ -360,31 +363,4 @@ namespace Namespace1
       }
 
    }
-
-   /// <summary>
-   /// A specialization of RibbonTextBox that is used to
-   /// specify a command macro to execute when a button 
-   /// is clicked or the enter key is pressed.
-   /// 
-   /// This specialization is required to mitigate the
-   /// issues with RibbonTextBox, as described below.
-   /// </summary>
-
-   public class MacroTextBox : RibbonTextBox
-   {
-      public MacroTextBox()
-      {
-      }
-
-      //public RibbonCommandButton Button
-      //{
-      //   get => button;
-      //   internal set
-      //   { 
-      //      button = value;
-      //   }
-      //}
-   }
-
-
 }
