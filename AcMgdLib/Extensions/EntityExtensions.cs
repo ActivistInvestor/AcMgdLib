@@ -6,6 +6,8 @@
 /// 
 /// Extension methods targeting the Entity class.
 
+using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Runtime;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
@@ -280,5 +282,50 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
          return new Extents3d();
       }
+
+      /// <summary>
+      /// Filters a sequence of entities by one or more owner blocks
+      /// with the given ObjectIds.
+      /// </summary>
+
+      public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities,
+         params ObjectId[] ownerIds) where T : Entity
+      {
+         Assert.IsNotNull(entities, nameof(entities));
+         Assert.IsNotNull(ownerIds, nameof(ownerIds));
+         foreach(var ownerId in ownerIds)
+            AcRx.ErrorStatus.WrongObjectType.Requires<BlockTableRecord>(ownerId);
+         if(ownerIds.Length == 0)
+            return Enumerable.Empty<T>();
+         if(ownerIds.Length == 1)
+            return entities.Where(ent => ent.BlockId == ownerIds[0]);
+         else
+         {
+            var set = new HashSet<ObjectId>(ownerIds);
+            return entities.Where(ent => set.Contains(ent.BlockId));
+         }
+      }
+
+      public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities,
+         params string[] layoutNames) where T:Entity
+      {
+         Assert.IsNotNull(entities, nameof(entities));
+         Assert.IsNotNull(layoutNames, nameof(layoutNames));
+         if(layoutNames.Length == 0)
+            return Enumerable.Empty<T>();
+         var db = entities.TryGetDatabase(true);
+         var blockIds = db.GetLayoutBlockIds(layoutNames);
+         if(!blockIds.Any())
+            return Enumerable.Empty<T>();
+         if(!blockIds.Skip(1).Any())
+         {
+            ObjectId blockId = blockIds.First();
+            return entities.Where(e => e.BlockId == blockId);
+         }
+         var set = new HashSet<ObjectId>(blockIds);
+         return entities.Where(e => set.Contains(e.BlockId));
+      }
+
    }
+
 }

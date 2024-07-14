@@ -76,7 +76,8 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
       {
          Assert.IsNotNullOrDisposed(doc, nameof(doc));
          this.doc = doc;
-         if(lockDocument && Documents.IsApplicationContext)
+         if(lockDocument && Documents.IsApplicationContext &&
+               doc.LockMode(true) == DocumentLockMode.NotLocked)
             docLock = doc.LockDocument();
          this.IsReadOnly = readOnly;
          doc.TransactionManager.EnableGraphicsFlush(true);

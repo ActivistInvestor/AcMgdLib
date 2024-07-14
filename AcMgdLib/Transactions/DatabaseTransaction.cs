@@ -4,24 +4,17 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Linq.Expressions;
 using Autodesk.AutoCAD.Runtime;
-using System.Diagnostics.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 /// Note: This file is intentionally kept free of any
 /// dependence on AcMgd/AcCoreMgd.
-
-/// Alternate pattern that allows the use of a custom 
-/// Transaction to serve as the invocation target for 
-/// Database extension methods provided by this library.
-/// 
-/// Note that complete documentation of the APIs below
-/// is an ongoing work-in-progress.
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -40,13 +33,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// called without the need to pass a Transaction or a Database as 
    /// arguments.
    /// 
-   /// If the Database argument's AutoDelete property is true (meaning it 
-   /// is not a Database that is open in the Editor), the constructor will 
-   /// set that Database to the current working database, and will restore 
-   /// the previous working database when the instance is disposed. 
+   /// Current working database management:
+   /// 
+   /// If the Database argument's AutoDelete property is true (meaning 
+   /// it is not a Database that is open in the Editor), the constructor 
+   /// will set it to the current working database, and will restore the 
+   /// previous working database when the instance is disposed.
    /// 
    /// An optional argument to the constructor can be supplied to
    /// prevent changing the current working database.
+   /// 
+   /// When allowing an instance to change the current working database
+   /// to the database argument passed to the constructor, the previous
+   /// working database must not be destroyed or deleted during the life
+   /// of the instance.
+   /// 
+   /// If a DatabaseTransaction is used in a loop to iteratively
+   /// process .DWG files that are opened via ReadDwgFile(), each 
+   /// instance must be disposed before the next instance is created. 
+   /// 
+   /// Allowing multiple instances of a DatabaseTransaction to exist 
+   /// concurrently can result in the current working database being
+   /// set to an invalid or disposed Database when the last instance 
+   /// is disposed.
+   /// 
    /// </summary>
 
    public class DatabaseTransaction : Transaction
@@ -54,6 +64,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       Database database;
       TransactionManager manager = null;   
       Database prevWorkingDb = null;
+      static Dictionary<Database, DatabaseTransaction> transactions =
+         new Dictionary<Database, DatabaseTransaction>();
 
       /// <summary>
       /// Creates and starts a DatabaseTransaction. 
@@ -65,26 +77,47 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Database should be made the current working database for the life 
       /// of the transaction. This argument is only applicable to databases 
       /// that are created via the Database's new() constructor, and does
-      /// not apply to Databases that are open in the AutoCAD editor, or to
-      /// databases associated with a Document.</param>
+      /// not apply to Databases that are open in the AutoCAD editor, or 
+      /// to databases associated with a Document. 
+      /// 
+      /// If at the time the instance is created, the current 
+      /// working database is not open in the drawing editor, 
+      /// that current working database is not changed.</param>
 
       public DatabaseTransaction(Database database, bool asWorkingDatabase = true)
          : base(new IntPtr(-1), false)
       {
          Assert.IsNotNullOrDisposed(database, nameof(database));
+         if(transactions.ContainsKey(database))
+            throw new InvalidOperationException("Database already owned by a DatabaseTransaction");
+         transactions.Add(database, this);
          this.database = database;
          this.manager = database.TransactionManager;
-         if(asWorkingDatabase && database.AutoDelete && WorkingDatabase != database)
-         {
-            prevWorkingDb = WorkingDatabase;
-            WorkingDatabase = database;
-         }
+         var curDb = WorkingDatabase;
+         /// Currently, the current working database is not checked
+         /// for validity, or if it is an AutoDeleting database verses
+         /// one open in the drawing editor. This may need to change.
+         if(asWorkingDatabase && database.AutoDelete && curDb != database)
+            prevWorkingDb = SetWorkingDatabase(database);
          manager.StartTransaction().ReplaceWith(this);
       }
 
       /// <summary>
+      /// True if this transaction is associated with 
+      /// a database that's open in the drawing editor.
+      /// </summary>
+      public bool IsDocTransaction { get; private set; }
+
+      /// <summary>
+      /// The value of the wrapped Database's AutoDelete property
+      /// </summary>
+      public bool IsAutodelete => ThisDb.AutoDelete;
+
+      /// <summary>
       /// This is only intended to be called from the
-      /// constructor of DocumentTransaction
+      /// constructor of DocumentTransaction. 
+      /// 
+      /// The derived type starts the transaction.
       /// </summary>
 
       protected DatabaseTransaction(Database db, TransactionManager mgr)
@@ -92,11 +125,67 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));
          Assert.IsNotNullOrDisposed(mgr, nameof(mgr));
+         if(db.AutoDelete)
+            throw new InvalidOperationException("Database is not open in the drawing editor");
+         if(transactions.ContainsKey(db))
+            throw new InvalidOperationException("Database already owned by a DatabaseTransaction");
          this.database = db;
          this.manager = mgr;
+         transactions.Add(db, this);
+         IsDocTransaction = true;
+      }
+
+      protected override void Dispose(bool disposing)
+      {
+         if(!transactions.Remove(this.database))
+            Debug.WriteLine("Database not found in map");
+         if(disposing && prevWorkingDb != null && prevWorkingDb != WorkingDatabase)
+         {
+            Database temp = prevWorkingDb;
+            prevWorkingDb = null;
+            if(!temp.IsDisposed)
+            {
+               SetWorkingDatabase(temp);
+            }
+            else
+            {
+               base.Dispose();
+               throw new InvalidOperationException("Cannot restore previous working database.");
+            }
+         }
+         base.Dispose(disposing);
       }
 
       public Database Database => database;
+
+      public bool IsCurrentWorkingDatabase
+      {
+         get => this.database == WorkingDatabase;
+         //set
+         //{
+         //   if(this.database != WorkingDatabase)
+         //   {
+         //      prevDb = WorkingDatabase;
+         //      WorkingDatabase = database;
+         //   }
+         //}
+      }
+
+      public static DatabaseTransaction Open(string path, FileOpenMode mode, 
+         bool asWorkingDatabase = true)
+      {
+         Database db = new Database(false, true);
+         try
+         {
+            db.ReadDwgFile(path, mode, true, null);
+            return new DatabaseTransaction(db, asWorkingDatabase);
+         }
+         catch
+         {
+            db.Dispose();
+            throw;
+         }
+      }
 
       /// <summary>
       /// Can be set to true, to prevent the transaction
@@ -108,6 +197,20 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public bool IsReadOnly { get; set; }
 
+      OpenMode openMode = OpenMode.ForRead;
+      public OpenMode OpenMode
+      {
+         get => openMode;
+         set
+         {
+            if(value != OpenMode.ForRead || value != OpenMode.ForWrite)
+               throw new ArgumentException("Invalid OpenMode");
+            if(this.IsReadOnly && value == OpenMode.ForWrite)
+               throw new ArgumentException("Instead is read-only");
+            this.openMode = value;
+         }
+      }
+
       public override void Abort()
       {
          if(IsReadOnly)
@@ -116,23 +219,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             base.Abort();
       }
 
-      protected override void Dispose(bool disposing)
-      {
-         if(disposing && prevWorkingDb != null && prevWorkingDb != WorkingDatabase)
-         {
-            WorkingDatabase = prevWorkingDb;
-            prevWorkingDb = null;
-         }
-         base.Dispose(disposing);
-      }
-
       public override TransactionManager TransactionManager => manager;
 
-      static Database WorkingDatabase
+      static Database SetWorkingDatabase(Database db)
       {
-         get => HostApplicationServices.WorkingDatabase;
-         set => HostApplicationServices.WorkingDatabase = value;
+         Database current = HostApplicationServices.WorkingDatabase;
+         if(current != db)
+            HostApplicationServices.WorkingDatabase = db;
+         return current;
       }
+
+      static Database WorkingDatabase => HostApplicationServices.WorkingDatabase;
+      //{
+      //   get => HostApplicationServices.WorkingDatabase;
+      //   set => HostApplicationServices.WorkingDatabase = value;
+      //}
 
       /// Database-oriented Operations
 
@@ -261,7 +362,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// A strongly-typed verion of GetObject() that
       /// merely allows the caller to avoid an explicit
-      /// cast to the desired type.
+      /// cast to the desired type. Requires that the
+      /// given ObjectId reference a DBObject of the
+      /// generic argument type or a derived type.
       /// </summary>
 
       public T GetObject<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T:DBObject
@@ -270,8 +373,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// A strongly-typed version of GetObject() that checks
-      /// the runtime class of its argument.
+      /// A strongly-typed version of GetObject() that 
+      /// checks the runtime class of its argument.
       /// </summary>
 
       public T GetObjectChecked<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T : DBObject
@@ -282,7 +385,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// An indexer that can be used to open 
-      /// DBObjects for read, typed as DBObject:
+      /// DBObjects in the mode specified by 
+      /// the OpenMode property, which defaults
+      /// to OpenMode.ForRead.
       /// </summary>
       /// <param name="key">The ObjectId of the DBObject to open</param>
       /// <returns>The opened DBObject</returns>
@@ -291,7 +396,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          get
          {
-            return base.GetObject(key, OpenMode.ForRead, false, false);
+            return base.GetObject(key, openMode, false, true);
          }
       }
 
@@ -695,9 +800,29 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return ThisDb.GetLayoutBlocks(this, mode, includingModelSpace);
       }
 
+      public IEnumerable<BlockTableRecord> GetLayoutBlocks(params string[] names)
+      {
+         return GetLayoutBlockIds(names).GetObjects<BlockTableRecord>(this);
+      }
+
+      public IEnumerable<BlockTableRecord> GetLayoutBlocksMatching(string pattern)
+      {
+         return GetLayoutBlockIdsMatching(pattern).GetObjects<BlockTableRecord>(this);
+      }
+
+      public IEnumerable<ObjectId> GetLayoutBlockIds(params string[] layoutNames)
+      {
+         return ThisDb.GetLayoutBlockIds(layoutNames);
+      }
+
+      public IEnumerable<ObjectId> GetLayoutBlockIdsMatching(string pattern)
+      {
+         return ThisDb.GetLayoutBlockIdsMatching(pattern);
+      }
+
       public IEnumerable<BlockReference> GetBlockReferences(string pattern,
-               OpenMode mode = OpenMode.ForRead,
-               Func<BlockTableRecord, bool> predicate = null)
+         OpenMode mode = OpenMode.ForRead,
+         Func<BlockTableRecord, bool> predicate = null)
       {
          return ThisDb.GetBlockReferences(pattern, this, mode, predicate);
       }

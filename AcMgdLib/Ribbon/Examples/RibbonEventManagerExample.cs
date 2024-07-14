@@ -91,6 +91,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Ribbon;
 using Autodesk.AutoCAD.Ribbon.Extensions;
@@ -172,26 +173,30 @@ namespace Namespace1
       
          var source = new RibbonPanelSource();
 
+         /// Define a local function that initializes
+         /// properties of new RibbonCommandButtons to
+         /// common values:
+         
+         void InitButton(RibbonCommandButton button, string text)
+         {
+            button.Size = RibbonItemSize.Large;
+            button.Orientation = Orientation.Vertical;
+            button.ShowText = true;
+            button.MinWidth = 80;
+            button.Text = text;
+            source.Items.Add(button);
+         }
+
          /// Add a ModalRibbonCommandButton.
          /// This button has its own CommandHandler:
 
          RibbonCommandButton button;
          button = new ModalRibbonCommandButton("REGEN");
-         source.Items.Add(button);
-         button.Text = "REGEN";
-         button.Size = RibbonItemSize.Large;
-         button.Orientation = Orientation.Vertical;
-         button.ShowText = true;
-         button.MinWidth = 80;
+         InitButton(button, "REGEN");
 
          /// Add another ModalRibbonCommandButton:
          button = new ModalRibbonCommandButton("REGENALL");
-         source.Items.Add(button);
-         button.Text = "REGENALL";
-         button.Size = RibbonItemSize.Large;
-         button.Orientation = Orientation.Vertical;
-         button.ShowText = true;
-         button.MinWidth = 80;
+         InitButton(button, "REGENALL");
 
          var commands = new string[]
          {
@@ -212,13 +217,8 @@ namespace Namespace1
          foreach(string command in commands)
          {
             button = new RibbonCommandButton(command, $"ID_{command}");
-            button.Orientation = Orientation.Vertical;
-            button.Size = RibbonItemSize.Large;
-            button.ShowText = true;
-            button.Text = command;
-            button.MinWidth = 80;
+            InitButton(button, command);
             button.CommandHandler = handler;
-            source.Items.Add(button);
          }
 
          /// Note that each RibbonCommandButton's CommandParameter
@@ -247,10 +247,10 @@ namespace Namespace1
          {
             Size = RibbonItemSize.Large,
             MinWidth = 300.0,
-            AcceptTextOnLostFocus = false,
-            IsEmptyTextValid = false,
-            InvokesCommand = true,
-            Prompt = "Enter a command or macro"
+            AcceptTextOnLostFocus = false,       // don't execute when focus is lost
+            IsEmptyTextValid = false,            // don't execute if control is empty
+            InvokesCommand = true,               // execute when enter is pressed.
+            Prompt = "Enter a command or macro"  // display a prompt in empty control
          };
 
          source.Items.Add(textBox);
@@ -261,13 +261,7 @@ namespace Namespace1
          /// establish the linkage with the RibbonTextBox.
          
          button = new RibbonCommandButton("PLACEHOLDER", "ID_MACROBUTTON");
-         source.Items.Add(button);
-         button.Orientation = Orientation.Vertical;
-         button.Size = RibbonItemSize.Large;
-         button.ShowText = true;
-         button.Text = "Run\nTextBox\nMacro";
-         button.MinWidth = 80;
-         button.CommandParameter = button;
+         InitButton(button, "Run\nTextBox\nMacro");
          button.CommandHandler = new MacroCommandHandler(textBox, button);
 
          /// Create a RibbonTab to host the above items
@@ -292,8 +286,8 @@ namespace Namespace1
    }
 
    /// <summary>
-   /// This class acts as a command handler for the button
-   /// that executes the macro entered into the RibbonTextBox
+   /// This class acts as the command handler for the button
+   /// that executes the macro entered into the RibbonTextBox,
    /// as well as the command handler for RibbonTextBox.
    /// 
    /// It derives from one of the reusable types included in
@@ -353,11 +347,11 @@ namespace Namespace1
 
       static void textChanged(object sender, TextChangedEventArgs e)
       {
-         if(e.Source is TextBox textBox && textBox.DataContext is RibbonTextBox macroTextBox)
+         if(e.Source is TextBox textBox && textBox.DataContext is RibbonTextBox context)
          {
-            if(macroTextBox.TextValue != textBox.Text)
+            if(context.TextValue != textBox.Text)
             {
-               macroTextBox.TextValue = textBox.Text;
+               context.TextValue = textBox.Text;
             }
          }
       }

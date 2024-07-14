@@ -835,15 +835,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Note: This method enumerates all block references, including
       /// those that are inserted into non-layout blocks. See the included 
       /// ExceptNested() extension method for a means of enumerating only 
-      /// block references inserted into layout blocks using this method.
+      /// block references directly inserted into layout blocks using this 
+      /// method.
       /// </summary>
-      /// <param name="blockTableRecord"></param>
-      /// <param name="trans"></param>
-      /// <param name="mode"></param>
-      /// <param name="exact"></param>
-      /// <param name="openLocked"></param>
-      /// <param name="directOnly"></param>
-      /// <returns></returns>
+      /// <param name="blockTableRecord">The BlockTableRecord whose references are to be enumerated</param>
+      /// <param name="trans">The Transaction to use to open the results</param>
+      /// <param name="mode">The OpenMode to open the results in</param>
+      /// <param name="openLocked">A value indicating if references on locked
+      /// layers should be opened for write</param>
+      /// <param name="directOnly">A value indicating if indirect references
+      /// to other blocks that contain a reference to the given BlockTableRecord
+      /// should be included.</param>
+      /// <returns>A sequence of BlockReferences</returns>
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="ArgumentException"></exception>
 
@@ -915,7 +918,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       ///    
       /// </code>
       /// 
-      /// This method uses an overload of Enumerable.Where() included
+      /// This method uses a variation of Enumerable.Where() included
       /// with this library that uses the DBObjectFilter class to do 
       /// 'relational' filtering of objects based on criteria obtained
       /// from a related object. In essence, this overload of Where()
@@ -923,7 +926,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// as an extension method that can in many cases be easier and 
       /// more intuitive to use.
       /// 
-      /// The Where() overload requires two delegate arguments. The
+      /// The WhereBy() method requires two delegate arguments. The
       /// first delegate returns the ObjectId of the related object
       /// from which the query criteria is obtained (in this case,
       /// it returns the BlockId of its Etity argument). The second
@@ -961,15 +964,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             SymbolUtilityServices.GetBlockModelSpaceId(btr.Database);
       }
 
-      /// <summary>
-      /// Filters a sequence of entities by owner block id
-      /// </summary>
+      /// Moved to EntityExtensions.cs
+      ///// <summary>
+      ///// Filters a sequence of entities by one or more owner blocks
+      ///// with the given ObjectIds
+      ///// </summary>
+      ///
 
-      public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities, ObjectId ownerId)
-         where T: Entity
-      {
-         return entities.Where(ent => ent.BlockId == ownerId);
-      }
+      //public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities, 
+      //   params ObjectId[] ownerIds) where T: Entity
+      //{
+      //   Assert.IsNotNull(entities, nameof(entities));
+      //   Assert.IsNotNull(ownerIds, nameof(ownerIds));
+      //   foreach(var ownerId in ownerIds)
+      //      AcRx.ErrorStatus.WrongObjectType.Requires<BlockTableRecord>(ownerId);
+      //   if(ownerIds.Length == 0)
+      //      return Enumerable.Empty<T>();
+      //   if(ownerIds.Length == 1)
+      //      return entities.Where(ent => ent.BlockId == ownerIds[0]);
+      //   else
+      //   {
+      //      var set = new HashSet<ObjectId>(ownerIds);
+      //      return entities.Where(ent => set.Contains(ent.BlockId));
+      //   }
+      //}
 
       /// <summary>
       /// SymbolUtilityServices extensions
@@ -1095,6 +1113,64 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             }
          }
       }
+
+      /// <summary>
+      /// Gets a sequence containing the ObjectIds of all layout 
+      /// blocks for layouts having one of the given layout names.
+      /// </summary>
+      /// <param name="database">The Database</param>
+      /// <param name="layoutNames">The names of one or more layouts</param>
+      /// <returns>The sequence of layout block ids for the
+      /// layouts having one of the given names</returns>
+      
+      public static IEnumerable<ObjectId> GetLayoutBlockIds(this Database database,
+         params string[] layoutNames)
+      {
+         Assert.IsNotNull(layoutNames, nameof(layoutNames));
+         Func<Layout, bool> matches;
+         bool single = layoutNames.Length == 1;
+         if(layoutNames.Length > 0)
+         {
+            if(single)
+            {
+               string name = layoutNames[0];
+               matches = layout => layout.LayoutName.IsEqualTo(name);
+            }
+            else
+            {
+               HashSet<string> names = new HashSet<string>(layoutNames,
+                  StringComparer.OrdinalIgnoreCase);
+               matches = layout => names.Contains(layout.LayoutName);
+            }
+            using(var trans = new ReadOnlyTransaction())
+            {
+               foreach(Layout layout in database.GetDictionaryObjects<Layout>(trans))
+               {
+                  if(matches(layout))
+                  {
+                     yield return layout.BlockTableRecordId;
+                     if(single)
+                        yield break;
+                  }
+               }
+            }
+         }
+      }
+
+      public static IEnumerable<ObjectId> GetLayoutBlockIdsMatching(this Database database,
+         string pattern)
+      {
+         Assert.IsNotNullOrWhiteSpace(pattern, nameof(pattern));
+         using(var trans = new ReadOnlyTransaction())
+         {
+            foreach(Layout layout in database.GetDictionaryObjects<Layout>(trans))
+            {
+               if(layout.LayoutName.Matches(pattern))
+                  yield return layout.BlockTableRecordId;
+            }
+         }
+      }
+
 
       /// <summary>
       /// Opens and returns a sequence of Layout BlockTableRecords

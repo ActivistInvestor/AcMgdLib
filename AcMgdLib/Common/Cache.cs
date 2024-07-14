@@ -26,8 +26,7 @@ namespace System.Extensions
       {
          get
          {
-            TValue result = default(TValue);
-            if(!map.TryGetValue(key, out result))
+            if(!map.TryGetValue(key, out TValue result))
             {
                map[key] = result = selector(key);
             }

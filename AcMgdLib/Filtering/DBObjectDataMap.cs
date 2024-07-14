@@ -165,8 +165,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       Expression<Func<TKeySource, TValue>> getValueExpression = null;
       protected readonly Expression<Func<TKeySource, ObjectId>> keySelectorExpression = null;
       Func<TKeySource, TValue> getValue = null;
-      protected Func<TKeySource, ObjectId> keySelector;
-      protected Func<TValueSource, TValue> valueSelector;
+      Func<TKeySource, ObjectId> keySelector;
+      Func<TValueSource, TValue> valueSelector;
       static readonly bool isPredicate = typeof(TValue) == typeof(bool);
       protected Dictionary<ObjectId, TValue> Map => map;
 
@@ -196,6 +196,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       protected virtual Dictionary<ObjectId, TValue> CreateMap()
       {
          return new Dictionary<ObjectId, TValue>();
+      }
+
+      protected void SetValueSelector(Expression<Func<TValueSource, TValue>> expr)
+      {
+         Assert.IsNotNull(expr, nameof(expr));
+         valueSelector = expr.Compile();
       }
 
       /// <summary>

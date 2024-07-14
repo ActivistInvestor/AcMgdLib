@@ -37,7 +37,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    ///    The ObjectId of a TCriteria instance must be obtainable
    ///    from a referencing TFiltered instance.
    /// 
-   /// A simple example: A DBObjectFilter that filters Entities,
+   /// A simple example that filters Entities,
    /// excluding those residing on locked layers:
    /// 
    /// <code>
@@ -85,7 +85,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// resides on. That key is first used to lookup the layer's
    /// query criteria in a cache, and if found, it is used to 
    /// determine if the entity satisfies the query. If the data 
-   /// is not f7ound in the cache, the LayerTableRecord is opened, 
+   /// is not found in the cache, the LayerTableRecord is opened, 
    /// and it is passed to the second delegate, which returns 
    /// the data that determines if the entity satisfies the query
    /// criteria. That returned data is then cached, keyed to the
@@ -98,7 +98,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// DBObjectFilter is just a specialization of DBObjectDataMap,
    /// where the value that is cached for each referenced object
-   /// is a bool representing if each referenced object's data
+   /// is a bool, representing if each referenced object's data
    /// satisfies the query criteria (true), or not (false).
    /// 
    /// With the above defined instance, a sequence of entities 
@@ -150,6 +150,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.criteriaExpression = valueSelector;
       }
 
+      /// <summary>
+      /// Adds a child filter to the filter graph, whose
+      /// result is logically-combined with the parent
+      /// filter using a logical 'AND' or 'OR' operation.
+      /// 
+      /// The child filter must target the same TFiltered
+      /// type as the parent filter it is added to, but can 
+      /// target any type of TCriteria.
+      /// </summary>
+      /// <typeparam name="TNewCriteria"></typeparam>
+      /// <param name="operation"></param>
+      /// <param name="keySelector"></param>
+      /// <param name="valueSelector"></param>
+      /// <returns></returns>
+      
       protected DBObjectFilter<TFiltered, TNewCriteria> AddChild<TNewCriteria>(
          Logical operation,
          Expression<Func<TFiltered, ObjectId>> keySelector,
@@ -196,7 +211,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                if(value.CanReduce)
                   value.ReduceAndCheck();
                criteriaExpression = value;
-               valueSelector = criteriaExpression.Compile();
+               SetValueSelector(value);
             }
          }
       }
@@ -219,7 +234,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// a logical 'and' or 'or' operation. 
       /// 
       /// Can also be used to logically-combine a filter with 
-      /// an arbitrary Expression<Func<TFiltered, bool>>.
+      /// any arbitrary Expression<Func<TFiltered, bool>>.
       /// 
       /// This method modifies the instance to perform a
       /// logical and/or operation on the conditions defined
@@ -264,9 +279,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="predicate">A predicate expression that
       /// is applied to TCriteria instances.</param>
 
-      /// Revised: These have been made non-public, and must 
-      /// be accessed through the Criteria property
-      
       void Add(Expression<Func<TCriteria, bool>> predicate)
       {
          Add(Logical.And, predicate);
@@ -345,6 +357,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return Add<TNewCriteria>(Logical.And, keySelector, predicate);
       }
 
+      /// <summary>
+      /// Conversion to the predicate that is applied to
+      /// each TFiltered instance
+      /// </summary>
+      /// <param name="filter"></param>
+
       public static implicit operator 
       Func<TFiltered, bool>(DBObjectFilter<TFiltered, TCriteria> filter)
       {
@@ -352,6 +370,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return filter.Accessor;
       }
 
+      /// <summary>
+      /// Converion to the predicate expression that is
+      /// applied to each TFiltered instance
+      /// </summary>
+      /// <param name="filter"></param>
       public static implicit operator 
       Expression<Func<TFiltered, bool>>(DBObjectFilter<TFiltered, TCriteria> filter)
       {
@@ -359,6 +382,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return filter.GetValueExpression;
       }
 
+      /// <summary>
+      /// Conversion to the criteria predicate expression
+      /// that is applied to each TCriteria instance
+      /// </summary>
+      /// <param name="filter"></param>
       public static implicit operator
       Expression<Func<TCriteria, bool>>(DBObjectFilter<TFiltered, TCriteria> filter)
       {
@@ -367,8 +395,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// A diagnostic function that emits a dump of the current 
-      /// instance expressions and generic argument types:
+      /// A diagnostic function that emits a dump of the 
+      /// current instance expressions and generic argument 
+      /// types, along with that of all child filters.
       /// </summary>
       /// <param name="label"></param>
       /// <returns></returns>
@@ -427,20 +456,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             Assert.IsNotNull(predicate, nameof(predicate));
             owner.GetValueExpression = owner.GetValueExpression.Add(operation, predicate);
          }
-
-         //public void Add<TNewCriteria>(Logical operation,
-         //   Expression<Func<TFiltered, ObjectId>> keySelector,
-         //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
-         //{
-         //   owner.Add<TNewCriteria>(operation, keySelector, predicate);
-         //}
-
-         //public void Add<TNewCriteria>(
-         //   Expression<Func<TFiltered, ObjectId>> keySelector,
-         //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
-         //{
-         //   owner.Add<TNewCriteria>(Logical.And, keySelector, predicate);
-         //}
 
          public static implicit operator Func<TFiltered, bool>(PredicateProperty prop)
          {

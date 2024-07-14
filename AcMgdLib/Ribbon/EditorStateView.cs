@@ -11,6 +11,7 @@ using System.Diagnostics.Extensions;
 using System.Extensions;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
+using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.EditorInput.Extensions
@@ -38,8 +39,7 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       public int AddRef()
       {
          EnableSourceEvents(true);
-         ++refcount;
-         return refcount;
+         return ++refcount;
       }
 
       public bool Release()
@@ -91,22 +91,20 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
 
       void EnableSourceEvents(bool value)
       {
-         if(value ^ observing && !isQuitting)
+         if(value ^ observing)
          {
             observing = value;
             if(value)
             {
                docs.DocumentLockModeChanged += documentLockModeChanged;
-               docs.DocumentActivated += documentActivated;
-               docs.DocumentDestroyed += documentDestroyed;
-               Application.QuitWillStart += quit;
+               docs.DocumentActivated += documentEvent;
+               docs.DocumentDestroyed += documentEvent;
             }
             else
             {
                docs.DocumentLockModeChanged -= documentLockModeChanged;
-               docs.DocumentActivated -= documentActivated;
-               docs.DocumentDestroyed -= documentDestroyed;
-               Application.QuitWillStart -= quit;
+               docs.DocumentActivated -= documentEvent;
+               docs.DocumentDestroyed -= documentEvent;
             }
             quiescent.Invalidate();
          }
@@ -162,41 +160,17 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
             InvalidateQuiescentState();
       }
 
-      void documentActivated(object sender, DocumentCollectionEventArgs e)
+      void documentEvent(object sender, EventArgs e)
       {
          InvalidateQuiescentState();
       }
-
-      void documentDestroyed(object sender, DocumentDestroyedEventArgs e)
-      {
-         InvalidateQuiescentState();
-      }
-
-      void quit(object sender, EventArgs e)
-      {
-         try
-         {
-            isQuitting = true;
-            EnableSourceEvents(false);
-         }
-         catch
-         {
-         }
-      }
-
-      bool isQuitting = false;
-
-      public bool IsQuitting => isQuitting;
 
       public void Dispose()
       {
          if(!disposed)
          {
             this.disposed = true;
-            if(!isQuitting)
-            {
-               EnableSourceEvents(false);
-            }
+            EnableSourceEvents(false);
          }
          GC.SuppressFinalize(this);
       }
