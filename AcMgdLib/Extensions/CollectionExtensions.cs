@@ -17,17 +17,19 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Extensions;
 using System.Linq;
 using Autodesk.AutoCAD.Runtime;
-using System.Diagnostics.Extensions;
+using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
-   /// Notes: Many of the extension methods included in
-   /// this code base do not deal gracefully with attempts 
-   /// to open entities that reside on locked layers for 
-   /// write. 
+   /// Notes: 
+   /// 
+   /// Many of the extension methods included in this code 
+   /// base do not deal gracefully with attempts to open 
+   /// entities that reside on locked layers for write. 
    /// 
    /// So, in adherence to the best practice of not opening
    /// DBObjects for write unless it is predetermined that
@@ -58,9 +60,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// These extensions do not provide options for opening
    /// erased objects in most cases, as doing that is not a
    /// routine operation performed by application code, and
-   /// is done only in rare, highly-specialized use cases.
+   /// is only needed in rare, highly-specialized use cases.
    /// 
-   /// No Linq Library Code:
+   /// "Linq-less" implementation:
    /// 
    /// While this library is designed to serve Linq-based
    /// applications, it specifically avoids the use of Linq
@@ -123,10 +125,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          source.TryCheckTransaction(trans);
          openLocked &= mode == OpenMode.ForWrite;
          bool flag = typeof(T) == typeof(DBObject);
-         Func<ObjectId, bool> predicate = flag ? id => true : RXClass<T>.GetIdPredicate(exact);
+         Func<ObjectId, bool> predicate = flag ? id => true 
+            : RXClass<T>.GetIdPredicate(exact);
 
          /// The following code goes to great extents to
-         /// take an optimized path, based on whether the 
+         /// find an optimized path, based on whether the 
          /// source has an indexer and/or is a strongly-
          /// typed IEnumerable, and only falls back to 
          /// enumerating a non-generic IEnumerable if all 
@@ -201,7 +204,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
-      /// Public GetObjects<T>() overloads:
+      /// Public GetObjects() overloads:
 
       /// <summary>
       /// BlockTableRecord:
@@ -387,7 +390,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             bool create = false) where T : DBObject, new()
       {
          return GetDictionaryObject<T>(owner, key, trans,
-            (create ? () => new T() : (Func<T>)null), mode);
+            mode, (create ? (arg) => new T() : (Func<DBObject, T>)null));
       }
 
       /// <summary>
@@ -398,6 +401,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// new entry, which means the generic argument does 
       /// not require a public parameterless constructor.
       /// 
+      /// The delegate is passed the owner parameter to this
+      /// method, which it can use it to create the dictionary
+      /// entry value, if needed.
+      /// 
       /// The delegate can create and initialize the new
       /// entry as needed, not requiring that to be done
       /// after-the-fact.
@@ -406,15 +413,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static T GetDictionaryObject<T>(this DBObject owner,
          string key,
          Transaction trans,
-         Func<T> factory,
-         OpenMode mode = OpenMode.ForRead)  where T : DBObject
+         OpenMode mode = OpenMode.ForRead,
+         Func<DBObject, T> factory = null) where T : DBObject
       {
-         Assert.IsNotNullOrDisposed(owner, nameof(owner));
-         Assert.IsNotNullOrDisposed(trans, nameof(trans));
+         owner.CheckTransaction(trans);
          Assert.IsNotNullOrWhiteSpace(key, nameof(key));
          bool create = factory != null;
          ObjectId xDictId = owner.ExtensionDictionary;
-         bool exists = xDictId.IsA<DBDictionary>();
+         bool exists = !xDictId.IsNull;
          if(!exists && factory == null)
             return null;
          var dict = owner.GetExtensionDictionary(trans, OpenMode.ForRead, create);
@@ -423,15 +429,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(exists && dict.Contains(key))
          {
             ObjectId id = dict.GetAt(key);
-            if(!id.IsA<T>())
-               throw new ArgumentException(
-                  $"Value at key {key} is not an instance of {typeof(T).Name}");
+            AcRx.ErrorStatus.WrongObjectType.Requires<T>(id);
             return trans.GetObject<T>(id, mode);
          }
          T result = null;
          if(factory != null)
          {
-            result = factory();
+            result = factory(owner);
             dict.UpgradeOpen();
             dict.SetAt(key, result);
             trans.AddNewlyCreatedDBObject(result, true);
@@ -456,7 +460,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// If <paramref name="create"/> is false and the owner has 
       /// no existing extension dictionary, this method returns
-      /// null without adding an extension dictionary.
+      /// null without adding an extension dictionary or Xrecord.
       /// </summary>
       /// <param name="owner">The DBObject to get the result from</param>
       /// <param name="key">The key of the result</param>
@@ -476,6 +480,41 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return owner.GetDictionaryObject<Xrecord>(key, trans, mode, create);
       }
 
+      public static ResultBuffer GetXRecordData(this DBObject owner, string key)
+      {
+         Assert.IsNotNullOrDisposed(owner, nameof(owner));
+         using(var tr = new ReadOnlyTransaction())
+         {
+            return owner.GetXrecord(key, tr)?.Data;
+         }
+      }
+
+      /// <summary>
+      /// Assigns the given values to the XRecord having the
+      /// specified key, within the owner's extension dictionary.
+      /// If the Xrecord does not exist, it will be created and
+      /// added to the extension dictionary. 
+      /// 
+      /// If the extension dictionary does not exist, it will be 
+      /// created.
+      /// </summary>
+      /// <param name="owner"></param>
+      /// <param name="key"></param>
+      /// <param name="trans"></param>
+      /// <param name="typedValues"></param>
+      /// <returns></returns>
+      
+      public static void SetXRecordData(this DBObject owner,
+         string key,
+         Transaction trans,
+         params TypedValue[] typedValues)
+      {
+         Assert.IsNotNullOrWhiteSpace(key, nameof(key));
+         owner.CheckTransaction(trans);
+         Xrecord xrecord = owner.GetXrecord(key, trans, OpenMode.ForWrite, true);
+         xrecord.Data = new ResultBuffer(typedValues);
+      }
+
       /// <summary>
       /// Opens and returns the owner's extension dictionary, and 
       /// optionally adds and returns a new extension dictionary if
@@ -492,7 +531,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static DBDictionary GetExtensionDictionary(this DBObject owner, Transaction trans, OpenMode mode = OpenMode.ForRead, bool create = false)
       {
-         Assert.IsNotNullOrDisposed(owner, nameof(owner));
          owner.TryCheckTransaction(trans);
          ObjectId id = owner.ExtensionDictionary;
          if(id.IsNull && create)
@@ -502,7 +540,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             owner.CreateExtensionDictionary();
             id = owner.ExtensionDictionary;
          }
-         return id.IsA<DBDictionary>() ? trans.GetObject<DBDictionary>(id, mode) : null;
+         return ! id.IsNull ? trans.GetObject<DBDictionary>(id, mode) : null;
       }
 
       /// <summary>
@@ -640,35 +678,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             }
          }
       }
-
-      //internal static void CheckTransaction(this Database db, Transaction trans)
-      //{
-      //   if(db == null || db.IsDisposed)
-      //      throw new ArgumentNullException(nameof(db));
-      //   if(trans == null || trans.IsDisposed)
-      //      throw new ArgumentNullException(nameof(trans));
-      //   if(trans is OpenCloseTransaction)
-      //      return;
-      //   if(trans.GetType() != typeof(Transaction))
-      //      return;   // can't perform this check without pulling in AcMgd/AcCoreMgd
-      //   if(trans.TransactionManager != db.TransactionManager)
-      //      throw new ArgumentException("Transaction not from this Database");
-      //}
-
-      //internal static void TryCheckTransaction(object source, Transaction trans)
-      //{
-      //   Assert.IsNotNull(source, nameof(source));
-      //   Assert.IsNotNullOrDisposed(trans, nameof(trans));
-      //   if(trans is OpenCloseTransaction)
-      //      return;
-      //   if(trans.GetType() != typeof(Transaction))
-      //      return; // can't perform check without pulling in AcMgd/AcCoreMgd
-      //   if(source is DBObject obj && obj.Database is Database db
-      //         && trans.TransactionManager != db.TransactionManager)
-      //      throw new ArgumentException("Transaction not from this Database");
-      //}
-
-
    }
 
 }

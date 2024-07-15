@@ -13,6 +13,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Extensions;
 
 namespace Autodesk.AutoCAD.EditorInput.Extensions
 {
@@ -33,8 +34,11 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       private bool disposed;
       bool observing = false;
       int refcount = 0;
-      static Cached<bool> quiescent = new Cached<bool>(GetIsQuiescent);
+      static Cached<bool> quiescent = new Cached<bool>(GetIsQuiescentDocument);
       static object lockObj = new object();
+      event PropertyChangedEventHandler propertyChanged = null;
+
+      public bool NotifyAsync { get; set; } = false;
 
       public int AddRef()
       {
@@ -48,8 +52,6 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          EnableSourceEvents(refcount > 0);
          return refcount == 0;
       }
-
-      event PropertyChangedEventHandler propertyChanged = null;
 
       public event PropertyChangedEventHandler PropertyChanged
       {
@@ -110,14 +112,17 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          }
       }
 
-      void InvalidateQuiescentState()
+      void IsQuiescentDocumentChanged()
       {
-         quiescent.Invalidate();
-         NotifyIsQuiescentDocumentChanged();
+         if(NotifyAsync)
+            Idle.Distinct.Invoke(NotifyIsQuiescentDocumentChanged);
+         else
+            NotifyIsQuiescentDocumentChanged();
       }
 
       void NotifyIsQuiescentDocumentChanged()
       {
+         quiescent.Invalidate();
          propertyChanged?.Invoke(this,
             new PropertyChangedEventArgs(nameof(IsQuiescentDocument)));
       }
@@ -126,15 +131,24 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       /// Note: Returns false if there is no active document
       /// </summary>
 
-      public bool IsQuiescentDocument
-      {
-         get
-         {
-            return quiescent.Value; 
-         }
-      }
+      public bool IsQuiescentDocument => quiescent.Value;
 
-      static bool GetIsQuiescent()
+      /// <summary>
+      /// The result of this is cached in the quiescent variable
+      /// returned by the above property. When one of the events
+      /// that signals that the editor's quiescent state may have
+      /// changed is raised, the cached value is invalidated and
+      /// this method will be called the next time the property
+      /// value is accessed to recompute and cache the value.
+      /// 
+      /// This caching scheme is called for due to the frequency 
+      /// at which the above property can be referenced, and the 
+      /// fact that always returns the same result until one of 
+      /// the signaling events is raised. 
+      /// </summary>
+      /// <returns></returns>
+      
+      static bool GetIsQuiescentDocument()
       {
          Document doc = docs.MdiActiveDocument;
          if(doc != null)
@@ -157,12 +171,12 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       void documentLockModeChanged(object sender, DocumentLockModeChangedEventArgs e)
       {
          if(e.Document == docs.MdiActiveDocument && !e.GlobalCommandName.ToUpper().Contains("ACAD_DYNDIM"))
-            InvalidateQuiescentState();
+            IsQuiescentDocumentChanged();
       }
 
       void documentEvent(object sender, EventArgs e)
       {
-         InvalidateQuiescentState();
+         IsQuiescentDocumentChanged();
       }
 
       public void Dispose()

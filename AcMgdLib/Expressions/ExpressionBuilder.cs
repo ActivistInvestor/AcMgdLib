@@ -193,12 +193,12 @@ namespace System.Linq.Expressions.Predicates
                return left.And(right);
             case Logical.Or:
                return left.Or(right);
+            case Logical.Xor:
+               return left.Xor(right);
             case Logical.ReverseAnd:
                return right.And(left);
             case Logical.ReverseOr:
                return right.Or(left);
-            case Logical.Xor:
-               return left.Xor(right);
             case Logical.ReverseXor:
                return right.Xor(left);
             default:
@@ -214,6 +214,11 @@ namespace System.Linq.Expressions.Predicates
       public static Expression<Func<T, bool>> Default<T>(bool value = false)
       {
          return DefaultExpression<T>.GetValue(value);
+      }
+
+      public static Expression<Func<T, bool>> Default<T>(this Expression<Func<T, bool>> expr)
+      {
+         return Default<T>();
       }
 
       public static IEnumerable<T> Cons<T>(this IEnumerable<T> rest, T head)
@@ -299,19 +304,34 @@ namespace System.Linq.Expressions.Predicates
       /// </summary>
       /// <typeparam name="T"></typeparam>
 
-      static class DefaultExpression<T>
+   }
+
+   public static class DefaultExpression<T>
+   {
+      public static Expression<Func<T, bool>> GetValue(bool value) => value ? True : False;
+
+      /// <summary>
+      /// IsDefault() performs a reference comparison aginst both of
+      /// these. Not any expression x => true or x = false is considered
+      /// a default expression. The following two expressions are the
+      /// only default expressions, and ExpressionBuilder treats them
+      /// differently.
+      /// </summary>
+
+      public static readonly Expression<Func<T, bool>> True = x => true;
+      public static readonly Expression<Func<T, bool>> False = x => false;
+
+      public static bool IsDefault(Expression<Func<T, bool>> expression)
       {
-         public static Expression<Func<T, bool>> GetValue(bool value) => value ? True : False;
-
-         public static readonly Expression<Func<T, bool>> True = x => true;
-         public static readonly Expression<Func<T, bool>> False = x => false;
-
-         public static bool IsDefault(Expression<Func<T, bool>> expr)
-         {
-            Assert.IsNotNull(expr, nameof(expr));
-            return expr.IsEqualTo(False) || expr.IsEqualTo(True);
-         }
+         Assert.IsNotNull(expression, nameof(expression));
+         return expression == True || expression == False;
       }
+
+      //public static bool IsDefault(Expression<Func<T, bool>> expr)
+      //{
+      //   Assert.IsNotNull(expr, nameof(expr));
+      //   return expr.IsEqualTo(False) || expr.IsEqualTo(True);
+      //}
    }
 
    //class TestCases

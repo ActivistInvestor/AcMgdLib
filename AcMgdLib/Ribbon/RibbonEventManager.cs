@@ -164,6 +164,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       static RibbonEventManager()
       {
          stateObserver = EditorStateView.Instance;
+         stateObserver.NotifyAsync = true;
          stateObserver.AddRef();
          if(RibbonCreated)
             Initialize(RibbonState.Active);

@@ -10,21 +10,50 @@ namespace System.Linq.Expressions.Predicates
 {
    /// <summary>
    /// A class that encapsulates an Expression<Func<T, bool>>
-   /// that supports performing various logical operations on 
-   /// them using binary operator syntax and lazy/just-in-time
-   /// compilation/execution.
+   /// that supports various logical operations on them using 
+   /// extension methods and binary operator syntax, along with
+   /// support for lazy compilation/execution.
+   /// 
+   /// E.g.:
+   /// <code>
+   /// 
+   ///   PredicateExpression<int> left = new(i => i < 5);
+   ///   Expression<Func<int, bool>> right = i => i > 10;
+   ///   
+   ///   var combined = left & right;
+   ///   
+   /// The combined expression variable above compiles 
+   /// to the lambda function:
+   /// 
+   ///   i => i < 5 && i > 10;
+   ///   
+   /// </code>
    /// /// </summary>
+
+   public static class test2
+   {
+      public static void run()
+      {
+         PredicateExpression<int> left = new(i => i < 5);
+         Expression<Func<int, bool>> right = i => i > 10;
+         PredicateExpression<int> other = right;
+         var joined = left & right;
+      }
+   }
+
+
 
    public struct PredicateExpression<T>
    {
       Expression<Func<T, bool>> expression;
       Func<T, bool> predicate;
 
-      public static readonly PredicateExpression<T> True =
-         new PredicateExpression<T>(a => true);
-      public static readonly PredicateExpression<T> False =
-         new PredicateExpression<T>(a => false);
+      public static readonly PredicateExpression<T> True = DefaultExpression<T>.True;
+      public static readonly PredicateExpression<T> False = DefaultExpression<T>.False;
       public static readonly PredicateExpression<T> Default = False;
+      public static readonly PredicateExpression<T> Empty = False;
+
+
 
       /// <summary>
       /// The "Empty" expression is treated specially by any
@@ -73,8 +102,6 @@ namespace System.Linq.Expressions.Predicates
       ///    
       /// </summary>
 
-      public static readonly PredicateExpression<T> Empty = False;
-         
       /// <summary>
       /// If no argument is provided, the expression is set 
       /// to an expression that unconditionaly returns false;

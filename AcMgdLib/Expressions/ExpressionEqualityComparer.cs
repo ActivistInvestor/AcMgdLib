@@ -499,29 +499,12 @@ public sealed class ExpressionEqualityComparer : IEqualityComparer<Expression>
               && CompareExpressionList(a.Arguments, b.Arguments)
               && CompareMemberList(a.Members, b.Members);
 
-      /*
-        Previous implementation:
-
-        private bool CompareParameter(ParameterExpression a, ParameterExpression b)
-            => _parameterScope != null
-                && _parameterScope.TryGetValue(a, out var mapped)
-                    ? mapped.Name == b.Name
-                    : a.Name == b.Name;
-
-      */
-
-      // TT: Revised to not compare parameter names:
-      // BUG - this is broken. Parameters must be mapped
       private bool CompareParameter(ParameterExpression a, ParameterExpression b)
           => _parameterScope != null
               && _parameterScope.TryGetValue(a, out var mapped)
                   ? mapped.Name == b.Name
                   : a.Name == b.Name;
 
-      // Because this leads to a call to CompareParameter(),
-      // more analysis needs to be done to see how the change
-      // impacts this, and whether or not runtime variable
-      // comparision requires names to be compared:
       private bool CompareRuntimeVariables(RuntimeVariablesExpression a, RuntimeVariablesExpression b)
             => CompareExpressionList(a.Variables, b.Variables);
 

@@ -29,13 +29,15 @@ namespace AutoCAD.AcDbLinq.Examples
    /// LayerTableRecords. The generic arguments are what allow
    /// it to be used for many similar use cases as well.
    /// 
-   /// The following example filters BlockReferences by their
-   /// "effective name". The filter resolves anonymous dynamic 
-   /// blocks to their dynamic block definition, allowing its 
-   /// name to be filtered against for both references to the
-   /// dynamic block definition, and references to anonymous
-   /// variations of it. This example will include references
-   /// to all blocks having names that start with "DESK":
+   /// The following simple example filters BlockReferences by 
+   /// their "effective name". The filter resolves anonymous 
+   /// dynamic block references to the dynamic block definition, 
+   /// allowing the 'effective' name to be filtered against for 
+   /// both anonymous dynamic block references and references to 
+   /// the dynamic block definition. 
+   /// 
+   /// This example will include references to all blocks having 
+   /// names that start with "DESK":
    ///
    /// <code>
    /// 

@@ -39,6 +39,22 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       ReverseOr,
 
       /// <summary>
+      /// The two expressions must produce the logical 
+      /// complement of each other.
+      /// 
+      /// Note that combining an expression with a
+      /// default expression using this operation will 
+      /// not produce the desired result. 
+      /// 
+      /// For example:
+      /// 
+      ///    a xor true
+      ///    
+      /// returns true if a evaluates to false, and
+      /// is functionally equivalent to !a, but because
+      /// default expressions are ignored, the result
+      /// will be the left-side 'a'.
+      /// 
       /// Supported by ExpressionBuilder, but not
       /// currently not supported by DBObjectFilter,
       /// PredicateExpression or LazyExpression.

@@ -1,4 +1,4 @@
-﻿/// RibbonEventManager.cs
+﻿/// Idle.cs
 /// 
 /// ActivistInvestor / Tony T
 /// 
@@ -7,8 +7,8 @@
 
 using System;
 using System.Collections.Generic;
-using Autodesk.AutoCAD.ApplicationServices;
 using System.Diagnostics.Extensions;
+using Autodesk.AutoCAD.ApplicationServices;
 
 namespace Autodesk.AutoCAD.Runtime.Extensions
 {
@@ -79,16 +79,17 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
             else if(func != null)
             {
                bool done = true;
-               var temp = func;
-               func = null;
                try
                {
-                  done = temp();
+                  done = func();
                }
                finally
                {
                   if(done)
+                  {
+                     func = null;
                      Application.Idle -= idle;
+                  }
                }
             }
          }

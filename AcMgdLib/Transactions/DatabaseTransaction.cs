@@ -137,6 +137,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       protected override void Dispose(bool disposing)
       {
+         AcConsole.WriteLine($"DatabaseTransaction.Dispose({disposing})");
          if(!transactions.Remove(this.database))
             Debug.WriteLine("Database not found in map");
          if(disposing && prevWorkingDb != null && prevWorkingDb != WorkingDatabase)
@@ -152,6 +153,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                base.Dispose();
                throw new InvalidOperationException("Cannot restore previous working database.");
             }
+         }
+         if(this.AutoDelete && this.IsReadOnly)
+         {
+            AcConsole.WriteLine($"DatabaseTransaction.Dispose({disposing}): Commiting");
+            base.Commit();
          }
          base.Dispose(disposing);
       }
@@ -213,8 +219,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public override void Abort()
       {
+         AcConsole.WriteLine("DatabaseTransaction.Abort()");
          if(IsReadOnly)
-            Commit();
+            base.Commit();
          else
             base.Abort();
       }

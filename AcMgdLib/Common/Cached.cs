@@ -5,7 +5,6 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
-
 using System.Diagnostics.Extensions;
 
 namespace System.Extensions
@@ -71,7 +70,7 @@ namespace System.Extensions
 
       public bool IsValid => !dirty;
 
-      public static implicit operator T(Cached<T> value) => value.Value;
+      public static implicit operator T(Cached<T> cached) => cached.Value;
    }
 
    /// <summary>

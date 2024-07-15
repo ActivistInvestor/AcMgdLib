@@ -66,6 +66,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             throw new ArgumentException("Transaction not from this Database");
       }
 
+      internal static void CheckTransaction(this DBObject obj, Transaction trans)
+      {
+         Assert.IsNotNullOrDisposed(obj,nameof(obj));
+         CheckTransaction(obj.Database, trans);
+      }
+
       /// <summary>
       /// Should be self-explanatory
       /// </summary>
@@ -201,6 +207,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// Supporting code for diagnostic tracing of DBObjectFilters
       /// </summary>
+
+      public static string SafeToString(this object value)
+      {
+         return value == null ? "(null)" : value.ToString();
+      }
 
       public static string ToShortString(this Expression expr, string pad = "   ")
       {
