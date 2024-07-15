@@ -159,13 +159,12 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       static event RibbonStateEventHandler initializeRibbon = null;
       static bool queryCanExecute = false;
       static bool initialized = false;
-      static readonly EditorInput.Extensions.EditorStateView stateObserver;
+      static readonly EditorStateView stateView;
 
       static RibbonEventManager()
       {
-         stateObserver = EditorStateView.Instance;
-         stateObserver.NotifyAsync = true;
-         stateObserver.AddRef();
+         stateView = EditorStateView.Instance;
+         stateView.AddRef();
          if(RibbonCreated)
             Initialize(RibbonState.Active);
          else
@@ -269,11 +268,12 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// <summary>
       /// Forces the WPF framework to requery the CanExecute()
       /// method of all registered ICommands, to update their 
-      /// UI state when:
+      /// associated UI's enabled/disabled state when:
       /// 
       ///   1. AutoCAD or LISP commands start and end.
-      ///   2. The active document changes.
-      ///   3. The lock state of the active document changes.
+      ///   2. Dragging starts/ends in the drawing editor.
+      ///   3. The active document changes.
+      ///   4. The lock state of the active document changes.
       /// 
       /// To enable updating when one of the above events
       /// occurs, one must simply do this:
@@ -306,9 +306,9 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             if(queryCanExecute ^ value)
             {
                if(value)
-                  stateObserver.PropertyChanged += IsQuiescentDocumentChanged;
+                  stateView.PropertyChanged += IsQuiescentDocumentChanged;
                else
-                  stateObserver.PropertyChanged -= IsQuiescentDocumentChanged;
+                  stateView.PropertyChanged -= IsQuiescentDocumentChanged;
                queryCanExecute = value;
             }
          }
@@ -332,7 +332,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// </summary>
 
       public static bool IsQuiescentDocument => 
-         stateObserver.IsQuiescentDocument;
+         stateView.IsQuiescentDocument;
 
       public static bool RibbonCreated => RibbonControl != null;
 

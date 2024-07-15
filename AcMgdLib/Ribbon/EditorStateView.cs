@@ -38,7 +38,7 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       static object lockObj = new object();
       event PropertyChangedEventHandler propertyChanged = null;
 
-      public bool NotifyAsync { get; set; } = false;
+      public bool NotifyAsync { get; set; } = true;
 
       public int AddRef()
       {
@@ -114,12 +114,33 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
 
       void IsQuiescentDocumentChanged()
       {
-         if(NotifyAsync)
-            Idle.Distinct.Invoke(NotifyIsQuiescentDocumentChanged);
-         else
-            NotifyIsQuiescentDocumentChanged();
+         quiescent.Invalidate();
+         if(propertyChanged != null)
+         {
+            if(NotifyAsync)
+            {
+               Idle.Distinct.Invoke(NotifyIsQuiescentDocumentChanged);
+            }
+            else
+            {
+               NotifyIsQuiescentDocumentChanged();
+            }
+         }
       }
 
+      /// <summary>
+      /// Can be called synchronously or asynchronously.
+      /// If called asynchronously (recommended), there
+      /// will be only one notification regardless of
+      /// how many source events are raised. If called
+      /// synchronously, each source event triggers a
+      /// call to this method. 
+      /// 
+      /// It is therefore recommended that asynchronous 
+      /// calling is enabled, which is accomplished by 
+      /// setting the NotifyAsync property to true.
+      /// </summary>
+      
       void NotifyIsQuiescentDocumentChanged()
       {
          quiescent.Invalidate();
