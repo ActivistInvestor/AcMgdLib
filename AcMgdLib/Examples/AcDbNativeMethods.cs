@@ -128,7 +128,6 @@ namespace Autodesk.AutoCAD.Runtime.InteropServices
       static AcRx.ErrorStatus acdbGetAdsNameLoader(out AdsName ename, ObjectId id)
       {
          acdbGetAdsName = DllImport.AcDbImport<acdbGetAdsNameFunc>(acdbGetAdsName64);
-         AcConsole.WriteLine("acdbGetAdsName() loaded");
          return acdbGetAdsName(out ename, id);
       }
 
