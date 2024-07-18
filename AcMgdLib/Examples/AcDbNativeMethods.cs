@@ -1,9 +1,14 @@
-﻿using System;
+﻿/// AcDbNativeMethods.cs
+/// 
+/// Activist Investor / Tony T
+///
+/// Distributed under the terms of the MIT license.
+
+using System;
+using System.Diagnostics.Extensions;
 using System.Runtime.InteropServices;
 using AcRx = Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Runtime;
-using System.Diagnostics.Extensions;
 
 namespace Autodesk.AutoCAD.Runtime.InteropServices
 {
