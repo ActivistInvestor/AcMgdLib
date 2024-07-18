@@ -1252,6 +1252,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             .SelectMany(btr => btr.GetBlockReferences(trans, mode));
       }
 
+      /// <summary>
+      /// Overload of GetBlockReferences() that performs implicit
+      /// filtering of the result by owning block id.
+      /// </summary>
+      /// <param name="ownerIds">A collection of ObjectIds that
+      /// represent the owning blocks</param>
+
+      public static IEnumerable<BlockReference> GetBlockReferences(this Database db,
+         string pattern,
+         Transaction trans,
+         ICollection<ObjectId> ownerIds,
+         OpenMode mode = OpenMode.ForRead,
+         Func<BlockTableRecord, bool> predicate = null)
+      {
+         Assert.IsNotNull(ownerIds, nameof(ownerIds));
+         var result = GetBlockReferences(db, pattern, trans, mode, predicate);
+         var filter = new OwnerFilter<BlockReference>(ownerIds);
+         if(filter.IsEmpty)
+            return result;
+         else
+            return result.Where(filter);
+
+      }
+
       static bool IsUserBlock(this BlockTableRecord btr) => 
          !(btr.IsAnonymous
             || btr.IsLayout

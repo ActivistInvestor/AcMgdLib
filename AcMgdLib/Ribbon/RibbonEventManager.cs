@@ -276,12 +276,18 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       ///   4. The lock state of the active document changes.
       /// 
       /// To enable updating when one of the above events
-      /// occurs, one must simply do this:
+      /// occurs, one need do this:
       /// 
-      ///    RibbonEventManager.QueryCanExecute = true;
+      ///   RibbonEventManager.QueryCanExecute = true;
       ///    
       /// The default implementation of CanExecute() for the
-      /// RibbonCommandButton always returns true. 
+      /// RibbonCommandButton always returns true, and most
+      /// other ribbon elements respond similarly, and do not
+      /// become disabled when commands are running. This is
+      /// of course, the intended behavior, because standard
+      /// ribbon command buttons act the same way that AutoCAD 
+      /// menu macros have always worked, which is to cancel 
+      /// any currently-running commands when clicked.
       /// 
       /// A specialization of RibbonCommandButton included in
       /// this library (ModalRibbonCommandButton) provides the

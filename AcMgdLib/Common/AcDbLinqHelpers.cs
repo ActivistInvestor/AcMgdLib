@@ -144,7 +144,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// For example:
       /// <code>
       /// 
-      ///    Transaction tr;            // assigned to a Transaction
       ///    Curve curve;               // assigned to a Curve entity
       ///    Point3dCollection points;  // assigned to a Point3dCollection
       ///    
@@ -162,12 +161,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// </code>
       /// </summary>
-      /// <param name="collection"></param>
-      /// <returns></returns>
+      /// <param name="collection">The DBObjectCollection that is to be managed</param>
+      /// <param name="disposeOwner">A value indicating if the collection argument
+      /// should be disposed along with its elements (default = true)</param>
+      /// <returns>An IDisposable that when disposed, disposes the <paramref name="collection"/>
+      /// argument its elements</returns>
 
-      public static DBObjectCollection EnsureDispose(this DBObjectCollection collection)
+      public static DBObjectCollection EnsureDispose(this DBObjectCollection collection, bool disposeOwner = true)
       {
-         return new ItemsDisposer<DBObjectCollection>(collection);
+         return new ItemsDisposer<DBObjectCollection>(collection, disposeOwner);
       }
 
       class ItemsDisposer<T> : IDisposable where T: IEnumerable
@@ -232,7 +234,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return csharpNames[type];
       }
 
-      static Cache<Type, string> csharpNames = new Cache<Type, string>(getCSharpName);
+      static Cache<Type, string> csharpNames = 
+         new Cache<Type, string>(getCSharpName);
 
       static string getCSharpName(Type type)
       {

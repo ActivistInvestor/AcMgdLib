@@ -794,11 +794,11 @@ namespace Autodesk.AutoCAD.Runtime
          return source as T[] ?? source.ToArray();
       }
 
-      public static string ToString(this IList<TypedValue> list)
+      public static string ToString(this IList<TypedValue> list, string delimiter = "\n")
       {
          if(list == null)
             throw new ArgumentNullException(nameof(list));
-         return ToString<DxfCode>(list);
+         return ToString<DxfCode>(list, delimiter);
       }
 
       public static string ToString<T>(this IList<TypedValue> list, string delimiter = " ") where T : struct

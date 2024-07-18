@@ -9,9 +9,9 @@ using System;
 /// Distributed under the terms of the MIT license.
 /// 
 
-namespace Autodesk.AutoCAD.DatabaseServices.Extensions
+namespace System.Linq.Expressions.Predicates
 {
-   public interface IFilter<T> where T : DBObject
+   public interface IFilter<T> // where T : DBObject
    {
       bool IsMatch(T source);
       Func<T, bool> MatchPredicate { get;}

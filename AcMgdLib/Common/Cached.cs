@@ -16,16 +16,16 @@ namespace System.Extensions
    /// 
    /// This class works like the framework's Lazy<T>,
    /// with the addition of offering the ability to
-   /// invalidate the computed value, forcing it to
-   /// be recomputed when subsequently requested.
+   /// invalidate the encapsulated value, forcing it 
+   /// to be recomputed when subsequently requested.
    /// 
-   /// The computed value is cached and returned by 
-   /// the Value property until the point when the 
+   /// The encapsulated value is cached and returned 
+   /// by the Value property until the point when the 
    /// Invalidate() method is called. 
    /// 
    /// Each time Invalidate() is called, the supplied 
    /// method will be called to recompute and update 
-   /// the cached value the next time it is requested.
+   /// the encapsulated value when it is requested.
    /// </summary>
    /// <typeparam name="T">The type of the cached value</typeparam>
 
@@ -81,27 +81,37 @@ namespace System.Extensions
 
    public struct Cached<T, TParameter>
    {
-      bool valid = false;
-      Func<TParameter, T> update;
+      bool dirty = true;
       T value;
       TParameter parameter;
+      Func<TParameter, T> update;
 
       public Cached(TParameter parameter, Func<TParameter, T> update)
       {
          Assert.IsNotNull(update, nameof(update));
          this.parameter = parameter;
          this.update = update;
+         Invalidate();
+      }
+
+      public Cached(T initialValue, TParameter parameter, Func<TParameter, T> update)
+      {
+         Assert.IsNotNull(update, nameof(update));
+         this.parameter = parameter;
+         this.value = initialValue;
+         this.update = update;
+         this.dirty = false;
       }
 
       public void Invalidate()
       {
-         this.valid = false;
+         this.dirty = true;
       }
 
       public void Invalidate(TParameter parameter)
       {
          this.parameter = parameter;
-         this.valid = false;
+         this.dirty = false;
       }
 
       public TParameter Parameter
@@ -109,8 +119,7 @@ namespace System.Extensions
          get => parameter;
          set
          {
-            parameter = value;
-            Invalidate();
+            Invalidate(value);
          }
       }
 
@@ -118,10 +127,10 @@ namespace System.Extensions
       {
          get
          {
-            if(!valid)
+            if(dirty)
             {
                value = update(parameter);
-               valid = true;
+               dirty = false;
             }
             return value;
          }

@@ -22,6 +22,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
 
       Idle(Action action)
       {
+         Assert.IsNotNull(action, nameof(action));
          this.action = action;
          Application.Idle += idle;
       }
@@ -34,6 +35,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
 
       Idle(Func<bool> func)
       {
+         Assert.IsNotNull(func, nameof(func));
          this.func = func;
          Application.Idle += idle;
       }
@@ -66,38 +68,73 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
 
       private void idle(object sender, EventArgs e)
       {
-         current = this;
-         try
+         if(action != null)
          {
-            if(action != null)
+            Application.Idle -= idle;
+            var temp = action;
+            action = null;
+            current = this;
+            try
             {
-               Application.Idle -= idle;
-               var temp = action;
-               action = null;
                temp();
             }
-            else if(func != null)
+            finally 
+            { 
+               current = null; 
+            }
+         }
+         else if(func != null)
+         {
+            bool done = true;
+            try
             {
-               bool done = true;
-               try
+               done = func();
+            }
+            finally
+            {
+               if(done)
                {
-                  done = func();
-               }
-               finally
-               {
-                  if(done)
-                  {
-                     func = null;
-                     Application.Idle -= idle;
-                  }
+                  func = null;
+                  Application.Idle -= idle;
                }
             }
          }
-         finally
-         {
-            current = null;
-         }
       }
+
+      //private void idle(object sender, EventArgs e)
+      //{
+      //   current = this;
+      //   try
+      //   {
+      //      if(action != null)
+      //      {
+      //         Application.Idle -= idle;
+      //         var temp = action;
+      //         action = null;
+      //         temp();
+      //      }
+      //      else if(func != null)
+      //      {
+      //         bool done = true;
+      //         try
+      //         {
+      //            done = func();
+      //         }
+      //         finally
+      //         {
+      //            if(done)
+      //            {
+      //               func = null;
+      //               Application.Idle -= idle;
+      //            }
+      //         }
+      //      }
+      //   }
+      //   finally
+      //   {
+      //      current = null;
+      //   }
+      //}
 
       public static class Distinct
       {
@@ -114,15 +151,17 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          /// the number of times called with that action, it
          /// will only execute only once on the next idle event.
          /// 
-         /// To specify an action to be invoked on the next
-         /// Idle event without allowing multiple invocations
-         /// use:
+         /// To specify that an action be invoked on the next
+         /// Idle event only once, regardless of how many times
+         /// this method is called and passed that action, use
+         /// this:
          /// 
          ///    Idle.Distinct.Invoke(action);
          ///    
          /// The above statement can be called repeatedly with
-         /// the same argument, but the action executes only 
-         /// once on the next idle event.
+         /// the same argument, but regardless of how many times
+         /// it's called the action will execute only once on the 
+         /// next idle event.
          ///    
          /// </summary>
          /// <param name="action"></param>

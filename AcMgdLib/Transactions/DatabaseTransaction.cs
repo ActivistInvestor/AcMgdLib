@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Linq.Expressions.Predicates;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
@@ -111,7 +112,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// The value of the wrapped Database's AutoDelete property
       /// </summary>
-      public bool IsAutodelete => ThisDb.AutoDelete;
+      public bool IsAutoDelete => database?.AutoDelete ?? false;
 
       /// <summary>
       /// This is only intended to be called from the
@@ -135,48 +136,100 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          IsDocTransaction = true;
       }
 
+      /// <summary>
+      /// Complications: Automatically restoring the previous working database
+      /// after changing it to the encapsulated database requires that the
+      /// previous working database be validated as not having been disposed.
+      /// If it has, it can't be restored to the current working database
+      /// without leading to a catastrophic failure.
+      /// 
+      /// Restoration of the previous working database to the database of the
+      /// Active Document is trivial, but introduces a dependence on AcMgd.dll
+      /// and AcCoreMgd.dll, which this file avoids.
+      /// </summary>
+      /// <param name="disposing"></param>
+      /// <exception cref="InvalidOperationException"></exception>
+      
       protected override void Dispose(bool disposing)
       {
-         AcConsole.WriteLine($"DatabaseTransaction.Dispose({disposing})");
          if(!transactions.Remove(this.database))
-            Debug.WriteLine("Database not found in map");
-         if(disposing && prevWorkingDb != null && prevWorkingDb != WorkingDatabase)
+            Debug.WriteLine("Error: Database not found in map!");
+         if(disposing)
          {
-            Database temp = prevWorkingDb;
-            prevWorkingDb = null;
-            if(!temp.IsDisposed)
+            if(prevWorkingDb != null && prevWorkingDb != WorkingDatabase)
             {
-               SetWorkingDatabase(temp);
+               Database temp = prevWorkingDb;
+               prevWorkingDb = null;
+               if(!temp.IsDisposed)
+               {
+                  SetWorkingDatabase(temp);
+               }
+               else
+               {
+                  base.Dispose();
+                  TryDisposeDatabase();
+                  throw new InvalidOperationException("Cannot restore previous working database.");
+               }
             }
-            else
-            {
-               base.Dispose();
-               throw new InvalidOperationException("Cannot restore previous working database.");
-            }
-         }
-         if(this.AutoDelete && this.IsReadOnly)
-         {
-            AcConsole.WriteLine($"DatabaseTransaction.Dispose({disposing}): Commiting");
-            base.Commit();
+            if(this.AutoDelete && this.IsReadOnly)
+               base.Commit();
          }
          base.Dispose(disposing);
+         if(disposing)
+            TryDisposeDatabase();
+      }
+
+      bool TryDisposeDatabase()
+      {
+         bool result = OwnsDatabase && database != null && !database.IsDisposed
+               && database.AutoDelete && database != WorkingDatabase;
+         if(result) 
+            database.Dispose();
+         return result;
       }
 
       public Database Database => database;
 
-      public bool IsCurrentWorkingDatabase
-      {
-         get => this.database == WorkingDatabase;
-         //set
-         //{
-         //   if(this.database != WorkingDatabase)
-         //   {
-         //      prevDb = WorkingDatabase;
-         //      WorkingDatabase = database;
-         //   }
-         //}
-      }
+      public bool IsCurrentWorkingDatabase => this.database == WorkingDatabase;
 
+      /// <summary>
+      /// Opens a DWG file and returns a DatabaseTransaction
+      /// representing the opened file.
+      /// 
+      /// When this method is used to open a DWG file, the Database 
+      /// representing the opened DWG file is owned and managed by 
+      /// the returned DatabaseTransaction instance. When the instance
+      /// of the DatabaseTransaction is disposed, the database will be
+      /// disposed along with it. Hence, if changes to the database are
+      /// to be saved, that must happen before the DatabaseTransaction 
+      /// is disposed. If changes to the Database are saved, they should 
+      /// not be saved until after the DatabaseTransaction is commited.
+      /// 
+      ///   using(var trans = DatabaseTransaction.Open("SomeFile.dwg"))
+      ///   {
+      ///       // Modify the database here...
+      ///       
+      ///       trans.Commit();  // commit the changes
+      ///       
+      ///       // after commiting the transaction, 
+      ///       // save changes back to disk:
+      ///       
+      ///       trans.Database.SaveAs(...)  // Save the changes
+      ///   }
+      ///   
+      ///   // Once this point is reached, the DatabaseTransaction
+      ///   // and the Database it encapsulates has been disposed.
+      ///   
+      /// To prevent a Database that was created internally by a call
+      /// to Open() from being disposed when the transaction that wraps
+      /// it is disposed, one can call the Detach() method.
+      /// 
+      /// </summary>
+      /// <param name="path"></param>
+      /// <param name="mode"></param>
+      /// <param name="asWorkingDatabase"></param>
+      /// <returns></returns>
+      
       public static DatabaseTransaction Open(string path, FileOpenMode mode, 
          bool asWorkingDatabase = true)
       {
@@ -184,7 +237,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          try
          {
             db.ReadDwgFile(path, mode, true, null);
-            return new DatabaseTransaction(db, asWorkingDatabase);
+            var result = new DatabaseTransaction(db, asWorkingDatabase);
+            result.OwnsDatabase = true;
+            return result;
          }
          catch
          {
@@ -192,6 +247,20 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             throw;
          }
       }
+
+      public Database Detach()
+      {
+         this.OwnsDatabase = false;
+         return this.database;
+      }
+
+      /// Indicates if the instance is responsible for
+      /// managing the life of the encapsulated Database.
+      /// If this property is true, the encapsulated
+      /// Database will be disposed when the instance
+      /// is disposed.
+
+      public bool OwnsDatabase { get; private set; }
 
       /// <summary>
       /// Can be set to true, to prevent the transaction
@@ -857,7 +926,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          SymbolUtilityServices.GetLayerZeroId(ThisDb);
       public bool IsCompatibilityMode => 
          SymbolUtilityServices.IsCompatibilityMode(ThisDb);
-      
+
    }
 
 }

@@ -700,12 +700,13 @@ namespace AutoCAD.AcDbLinq.Examples
          using(var tr = new DocumentTransaction())
          {
             var idModel = tr.ModelSpaceBlockId;
+            var blockfilter = new BlockFilter(btr => btr.IsUserBlock());
 
             var map = tr.GetNamedObjects<BlockTableRecord>()
                .Where(btr => btr.IsUserBlock())
                .SelectMany(btr => btr.GetBlockReferences(tr))
-               .Where(br => br.BlockId == idModel)
-               .CountAllBy(br => br.DynamicBlockTableRecord)
+               .Where(new OwnerFilter(idModel))
+               .CountAllBy(blkref => blkref.DynamicBlockTableRecord)
                .Select(p => (tr.GetObject<BlockTableRecord>(p.Key).Name, p.Value))
                .OrderBy(p => p.Name);
 
@@ -714,10 +715,10 @@ namespace AutoCAD.AcDbLinq.Examples
             int total = 0;
             foreach((string name, int count) item in map)
             {
-               Write("{0,-12} {1,4}", item.name, item.count);
+               Write("{0,-16} {1,4}", item.name, item.count);
                total += item.count;
             }
-            Write("-------------------------\n{0,-16} {1,4}", "Total", total);
+            Write("---------------------\n{0,-16} {1,4}", "Total", total);
 
             Application.DisplayTextScreen = true;
 
@@ -746,10 +747,10 @@ namespace AutoCAD.AcDbLinq.Examples
             int total = 0;
             foreach((string name, int count) tuple in map)
             {
-               Write("{0,-12} {1,4}", tuple.name, tuple.count);
+               Write("{0,-16} {1,4}", tuple.name, tuple.count);
                total += tuple.count;
             }
-            Write("-------------------------\n{0,-16} {1,4}", "Total", total);
+            Write("---------------------\n{0,-16} {1,4}", "Total", total);
 
             Application.DisplayTextScreen = true;
 
@@ -850,7 +851,7 @@ namespace AutoCAD.AcDbLinq.Examples
       /// of DBObjectDataMap instances to the AutoCAD console.
       /// 
       /// This command is intended primarily for diagnostic 
-      /// purposes, by allowing the developer to visualize
+      /// purposes, and allows the developer to visualize
       /// expressions that are combined and used to evaluate 
       /// if an object meets a filter's criteria.
       /// </summary>

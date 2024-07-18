@@ -4,6 +4,7 @@
 ///
 /// Distributed under terms of the MIT License
 
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using System.Diagnostics.Extensions;
 
 namespace System.Linq.Expressions.Predicates
@@ -43,7 +44,7 @@ namespace System.Linq.Expressions.Predicates
 
 
 
-   public struct PredicateExpression<T>
+   public struct PredicateExpression<T> : ICompoundExpression<T>
    {
       Expression<Func<T, bool>> expression;
       Func<T, bool> predicate;
@@ -226,7 +227,7 @@ namespace System.Linq.Expressions.Predicates
       /// PredicateExpression<T> and Expression<Func<T, bool>>
       /// on either side, but one operand must be the former.
       /// 
-      /// With C# 13, things are going to become a bit more
+      /// With C# 14, things are going to become a bit more
       /// interesting.
       ///     
       /// </summary>
@@ -293,6 +294,23 @@ namespace System.Linq.Expressions.Predicates
          return expression?.ToString() ?? base.ToString();
       }
 
+      /// <summary>
+      /// While all of the above operations return new
+      /// PredicateExpressions, these two methods modify
+      /// the instance.
+      /// </summary>
+      /// <param name="operation"></param>
+      /// <param name="predicate"></param>
+
+      public void Add(Logical operation, Expression<Func<T, bool>> predicate)
+      {
+         this.Expression = this.Expression.Add(operation, predicate);
+      }
+
+      public void Add(Expression<Func<T, bool>> predicate)
+      {
+         this.Add(Logical.And, predicate);
+      }
    }
 
 

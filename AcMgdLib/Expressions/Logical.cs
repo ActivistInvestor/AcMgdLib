@@ -8,7 +8,7 @@
 /// DBObjects in Linq queries and other sceanrios.
 
 
-namespace Autodesk.AutoCAD.DatabaseServices.Extensions
+namespace System.Linq.Expressions.Predicates
 {
    public enum Logical
    {

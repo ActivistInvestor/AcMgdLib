@@ -8,6 +8,7 @@
 
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
@@ -286,6 +287,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// Filters a sequence of entities by one or more owner blocks
       /// with the given ObjectIds.
+      /// 
+      /// Mostly useful for filtering the results of GetBlockReferences()
+      /// to constrain them to only references owned by a given layout or 
+      /// one of several layouts. See the BTCOUNTBLOCKS example command 
+      /// for a usage example.
       /// </summary>
 
       public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities,
@@ -293,17 +299,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNull(entities, nameof(entities));
          Assert.IsNotNull(ownerIds, nameof(ownerIds));
-         foreach(var ownerId in ownerIds)
-            AcRx.ErrorStatus.WrongObjectType.Requires<BlockTableRecord>(ownerId);
-         if(ownerIds.Length == 0)
-            return Enumerable.Empty<T>();
-         if(ownerIds.Length == 1)
-            return entities.Where(ent => ent.BlockId == ownerIds[0]);
+         var filter = new OwnerFilter(ownerIds);
+         if(filter.IsEmpty)
+            return entities;
          else
-         {
-            var set = new HashSet<ObjectId>(ownerIds);
-            return entities.Where(ent => set.Contains(ent.BlockId));
-         }
+            return entities.Where(filter);
       }
 
       public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities,
@@ -312,18 +312,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNull(entities, nameof(entities));
          Assert.IsNotNull(layoutNames, nameof(layoutNames));
          if(layoutNames.Length == 0)
-            return Enumerable.Empty<T>();
+            throw new ArgumentException("requires one or more layout names");
          var db = entities.TryGetDatabase(true);
-         var blockIds = db.GetLayoutBlockIds(layoutNames);
-         if(!blockIds.Any())
-            return Enumerable.Empty<T>();
-         if(!blockIds.Skip(1).Any())
-         {
-            ObjectId blockId = blockIds.First();
-            return entities.Where(e => e.BlockId == blockId);
-         }
-         var set = new HashSet<ObjectId>(blockIds);
-         return entities.Where(e => set.Contains(e.BlockId));
+         var filter = new OwnerFilter(db.GetLayoutBlockIds(layoutNames));
+         return entities.Where(filter);
       }
 
    }

@@ -14,11 +14,12 @@ namespace System.Extensions
    public class Cache<TKey, TValue>
    {
       Dictionary<TKey, TValue> map;
+      IEqualityComparer<TKey> comparer;
       Func<TKey, TValue> selector;
 
       public Cache(Func<TKey, TValue> selector, IEqualityComparer<TKey> comparer = null)
       {
-         map = new Dictionary<TKey, TValue>(comparer);
+         this.comparer = comparer;
          this.selector = selector;
       }
 
@@ -26,10 +27,15 @@ namespace System.Extensions
       {
          get
          {
-            if(!map.TryGetValue(key, out TValue result))
+            if(map == null)
             {
-               map[key] = result = selector(key);
+               TValue value = selector(key);
+               map = new Dictionary<TKey, TValue>(comparer);
+               map[key] = value;
+               return value;
             }
+            if(!map.TryGetValue(key, out TValue result))
+               map[key] = result = selector(key);
             return result;
          }
       }

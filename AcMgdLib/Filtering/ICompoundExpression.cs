@@ -7,7 +7,7 @@
 using System;
 using System.Linq.Expressions;
 
-namespace Autodesk.AutoCAD.DatabaseServices.Extensions
+namespace System.Linq.Expressions.Predicates
 {
    public interface ICompoundExpression<T>
    {

@@ -35,6 +35,8 @@ namespace Autodesk.AutoCAD.Runtime
 {
    public static class AcConsole
    {
+      static DocumentCollection docs = Application.DocumentManager;
+      
       /// <summary>
       /// String.Format() and Editor.WriteMessage() can have problems with
       /// the value of the ContentRTF property of Mtext objects, requiring
@@ -43,7 +45,7 @@ namespace Autodesk.AutoCAD.Runtime
 
       public static void Write(string fmt, params object[] args)
       {
-         var ed = Application.DocumentManager.MdiActiveDocument?.Editor;
+         var ed = docs.MdiActiveDocument?.Editor;
          if(ed != null)
          {
             try

@@ -11,6 +11,9 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
+using Ac2025Project.Test;
+using System.Text;
+using Autodesk.AutoCAD.Runtime.InteropServices;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -821,9 +824,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
          int i = 0;
          foreach(var item in data)
-         {
             ed.WriteMessage("\n[{0}] {1}", i++, item.ToString());
+      }
+
+      public static string DxfDump(this DBObject obj)
+      {
+         StringBuilder sb = new StringBuilder();
+         int i = 0;
+         var rb = obj.ObjectId.EntGet();
+         if(rb != null)
+         {
+            foreach(var tv in rb)
+               sb.AppendLine($"[{i} {(DxfCode)tv.TypeCode}]: {tv.Value}");
          }
+         return sb.ToString();
+      }
+
+      public static string Dump(this TypedValue tv)
+      {
+         return $"{tv.TypeCode} = {tv.Value}";
       }
 
       public static Type GetRuntimeType(this DwgDataType dataType, bool nullcheck = false)
