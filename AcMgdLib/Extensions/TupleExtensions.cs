@@ -1,14 +1,21 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Runtime;
-using System;
-using System.Collections.Generic;
+﻿/// RuntimeExtensions.cs  
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+
 using System.Diagnostics.Extensions;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Runtime;
 
 namespace System.Extensions
 {
+
+   /// <summary>
+   /// Extension methods that facilitate conversion between
+   /// TypedValue[], ResultBuffer and ValueTuple[]
+   /// </summary>
+   
    public static partial class TupleExtensions
    {
 
