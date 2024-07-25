@@ -56,7 +56,7 @@ namespace AcMgdLib.Common.Examples
       /// <summary>
       /// Exercises/tests the ToListDictionary() extension method, 
       /// by reading a Dictionary<string, List<int>> from an Xrecord 
-      /// that was written by the SETXREC command.
+      /// that was written by the DICTWRITE command.
       /// </summary>
       
       [CommandMethod("DICTREAD")]
