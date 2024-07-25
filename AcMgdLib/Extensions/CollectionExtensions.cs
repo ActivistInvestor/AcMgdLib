@@ -385,8 +385,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// this method.</param>
       /// <param name="create">A value indicating if a new entry 
       /// should be created and added to the extension dictionary 
-      /// if an entry with the given key does not exist.</param>
-      /// <returns>The requested value</returns>
+      /// if an entry with the given key does not exist. If this
+      /// argument is false, and no existing entry having the given
+      /// key exists, this method returns null, and does not raise
+      /// an exception.</param>
+      /// <returns>The requested value or null</returns>
 
       public static T GetDictionaryValue<T>(this DBObject owner,
             string key,
@@ -407,9 +410,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// new entry, which means the generic argument does 
       /// not require a public parameterless constructor.
       /// 
-      /// The delegate is passed the owner parameter to this
-      /// method, which it can use it to create and initialize
-      /// the dictionary entry's value, if needed.
+      /// If the factory argument is provided, this method 
+      /// always creates a new extension dictionary and entry 
+      /// if either or both do not exist. If the factory
+      /// argument is not provided, this method will return
+      /// null if there is no extension dictionary, or there
+      /// is not existing entry having the given key.
+      /// 
+      /// The factory delegate is passed the owner parameter 
+      /// to this method, which it can use it to create and 
+      /// initialize the dictionary entry's value, if needed.
       /// </summary>
 
       public static T GetDictionaryValue<T>(this DBObject owner,
@@ -429,13 +439,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          var dict = owner.GetExtensionDictionary(trans, OpenMode.ForRead, create);
          if(dict == null)
             throw new InvalidOperationException("Failed to get or create extension dictionary");
-         if(dict.IsNewObject && treatElementsAsHard)
+         if(dict.IsNewObject)
             dict.TreatElementsAsHard = treatElementsAsHard;
          if(exists && dict.Contains(key))
          {
             ObjectId id = dict.GetAt(key);
-            AcRx.ErrorStatus.WrongObjectType.Requires<T>(id);
-            return trans.GetObject<T>(id, mode);
+            return trans.GetObjectChecked<T>(id, mode);
          }
          T result = null;
          if(factory != null)
@@ -484,12 +493,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             bool create = false,
             bool treatElementsAsHard = false)
       {
-         return owner.GetDictionaryValue<Xrecord>(key, trans, mode, create, treatElementsAsHard);
+         return owner.GetDictionaryValue<Xrecord>(key, trans, 
+            mode, create, treatElementsAsHard);
       }
 
       /// <summary>
-      /// Returns the value of an existing XRecord's Data property, or
-      /// null if the XRecord doesn't exist.
+      /// Returns the value of an existing XRecord's Data property, 
+      /// or null if the XRecord doesn't exist.
       /// </summary>
       /// <param name="owner">The owning DBObject</param>
       /// <param name="key">The key of the Xrecord within the owner's extension dictionary</param>
@@ -522,28 +532,29 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="key"></param>
       /// <param name="trans"></param>
       /// <param name="typedValues"></param>
-      /// <returns></returns>
+      /// <returns>A value indicating if a new Xrecord was created
+      /// (true) or an existing Xrecord was modified (false).</returns>
       
-      public static void SetXRecordData(this DBObject owner,
+      public static bool SetXRecordData(this DBObject owner,
          string key,
          Transaction trans,
          params TypedValue[] typedValues)
       {
          bool xlate = typedValues.Any(tv => tv.Value is ObjectId);
-         SetXRecordData(owner, key, trans, xlate, xlate, typedValues);
+         return SetXRecordData(owner, key, trans, xlate, xlate, typedValues);
       }
 
-      public static void SetXRecordData(this DBObject owner,
+      public static bool SetXRecordData(this DBObject owner,
          string key,
          Transaction trans,
          ResultBuffer buffer)
       {
          Assert.IsNotNull(buffer, nameof(buffer));
          bool xlate = buffer.Cast<TypedValue>().Any(tv => tv.Value is ObjectId);
-         SetXRecordData(owner, key, trans, xlate, xlate, buffer);
+         return SetXRecordData(owner, key, trans, xlate, xlate, buffer);
       }
 
-      public static void SetXRecordData(this DBObject owner,
+      public static bool SetXRecordData(this DBObject owner,
          string key,
          Transaction trans,
          bool treatElementsAsHard,          // applies to newly-created DBDictionaries only
@@ -551,10 +562,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          params TypedValue[] typedValues)
       {
          Assert.IsNotNull(typedValues, nameof(typedValues));
-         SetXRecordData(owner, key, trans, treatElementsAsHard, xlateReferences, new ResultBuffer(typedValues));
+         return SetXRecordData(owner, key, trans, treatElementsAsHard, xlateReferences, new ResultBuffer(typedValues));
       }
 
-      public static void SetXRecordData(this DBObject owner,
+      /// <summary>
+      /// Sets the Data of an Xrecord having the given key within
+      /// the extension dictionary of the given owner object.
+      /// 
+      /// If the extension dictionary and/or Xrecord doesn't exist, 
+      /// they will be created. 
+      /// </summary>
+      /// <param name="owner">The owner DBObject</param>
+      /// <param name="key">The key of the Xrecord</param>
+      /// <param name="trans">The Transaction to use for the operation</param>
+      /// <param name="treatElementsAsHard">A value to assign to newly-created 
+      /// extension dictionaries TreatElementsAsHard property - Only applies to 
+      /// newly-created extension dictionaries.</param>
+      /// <param name="xlateReferences">The value to assign to newly-created
+      /// Xrecords XlateReferences property - Only applies to newly-created
+      /// Xrecords.</param>
+      /// <param name="buffer">The ResultBuffer containing the data to assign
+      /// to the Xrecord.</param>
+      /// <returns></returns>
+
+      public static bool SetXRecordData(this DBObject owner,
          string key,
          Transaction trans,
          bool treatElementsAsHard,          // applies to newly-created DBDictionaries only
@@ -564,9 +595,77 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNullOrWhiteSpace(key, nameof(key));
          owner.CheckTransaction(trans);
          Xrecord xrecord = owner.GetXrecord(key, trans, OpenMode.ForWrite, true, treatElementsAsHard);
-         if(xrecord.IsNewObject && xlateReferences)
+         if(xrecord.IsNewObject)
             xrecord.XlateReferences = xlateReferences;
          xrecord.Data = buffer;
+         return xrecord.IsNewObject;
+      }
+
+      /// <summary>
+      /// Removes the entry having the specified key 
+      /// from a DBObject's extension dictionary.
+      /// </summary>
+      /// <param name="owner"></param>
+      /// <param name="key"></param>
+      /// <param name="trans"></param>
+      /// <returns></returns>
+
+      public static bool RemoveDictionaryEntry(this DBObject owner,
+         string key,
+         Transaction trans)
+      {
+         owner.TryCheckTransaction(trans);
+         Assert.IsNotNullOrWhiteSpace(key, nameof(key));
+         DBDictionary xdict = owner.GetExtensionDictionary(trans, OpenMode.ForWrite, false);
+         if(xdict != null && xdict.Contains(key))
+         {
+            ObjectId id = xdict.GetAt(key);
+            xdict.Remove(id);
+            DBObject obj = trans.GetObject(id, OpenMode.ForWrite);
+            obj.Erase();
+            return true;
+         }
+         return false;
+      }
+
+      /// <summary>
+      /// Assigns a value to the given DBObject's 
+      /// extension dictionary for the given key,
+      /// and optionally removes and erases any
+      /// existing entry having the specified key.
+      /// </summary>
+      /// <param name="owner">The DBObject whose extension
+      /// dictionary is to be assigned to</param>
+      /// <param name="key">The key to assign the value to</param>
+      /// <param name="newValue">The value to assign to the specified key</param>
+      /// <param name="trans">The Transaction to use to perform the operation</param>
+      /// <param name="replace">A value indicating if an existing
+      /// entry with the specified key should be replaced with the
+      /// new value. If this value is false and an entry exists with
+      /// the specified key, an exception is thrown.</param>
+      /// <returns></returns>
+
+      public static void SetDictionaryEntry(this DBObject owner,
+         string key,
+         DBObject newValue,
+         Transaction trans, 
+         bool replace = true)
+      {
+         owner.TryCheckTransaction(trans);
+         Assert.IsNotNullOrWhiteSpace(key, nameof(key));
+         AcRx.ErrorStatus.AlreadyInDB.ThrowIf(!newValue.ObjectId.IsNull);
+         var xdict = owner.GetOrCreateExtensionDictionary(trans, OpenMode.ForWrite);
+         if(xdict.Contains(key))
+         {
+            if(!replace)
+               throw new ArgumentException($"Dictionary key exists: {key}");
+            ObjectId id = xdict.GetAt(key);
+            xdict.Remove(id);
+            DBObject obj = trans.GetObject(id, OpenMode.ForWrite);
+            obj.Erase();
+         }
+         xdict.SetAt(key, newValue);
+         trans.AddNewlyCreatedDBObject(newValue, true);
       }
 
       /// <summary>
@@ -605,6 +704,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             xrecord.Data = new ResultBuffer(typedValues);
          }
       }
+
+      /// <summary>
+      /// Overload of above that sets xlateReferences and
+      /// treatElementsAsHard arguments to true if the data 
+      /// contains one or more ObjectIds.
+      /// </summary>
 
       public static void AppendToXRecordData(this DBObject owner,
          string key,
@@ -680,48 +785,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          AppendToXRecordData(owner, key, trans, xlate, xlate, values.ToTypedValues());
       }
 
-
-
-      //static void Test()
-      //{
-      //   Circle circle = new Circle();
-      //   circle.SetXRecordDataEx("test", null,
-      //      new TypedValueList((1, "FOO"), (2, "BAR")));
-      //}
-
-      //static TypedValue[] FromTuples(params (int, object)[] args)
-      //{
-      //   if(args == null || args.Length == 0)
-      //      return new TypedValue[0];
-      //   int len = args.Length;
-      //   TypedValue[] result = new TypedValue[len];
-      //   for(int i= 0; i < len; i++)
-      //      result[i] = new TypedValue(args[i].Item1, args[i].Item2);
-      //   return result;
-      //}
-
-      //static TypedValue[] FromTuples(params (DxfCode, object)[] args)
-      //{
-      //   if(args == null || args.Length == 0)
-      //      return new TypedValue[0];
-      //   int len = args.Length;
-      //   TypedValue[] result = new TypedValue[len];
-      //   for(int i = 0; i < len; i++)
-      //      result[i] = new TypedValue((short) args[i].Item1, args[i].Item2);
-      //   return result;
-      //}
-
-      //static TypedValue[] FromTuples(params (LispDataType, object)[] args)
-      //{
-      //   if(args == null || args.Length == 0)
-      //      return new TypedValue[0];
-      //   int len = args.Length;
-      //   TypedValue[] result = new TypedValue[len];
-      //   for(int i = 0; i < len; i++)
-      //      result[i] = new TypedValue((short)args[i].Item1, args[i].Item2);
-      //   return result;
-      //}
-
       /// <summary>
       /// Opens and returns the owner's extension dictionary, and 
       /// optionally adds and returns a new extension dictionary if
@@ -748,8 +811,29 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                owner.UpgradeOpen();
             owner.CreateExtensionDictionary();
             id = owner.ExtensionDictionary;
+            if(!owner.IsTransactionResident)
+               owner.DowngradeOpen();
          }
-         return ! id.IsNull ? trans.GetObject<DBDictionary>(id, mode) : null;
+         if(id.IsNull)
+         {
+            if(create)
+               throw new InvalidOperationException("Failed to get/create extension dictionary");
+            return null;
+         }
+         return trans.GetObject<DBDictionary>(id, mode);
+      }
+
+      /// <summary>
+      /// Like GetExtensionDictionary() with implicit
+      /// creation of non-existing dictionary, mainly for
+      /// making the intent of the calling code explicit.
+      /// </summary>
+
+      public static DBDictionary GetOrCreateExtensionDictionary(this DBObject owner,
+         Transaction trans,
+         OpenMode mode = OpenMode.ForRead)
+      {
+         return GetExtensionDictionary(owner, trans, mode, true);
       }
 
       /// <summary>
@@ -769,7 +853,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// this method on the value of the SymbolTable's IncludingErased 
       /// property.
       /// </summary>
-      /// <typeparam name="T">The type of SymbolTableRecord to be
+      /// <typeparam name="T">The type of SymbolTableRecords to be
       /// returned, which also determines which SymbolTable is to 
       /// have its entries retieved. The generic argument must be 
       /// a concrete type derived from the SymbolTableRecord type.</typeparam>
@@ -777,7 +861,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="trans">The transaction to use for the operation</param>
       /// <param name="mode">The OpenMode to open resulting objects in
       /// (default: OpenMode.ForRead)</param>
-      /// <returns>A sequence of SymbolTableRecord-based elements</returns>
+      /// <returns>A sequence of SymbolTableRecord-based objects</returns>
 
       public static IEnumerable<T> GetSymbolTableRecords<T>(this Database db,
          Transaction trans,
