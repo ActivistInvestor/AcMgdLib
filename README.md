@@ -1,7 +1,7 @@
 # AcMgdLib
 Extension Library for managed AutoCAD.NET development
 
-UPDATE: Some classes from this repo have been moved/merged
+UPDATE: Some classes from other repos have been moved/merged
 into AcMgdLib at https://github.com/ActivistInvestor/AcMgdLib.
 
 The merged code has been updated with more documentation
