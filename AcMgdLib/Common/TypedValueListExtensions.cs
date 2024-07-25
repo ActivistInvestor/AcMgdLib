@@ -9,6 +9,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Extensions;
 using System.Extensions;
 using System.Linq;
@@ -953,6 +954,26 @@ namespace Autodesk.AutoCAD.Runtime
          return result;
       }
 
+      /// <summary>
+      /// Converts a ResultBuffer to a Dictionary<TKey, ICollection<TValue>>.
+      /// 
+      /// Constraints:
+      /// 
+      /// TKey and TValue must both be simple value types (or strings)
+      /// that can be assigned to a TypedValue's Value property and be 
+      /// written to an XRecord. Reference types aside from strings are 
+      /// not supported. Arrays are not supported.
+      /// </summary>
+      /// <typeparam name="TKey">The type of the Dictionary's Keys</typeparam>
+      /// <typeparam name="TValue">The type of the value stored in the 
+      /// List<TValue> that is each dictionary entry's value.</typeparam>
+      /// <param name="resbuf">The result buffer to convert</param>
+      /// <param name="factory">A function that creates an ICollection<T>
+      /// that holds each Dictionary entry's values. If not provided, the
+      /// container is a List<TValue></param>
+      /// <returns>A dictionary holding the contents of the ResultBuffer</returns>
+      /// <exception cref="InvalidOperationException"></exception>
+      
       public static Dictionary<TKey, IEnumerable<TValue>> 
       ToListDictionary<TKey, TValue>(this ResultBuffer resbuf, 
          Func<ICollection<TValue>> factory = null)
@@ -968,7 +989,7 @@ namespace Autodesk.AutoCAD.Runtime
             if(!e.MoveNext())
                throw new InvalidOperationException("Count mismatch");
             TypedValue cur = e.Current;
-            if(!IsListBegin(cur))
+            if(!cur.IsEqualTo(listBegin))
                throw new InvalidOperationException(
                   $"Malformed list: expecting List Begin: {cur.TypeCode}, {cur.Value}");
             ICollection<TValue> list = factory();
@@ -976,9 +997,9 @@ namespace Autodesk.AutoCAD.Runtime
             {
                if(!e.MoveNext())
                   throw new InvalidOperationException(
-                     $"Malformed list: expecting List End: {cur.TypeCode}, {cur.Value}");
+                     $"Malformed list: expecting List End");
                cur = e.Current;
-               if(IsListEnd(cur))
+               if(cur.IsEqualTo(listEnd))
                   break;
                list.Add((TValue) cur.Value);
             }
@@ -990,11 +1011,22 @@ namespace Autodesk.AutoCAD.Runtime
       static readonly TypedValue listBegin = new TypedValue(102, "{");
       static readonly TypedValue listEnd = new TypedValue(102, "}");
 
-      static bool IsListBegin(TypedValue tv)
-         => tv.TypeCode == 102 && object.Equals(tv.Value, "{");
-      static bool IsListEnd(TypedValue tv) 
-         => tv.TypeCode == 102 && object.Equals(tv.Value, "}");
+      /// A Fix for TypedValue.Equals()
 
+      static TypedValueComparer valueComparer = TypedValueComparer.Instance;
+
+      /// <summary>
+      /// Performs a stable comparison of the Values of 
+      /// two TypedValues. 
+      /// </summary>
+      /// <param name="left"></param>
+      /// <param name="right"></param>
+      /// <returns></returns>
+      
+      public static bool IsEqualTo(this TypedValue left, TypedValue right)
+      {
+         return valueComparer.Equals(left, right);
+      }
    }
 
    public interface IDwgSerializable 
