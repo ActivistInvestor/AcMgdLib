@@ -254,8 +254,6 @@ namespace Namespace1
             
          };
 
-         textBox.TextValueBinding = new Binding("TextValueSource");
-
          source.Items.Add(textBox);
 
          /// Add another RibbonCommandButton that when clicked,
