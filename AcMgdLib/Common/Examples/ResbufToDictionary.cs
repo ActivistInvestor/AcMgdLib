@@ -53,7 +53,7 @@ namespace AcMgdLib.Common.Examples
       /// <summary>
       /// Exercises/tests the ToListDictionary() and
       /// ToResultBuffer() extension methods, by reading
-      /// a Dictionary<string, int> to an Xrecord that
+      /// a Dictionary<string, int> from an Xrecord that
       /// was written by the above command.
       /// </summary>
       [CommandMethod("GETXREC")]
