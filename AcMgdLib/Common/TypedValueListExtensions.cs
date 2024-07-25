@@ -942,13 +942,13 @@ namespace Autodesk.AutoCAD.Runtime
          foreach(var pair in items)
          {
             result.Add(new TypedValue(keyCode, pair.Key));
-            result.Add(new TypedValue(listBegin));
+            result.Add(listBegin);
             if(pair.Value != null)
             {
                foreach(TValue value in pair.Value)
                   result.Add(new TypedValue(valueCode, value));
             }
-            result.Add(new TypedValue(listEnd));
+            result.Add(listEnd);
          }
          return result;
       }
@@ -967,26 +967,34 @@ namespace Autodesk.AutoCAD.Runtime
             var key = e.Current.Value;
             if(!e.MoveNext())
                throw new InvalidOperationException("Count mismatch");
-            TypedValue current = e.Current;
-            if(current.TypeCode != listBegin)
-               throw new InvalidOperationException("Malformed list: expecting ListBegin");
+            TypedValue cur = e.Current;
+            if(!IsListBegin(cur))
+               throw new InvalidOperationException(
+                  $"Malformed list: expecting List Begin: {cur.TypeCode}, {cur.Value}");
             ICollection<TValue> list = factory();
             while(true)
             {
                if(!e.MoveNext())
-                  throw new InvalidOperationException("Malformed list: expecting ListEnd");
-               current = e.Current;
-               if(current.TypeCode == listEnd)
+                  throw new InvalidOperationException(
+                     $"Malformed list: expecting List End: {cur.TypeCode}, {cur.Value}");
+               cur = e.Current;
+               if(IsListEnd(cur))
                   break;
-               list.Add((TValue) current.Value);
+               list.Add((TValue) cur.Value);
             }
             result.Add((TKey)key, list);
          }
          return result;
       }
 
-      const short listEnd = (short)LispDataType.ListEnd;
-      const short listBegin = (short)LispDataType.ListBegin;
+      static readonly TypedValue listBegin = new TypedValue(102, "{");
+      static readonly TypedValue listEnd = new TypedValue(102, "}");
+
+      static bool IsListBegin(TypedValue tv)
+         => tv.TypeCode == 102 && object.Equals(tv.Value, "{");
+      static bool IsListEnd(TypedValue tv) 
+         => tv.TypeCode == 102 && object.Equals(tv.Value, "}");
+
    }
 
    public interface IDwgSerializable 

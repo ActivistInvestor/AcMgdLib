@@ -51,7 +51,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// The source object will be open for read, and the clone will
       /// be open for write. If the openmode of the source object is
       /// upgraded to OpenMode.ForWrite via UpgradeOpen(), it should
-      /// downgraded to OpenMode.ForRead after write operations have
+      /// be downgraded to OpenMode.ForRead after operations have been
       /// completed, using DowngradeOpen(). This is necessary because
       /// the source object may not be transaction-resident.
       /// </summary>
@@ -61,18 +61,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// also cloned, this method is not called for those objects.
       /// </param>
       /// <param name="ownerId">The ObjectId of the owner which the
-      /// clones are to belong to. To clone the objects to the same
-      /// owner as the source objects, pass ObjectId.Null or do not
-      /// specify a value for this argument.</param>
+      /// clones are to belong to. If this argument is ObjectId.Null,
+      /// there is no filtering by owner.</param>
 
-      /// Used when objects are being cloned to the same owner.
-      
       public DeepCloneOverrule(Action<T, T> action)
          : this(ObjectId.Null, action)
       {
       }
-
-      // Used when objects are being cloned to a different owner:
 
       public DeepCloneOverrule(ObjectId ownerId, Action<T, T> action)
          : base(true)
@@ -199,7 +194,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Any clones that are not instances of this type do not have the
       /// action applied to them.</typeparam>
       /// <param name="source">The ObjectIdCollection that references the
-      /// objects to be cloned.</param>
+      /// objects to be cloned. All DBObjects referenced by elements must
+      /// have the same owner.</param>
       /// <param name="ownerId">The ObjectId of the new owner</param>
       /// <param name="action">A delegate that takes two instances of the
       /// generic argument. The first argument is the source object and the

@@ -15,7 +15,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// to the database. 
    /// 
    /// It can be used in lieu of NewObjectCollection when the
-   /// a derived type only needs to gain access to objects at
+   /// derived type only needs to gain access to objects at
    /// the points when it is about to be closed, or after it is
    /// closed, and doesn't require the ObjectIds of those objects
    /// to be collected, as is done by NewObjectCollection.
@@ -61,7 +61,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// Only called when the object that was closed is
       /// a new object. The ObjectId of the new object is 
-      /// only available from this override.
+      /// available from this override.
       /// </summary>
 
       protected virtual void OnClosed(T obj)

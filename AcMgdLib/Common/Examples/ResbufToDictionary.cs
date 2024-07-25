@@ -8,13 +8,82 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.Common.Examples
 {
    public static class TestResbufToDictionary
    {
+      /// <summary>
+      /// Exercises/tests the ToListDictionary() and
+      /// ToResultBuffer() extension methods, by writing
+      /// a Dictionary<string, int> to an Xrecord.
+      /// </summary>
+      [CommandMethod("SETXREC")]
+      public static void SetXRec()
+      {
+         var map = CreateDictionary();
+         map.Dump();
+         var peo = new PromptEntityOptions("\nPick an entity: ");
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         Editor ed = doc.Editor;
+         var psr = ed.GetEntity(peo);
+         if(psr.Status != PromptStatus.OK)
+            return;
+         var rb = map.ToResultBuffer(DxfCode.Text, DxfCode.Int32);
+         try
+         {
+            using(var tr = new DocumentTransaction())
+            {
+               var ent = tr.GetObject<Entity>(psr.ObjectId, OpenMode.ForWrite);
+               ent.SetXRecordData("test", tr, rb);
+               tr.Commit();
+            }
+         }
+         catch(System.Exception ex)
+         {
+            ed.WriteMessage(ex.ToString());
+         }
+      }
+
+      /// <summary>
+      /// Exercises/tests the ToListDictionary() and
+      /// ToResultBuffer() extension methods, by reading
+      /// a Dictionary<string, int> to an Xrecord that
+      /// was written by the above command.
+      /// </summary>
+      [CommandMethod("GETXREC")]
+      public static void GetXRec()
+      {
+         var map = CreateDictionary();
+         map.Dump();
+         var peo = new PromptEntityOptions("\nPick an entity: ");
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         Editor ed = doc.Editor;
+         var psr = ed.GetEntity(peo);
+         if(psr.Status != PromptStatus.OK)
+            return;
+         try
+         {
+            using(var tr = new DocumentTransaction())
+            {
+               var ent = tr.GetObject<Entity>(psr.ObjectId, OpenMode.ForWrite);
+               var rb = ent.GetXRecordData("test");
+               var dict = rb.ToListDictionary<string, int>();
+               dict.Dump();
+               tr.Commit();
+            }
+         }
+         catch(System.Exception ex)
+         {
+            ed.WriteMessage(ex.ToString());
+         }
+      }
+
       /// <summary>
       /// Tests/excerises the ToResultBuffer() and 
       /// ToListDictionary() extension methods that 

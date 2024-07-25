@@ -536,16 +536,37 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static void SetXRecordData(this DBObject owner,
          string key,
          Transaction trans,
+         ResultBuffer buffer)
+      {
+         Assert.IsNotNull(buffer, nameof(buffer));
+         bool xlate = buffer.Cast<TypedValue>().Any(tv => tv.Value is ObjectId);
+         SetXRecordData(owner, key, trans, xlate, xlate, buffer);
+      }
+
+      public static void SetXRecordData(this DBObject owner,
+         string key,
+         Transaction trans,
          bool treatElementsAsHard,          // applies to newly-created DBDictionaries only
          bool xlateReferences,              // applies to newly-created Xrecords only
          params TypedValue[] typedValues)
       {
+         Assert.IsNotNull(typedValues, nameof(typedValues));
+         SetXRecordData(owner, key, trans, treatElementsAsHard, xlateReferences, new ResultBuffer(typedValues));
+      }
+
+      public static void SetXRecordData(this DBObject owner,
+         string key,
+         Transaction trans,
+         bool treatElementsAsHard,          // applies to newly-created DBDictionaries only
+         bool xlateReferences,              // applies to newly-created Xrecords only
+         ResultBuffer buffer)
+      {
          Assert.IsNotNullOrWhiteSpace(key, nameof(key));
          owner.CheckTransaction(trans);
-         Xrecord xrecord = owner.GetXrecord(key, trans, OpenMode.ForWrite, treatElementsAsHard);
-         if(xrecord.IsNewObject && xlateReferences) 
+         Xrecord xrecord = owner.GetXrecord(key, trans, OpenMode.ForWrite, true, treatElementsAsHard);
+         if(xrecord.IsNewObject && xlateReferences)
             xrecord.XlateReferences = xlateReferences;
-         xrecord.Data = new ResultBuffer(typedValues);
+         xrecord.Data = buffer;
       }
 
       /// <summary>
