@@ -324,57 +324,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// The following methods operate on the encapsulated Database.
 
       /// <summary>
-      /// Appends a sequence/collection of entities to the specified 
-      /// owner block, or the current space block if no owner block is 
-      /// specified, and returns an ObjectIdCollection containing the 
-      /// ObjectIds of the appended entities.
-      /// 
-      /// Overloads are provided targeting IEnumerable<Entity> and
-      /// DBObjectCollection.
-      /// </summary>
-      /// <param name="entities"></param>
-      /// <param name="ownerId"></param>
-      /// <returns></returns>
-
-
-      ///// <summary>
-      ///// Appends the given entity to the given BlockTableRecord.
-      ///// </summary>
-      ///// <param name="owner"></param>
-      ///// <param name="entity"></param>
-      ///// <returns></returns>
-
-      //public ObjectId Append(BlockTableRecord owner, Entity entity)
-      //{
-      //   Assert.IsNotNullOrDisposed(owner, nameof(owner));
-      //   return Append(entity, owner);
-      //}
-
-      /// Development note:
-      /// Integration of several different code bases resulted
-      /// in a confusing array of Append() methods that are not
-      /// all required. Some of these will be removed, with the
-      /// intent to have the following:
-      /// 
-      ///   Append(Entity, [owner])
-      ///   Append(IEnumerable<Entity>, bool disposeOnFail = true)
-      ///   Append(IEnumerable<Entity>, BlockTableRecord owner, bool disposeOnFail = true)
-      ///   Append(DBObjectCollection, BlockTableRecord owner, bool dispose) 
-      ///   Append(DBObjectCollection, bool dispose) 
-      ///   
-      /// In the above, [owner] (A BlockTableRecord) is an optional 
-      /// argument that if not supplied, defaults to the current space 
-      /// BlockTableRecord. 
-      /// 
-      /// Any overload not taking a BlockTableRecord argument appends 
-      /// its argument(s) to the current space.
-      /// 
-      /// The versions that take a collection or enumerable will
-      /// optionally dispose any unprocessed elements if an error
-      /// is thrown before all objects are appended.
-      /// 
-
-      /// <summary>
       /// Appends the entity to the given BlockTableRecord or
       /// the current space BlockTableRecord if the owner is 
       /// not supplied or is null.
@@ -394,12 +343,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          AcRx.ErrorStatus.NotOpenForWrite.ThrowIf(!owner.IsWriteEnabled);
          owner.AppendEntity(entity);
          Add(entity);
-         OnAppended(owner, entity);
          return entity.ObjectId;
-      }
-
-      protected virtual void OnAppended(BlockTableRecord owner, Entity entity)
-      {
       }
 
       /// <summary>
@@ -462,7 +406,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                   Assert.IsNotNullOrDisposed(entity, nameof(entity));
                   owner.AppendEntity(entity);
                   Add(entity);
-                  OnAppended(owner, entity);
                   result.Add(entity.ObjectId);
                }
                return result;
