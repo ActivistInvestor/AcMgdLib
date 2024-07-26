@@ -170,8 +170,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Like GetBlockReferenceIds() except that 
-      /// it returns the resulting ObjectIds in a HashSet.
+      /// Like GetBlockReferenceIds() except that it 
+      /// returns the resulting ObjectIds in a HashSet.
       /// </summary>
       /// <param name="btr"></param>
       /// <param name="directOnly"></param>
@@ -186,6 +186,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          var ids = btr.GetBlockReferenceIds(directOnly, true);
          List<ObjectId> list = new List<ObjectId>(ids.Count);
          list.AddRange(ids.Cast<ObjectId>());
+         Span<ObjectId> span = CollectionsMarshal.AsSpan(list);
          if(includingDynamic && btr.IsDynamicBlock && !btr.IsAnonymous)
          {
             using(var trans = new ReadOnlyTransaction())
@@ -197,9 +198,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                   var btr2 = trans.GetObject<BlockTableRecord>(anonBlockIds[i]);
                   ids = btr2.GetBlockReferenceIds(directOnly, true);
                   int cnt2 = ids.Count;
+                  int k = list.Count;
                   CollectionsMarshal.SetCount(list, list.Count + cnt2);
                   for(int j = 0; j < cnt2; j++)
-                     list.Add(ids[j]);
+                     span[k++] = ids[j];
                }
             }
          }
@@ -240,6 +242,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNullOrDisposed(btr, nameof(btr));
          Assert.IsNotNull(entityIds, nameof(entityIds));
          var idSet = btr.GetBlockReferenceIdSet(includingDynamic, false);
+         if(entityIds is ObjectId[] array)
+         {
+            for(int i = 0; i < array.Length; i++)
+            {
+               if(idSet.Contains(array[i]))
+                  return true;
+            }
+            return false;
+         }
          foreach(var id in entityIds)
          {
             if(idSet.Contains(id))

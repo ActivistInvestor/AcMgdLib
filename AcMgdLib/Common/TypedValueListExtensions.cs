@@ -943,13 +943,13 @@ namespace Autodesk.AutoCAD.Runtime
          foreach(var pair in items)
          {
             result.Add(new TypedValue(keyCode, pair.Key));
-            result.Add(listBegin);
+            result.Add(dxfListBegin);
             if(pair.Value != null)
             {
                foreach(TValue value in pair.Value)
                   result.Add(new TypedValue(valueCode, value));
             }
-            result.Add(listEnd);
+            result.Add(dxfListEnd);
          }
          return result;
       }
@@ -961,16 +961,16 @@ namespace Autodesk.AutoCAD.Runtime
       /// 
       /// TKey and TValue must both be simple value types (or strings)
       /// that can be assigned to a TypedValue's Value property and be 
-      /// written to an XRecord. Reference types aside from strings are 
+      /// written to an XRecord. Reference types other than string are 
       /// not supported. Arrays are not supported.
       /// </summary>
       /// <typeparam name="TKey">The type of the Dictionary's Keys</typeparam>
-      /// <typeparam name="TValue">The type of the value stored in the 
-      /// List<TValue> that is each dictionary entry's value.</typeparam>
+      /// <typeparam name="TValue">The type of the values stored in each
+      /// dictionary entry's ICollection<TValue> value.</typeparam>
       /// <param name="resbuf">The result buffer to convert</param>
-      /// <param name="factory">A function that creates an ICollection<T>
-      /// that holds each Dictionary entry's values. If not provided, the
-      /// container is a List<TValue></param>
+      /// <param name="factory">A function that returns an ICollection<TValue>
+      /// that will hold each Dictionary entry's values. If not provided, the
+      /// default container is a List<TValue></param>
       /// <returns>A dictionary holding the contents of the ResultBuffer</returns>
       /// <exception cref="InvalidOperationException"></exception>
       
@@ -989,7 +989,7 @@ namespace Autodesk.AutoCAD.Runtime
             if(!e.MoveNext())
                throw new InvalidOperationException("Count mismatch");
             TypedValue cur = e.Current;
-            if(!cur.IsEqualTo(listBegin))
+            if(!cur.IsEqualTo(dxfListBegin))
                throw new InvalidOperationException(
                   $"Malformed list: expecting List Begin: {cur.TypeCode}, {cur.Value}");
             ICollection<TValue> list = factory();
@@ -999,7 +999,7 @@ namespace Autodesk.AutoCAD.Runtime
                   throw new InvalidOperationException(
                      $"Malformed list: expecting List End");
                cur = e.Current;
-               if(cur.IsEqualTo(listEnd))
+               if(cur.IsEqualTo(dxfListEnd))
                   break;
                list.Add((TValue) cur.Value);
             }
@@ -1008,8 +1008,69 @@ namespace Autodesk.AutoCAD.Runtime
          return result;
       }
 
-      static readonly TypedValue listBegin = new TypedValue(102, "{");
-      static readonly TypedValue listEnd = new TypedValue(102, "}");
+      /// <summary>
+      /// Converts a sequence of TypedValues that use LISP list 
+      /// semantics (LispDataType.ListBegin/End) to an equivalent
+      /// DXF-compatible sequence using (DxfCode.ControlString "{")
+      /// and (DxfCode.ConstrolString "}") as list delimiters.
+      /// 
+      /// Storing a ResultBuffer in an Xrecord requires this
+      /// conversion.
+      /// </summary>
+      
+      public static IEnumerable<TypedValue> ToDxfList(this IEnumerable<TypedValue> items)
+      {
+         foreach(TypedValue item in items)
+         {
+            switch(item.TypeCode)
+            {
+               case 5016:
+                  yield return dxfListBegin;
+                  break;
+               case 5017:
+                  yield return dxfListEnd;
+                  break;
+               default:
+                  yield return item;
+                  break;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Performs the inverse conversion done by ToDxfList()
+      /// </summary>
+
+      public static IEnumerable<TypedValue> ToLispList(this IEnumerable<TypedValue> items)
+      {
+         foreach(TypedValue item in items)
+         {
+            if(item.IsEqualTo(dxfListBegin))
+               yield return lispListBegin;
+            else if(item.IsEqualTo(dxfListEnd))
+               yield return lispListEnd;
+            else
+               yield return item;
+         }
+      }
+
+
+      static readonly TypedValue dxfListBegin = 
+         new TypedValue((short) DxfCode.ControlString, "{");
+      static readonly TypedValue dxfListEnd = 
+         new TypedValue((short) DxfCode.ControlString, "}");
+      static readonly TypedValue lispListBegin = 
+         new TypedValue((short) LispDataType.ListBegin);
+      static readonly TypedValue lispListEnd =
+         new TypedValue((short) LispDataType.ListEnd);
+
+      public static bool IsListBegin(this TypedValue value) =>
+         value.TypeCode == 5016 || value.IsEqualTo(dxfListBegin);
+
+
+      public static bool IsListEnd(this TypedValue value) =>
+         value.TypeCode == 5017 || value.IsEqualTo(dxfListEnd);
+      
 
       /// A Fix for TypedValue.Equals()
 

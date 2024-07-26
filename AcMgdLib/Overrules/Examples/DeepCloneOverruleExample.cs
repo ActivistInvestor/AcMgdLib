@@ -39,7 +39,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// The first example uses mostly 'bare-metal' or built-
       /// in APIs to perform the operation. A second example 
-      /// that follows shows the same operation implemented 
+      /// that follows it shows the same operation implemented 
       /// with the help of APIs included in this library.
       /// </summary>
 
@@ -173,7 +173,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          var psr = ed.GetSelection(pso);
          if(psr.Status != PromptStatus.OK)
             return;
-         var idBlkRef = ed.GetEntity<BlockReference>("\nSelect insertion: ");
+         var idBlkRef = ed.GetEntity<BlockReference>("\nSelect block insertion: ");
          if(idBlkRef.IsNull)
             return;
          using(var tr = new DocumentTransaction())
@@ -184,28 +184,35 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                blkref.DynamicBlockTableRecord);
 
             /// This applies to any code that adds objects to 
-            /// existing blocks: It's critically-important that 
-            /// objects that are added to an existing block have 
-            /// no dependence on that block, either direct or 
-            /// indirect. 
+            /// existing blocks: 
             /// 
-            /// Adding an object that has a dependence on the 
-            /// block its added to creates a cyclical reference 
-            /// that results in a self-referencing block. 
+            /// Adding objects to an existing block definition is
+            /// an inherently-dangerous process, that can silently
+            /// corrupt drawing files.
+            /// 
+            /// It's critically-important that objects added to
+            /// an existing block have no dependence on that block, 
+            /// either direct or indirect. Adding objects that have
+            /// a dependence on the block they're added to creates a
+            /// cyclical reference, resulting in a self-referencing 
+            /// block. 
             /// 
             /// The underlying managed and native APIs DO NOT check
-            /// dependencies when adding objects to a block within
-            /// the deep-clone process, meaning that it allows the
-            /// creation of self-referencing blocks and gives no
-            /// indication that it happened, until an audit is done.
+            /// for cyclical references when appending entities to a 
+            /// block within the deep-clone process, meaning that the
+            /// API allows the creation of self-referencing blocks and 
+            /// gives no indication whatsoever that it happened, which
+            /// often results in the corruption not being discovered 
+            /// until an audit is done or a file is subsequently opened
+            /// and errors are reported.
             /// 
-            /// This code checks its arguments to detect if any of 
-            /// them have a dependence on the block and if so, will
-            /// reject the selection:
+            /// This code will check for cyclical references in the 
+            /// selected objects to be added to the block definition,
+            /// and if any are found, will reject the selection:
 
             ObjectId[] ids = psr.Value.GetObjectIds();
 
-            if(ids.HasDependenceOn(btr))
+            if(btr.IsReferencedByAny(ids))
             {
                ed.WriteMessage("\nInvalid: One or more selected objects"
                   + " are dependent on the selected block.");
@@ -213,9 +220,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                return;
             }
 
-            /// The above code is nearly identical to the corresponding
-            /// code from the first example. What follows is vastly-
-            /// different.
+            /// The code up to this point is nearly identical to the 
+            /// corresponding code in the first example. What follows 
+            /// is vastly-different.
 
             /// Get the transformation matrix required to transform
             /// the selected objects into the block's WCS:
@@ -229,7 +236,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
             void OnCloned(Entity source, Entity clone)
             {
-               source.UpgradeOpen();
+               source.UpgradeOpen(); 
                source.Erase(true);
                clone.TransformBy(transform);
             }
@@ -239,7 +246,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             /// manages the DeepCloneOverrule that calls the above
             /// OnCloned() method, allowing the programmer to avoid 
             /// having to deal directly with the DeepCloneOverrule 
-            /// class. 
+            /// class. Although the CopyTo<>() method returns the
+            /// IdMapping containing the result of the deep clone
+            /// operation, it isn't needed because the OnCloned()
+            /// delgate above does all the required work:
 
             ids.CopyTo<Entity>(btr.ObjectId, OnCloned);
 

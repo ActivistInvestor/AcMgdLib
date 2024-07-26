@@ -40,12 +40,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public override void Close(DBObject dbObject)
       {
-         bool flag = dbObject.IsNewObject;
+         T subject = dbObject as T;
+         bool flag = subject != null && subject.IsNewObject;
          if(flag)
-            OnClosing((T)dbObject);
+            OnClosing(subject);
          base.Close(dbObject);
          if(flag)
-            OnClosed((T)dbObject);
+            OnClosed(subject);
       }
 
       /// <summary>

@@ -225,15 +225,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       static string getCSharpName(Type type)
       {
-         var sb = new StringBuilder();
          var name = type.Name;
          if(!type.IsGenericType)
             return name;
+         var sb = new StringBuilder();
          sb.Append(name.Substring(0, name.IndexOf('`')));
          sb.Append("<");
          sb.Append(string.Join(", ",
             type.GetGenericArguments()
-              .Select(CSharpName)));
+              .Select(getCSharpName)));
          sb.Append(">");
          return sb.ToString();
       }

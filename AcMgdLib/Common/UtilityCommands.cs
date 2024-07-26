@@ -78,10 +78,16 @@ namespace Ac2025Project
       {
          using(var trans = new DocumentTransaction(true, true))
          {
+            var ed = trans.Editor;
             var ss = trans.Editor.SelectImplied();
-            if(ss.Status == PromptStatus.OK && ss.Value?.Count == 1)
+            if(ss.Status == PromptStatus.OK && ss.Value?.Count > 0)
             {
-               trans[ss.Value[0].ObjectId].DwgDump();
+               foreach(ObjectId id in ss.Value.GetObjectIds())
+               {
+                  TypedValueList tvList = id.EntGet();
+                  ed.WriteMessage("\n" + tvList.ToString<short>("\n"));
+                  ed.WriteMessage("\n\n");
+               }
                trans.Editor.SetImpliedSelection(ss.Value.GetObjectIds());
                return;
             }
@@ -92,10 +98,8 @@ namespace Ac2025Project
                var per = trans.Editor.GetEntity(peo);
                if(per.Status != PromptStatus.OK)
                   return;
-
-               TypedValueList list = per.ObjectId.EntGet();
-
-               trans.Editor.WriteMessage("\n" + list.ToString<short>("\n"));
+               TypedValueList tvList = per.ObjectId.EntGet();
+               ed.WriteMessage("\n" + tvList.ToString<short>("\n"));
             }
          }
       }

@@ -19,8 +19,8 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    /// attribute in cases where the module filename
    /// is version-dependent.
    /// 
-   /// See AcDbNativeMethods.cs for an extended 
-   /// description and example of using this class.
+   /// See AcDbNativeMethods.cs for an exhaustive 
+   /// discussion and example of using this class.
    /// </summary>
 
    public static class DllImport
@@ -88,13 +88,18 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
          return result;
       }
 
+      public static T Load<T>(this T del, string entryPoint) where T:Delegate
+      {
+         return AcDbImport<T>(entryPoint);
+      }
+
       /// <summary>
       /// Gets a delegate representing a function exported by the 
       /// specified loaded module. This method can only be used to
       /// import methods from modules that are already loaded into 
-      /// AutoCAD. For modules that are not loaded into AutoCAD, one 
-      /// must use use LoadLibrary() to explicitly load the module
-      /// before a method can be imported from it.
+      /// AutoCAD. For modules that are not currently loaded into 
+      /// AutoCAD, must use LoadLibrary() to explicitly load the 
+      /// module before a method can be imported from it.
       /// </summary>
       /// <typeparam name="T">The type of the delegate representing
       /// the imported function signature</typeparam>

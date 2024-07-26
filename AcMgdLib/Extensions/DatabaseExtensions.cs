@@ -950,10 +950,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
 
-      /// <summary>
-      /// SymbolUtilityServices extensions
-      /// </summary>
-
       public static ObjectId GetModelSpaceBlockId(this Database db)
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));

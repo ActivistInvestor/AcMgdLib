@@ -65,6 +65,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public class DatabaseTransaction : Transaction
    {
       Database database;
+      BlockTableRecord currentSpace = null;
       TransactionManager manager = null;   
       Database prevWorkingDb = null;
       static Dictionary<Database, DatabaseTransaction> transactions =
@@ -283,7 +284,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(value != OpenMode.ForRead || value != OpenMode.ForWrite)
                throw new ArgumentException("Invalid OpenMode");
             if(this.IsReadOnly && value == OpenMode.ForWrite)
-               throw new ArgumentException("Instead is read-only");
+               throw new ArgumentException("Instance is read-only");
             this.openMode = value;
          }
       }
@@ -335,80 +336,118 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="ownerId"></param>
       /// <returns></returns>
 
-      public ObjectIdCollection Append(DBObjectCollection entities,
-         ObjectId ownerId = default(ObjectId)) 
-      {
-         return Append(entities.OfType<Entity>(), ownerId);
-      }
 
-      public ObjectIdCollection Append(IEnumerable<Entity> entities, 
-         ObjectId ownerId = default(ObjectId)) 
-      {
-         Assert.IsNotNull(entities, nameof(entities));
-         ObjectId target = ownerId.IsNull ? database.CurrentSpaceId : ownerId;
-         var owner = GetObjectChecked<BlockTableRecord>(target, OpenMode.ForWrite);
-         ObjectIdCollection result = new ObjectIdCollection();
-         foreach(var entity in entities)
-         {
-            owner.AppendEntity(entity);
-            result.Add(entity.ObjectId);
-            AddNewlyCreatedDBObject(entity, true);
-         }
-         return result;
-      }
+      ///// <summary>
+      ///// Appends the given entity to the given BlockTableRecord.
+      ///// </summary>
+      ///// <param name="owner"></param>
+      ///// <param name="entity"></param>
+      ///// <returns></returns>
 
-      BlockTableRecord appendOwner = null;
+      //public ObjectId Append(BlockTableRecord owner, Entity entity)
+      //{
+      //   Assert.IsNotNullOrDisposed(owner, nameof(owner));
+      //   return Append(entity, owner);
+      //}
 
-      /// <summary>
-      /// Appends the given entity to the given BlockTableRecord.
-      /// </summary>
-      /// <param name="owner"></param>
-      /// <param name="entity"></param>
-      /// <returns></returns>
-
-      public ObjectId Append(BlockTableRecord owner, Entity entity)
-      {
-         Assert.IsNotNullOrDisposed(owner, nameof(owner));
-         return Append(entity, owner);
-      }
+      /// Development note:
+      /// Integration of several different code bases resulted
+      /// in a confusing array of Append() methods that are not
+      /// all required. Some of these will be removed, with the
+      /// intent to have the following:
+      /// 
+      ///   Append(Entity, [owner])
+      ///   Append(IEnumerable<Entity>, bool disposeOnFail = true)
+      ///   Append(IEnumerable<Entity>, BlockTableRecord owner, bool disposeOnFail = true)
+      ///   Append(DBObjectCollection, BlockTableRecord owner, bool dispose) 
+      ///   Append(DBObjectCollection, bool dispose) 
+      ///   
+      /// In the above, [owner] (A BlockTableRecord) is an optional 
+      /// argument that if not supplied, defaults to the current space 
+      /// BlockTableRecord. 
+      /// 
+      /// Any overload not taking a BlockTableRecord argument appends 
+      /// its argument(s) to the current space.
+      /// 
+      /// The versions that take a collection or enumerable will
+      /// optionally dispose any unprocessed elements if an error
+      /// is thrown before all objects are appended.
+      /// 
 
       /// <summary>
       /// Appends the entity to the given BlockTableRecord or
-      /// the current space BlockTableRecord if the specified
-      /// owner is not supplied or is null.
+      /// the current space BlockTableRecord if the owner is 
+      /// not supplied or is null.
       /// </summary>
-      /// <param name="entity"></param>
-      /// <param name="owner"></param>
+      /// <param name="entity">The Entity to be appended to the
+      /// specified owner or the current space block</param>
+      /// <param name="owner">The BlockTableRecord to append the 
+      /// given Entity to. The argument must be write-enabled.</param>
       /// <returns></returns>
-      
+
       public ObjectId Append(Entity entity, BlockTableRecord owner = null)
       {
+         CheckDisposed();
+         owner = owner ?? CurrentSpaceForWrite;
          Assert.IsNotNullOrDisposed(entity, nameof(entity));
-         if(owner != null)
-         {
-            Assert.IsNotNullOrDisposed(owner, nameof(owner));
-            AcRx.ErrorStatus.NotOpenForWrite.ThrowIf(!owner.IsWriteEnabled);
-         }
-         else
-         {
-            if(appendOwner == null || appendOwner.ObjectId != CurrentSpaceId)
-               appendOwner = GetObject<BlockTableRecord>(CurrentSpaceId, OpenMode.ForWrite);
-            owner = appendOwner;
-         }
+         Assert.IsNotNullOrDisposed(owner, nameof(owner));
+         AcRx.ErrorStatus.NotOpenForWrite.ThrowIf(!owner.IsWriteEnabled);
          owner.AppendEntity(entity);
-         AddNewlyCreatedDBObject(entity, true);
+         Add(entity);
+         OnAppended(owner, entity);
          return entity.ObjectId;
       }
 
-      /// <summary>
-      /// Overload of Append() that takes the owner
-      /// BlockTableRecord as an argument. The owner
-      /// must be open for write or an exception will
-      /// be thrown.
-
-      public ObjectIdCollection Append<T>(IEnumerable<T> entities,
-         BlockTableRecord owner) where T : Entity
+      protected virtual void OnAppended(BlockTableRecord owner, Entity entity)
       {
+      }
+
+      /// <summary>
+      /// Appends the sequence of entities to the current space block.
+      /// </summary>
+      /// <remarks>
+      /// If disposeOnError is true (the default), and an exception 
+      /// occurs before all entities were appended to the current space, 
+      /// this method attempts to dispose any entities from the input 
+      /// sequence that haven't been appended to the current space.
+      /// </remarks>
+      /// <param name="entities">The sequence of entities to append to
+      /// the current space</param>
+      /// <param name="disposeOnFail">A value indicating if entities
+      /// from the source sequence that have not been appended to the
+      /// owner should be disposed if an exception occurs before all of
+      /// the entities were appended (default: true).</param>
+      /// <returns>An ObjectIdCollection containing the ObjectIds of
+      /// all entities appended to the owner BlockTableRecord</returns>
+
+      public ObjectIdCollection Append(IEnumerable<Entity> entities, bool disposeOnFail = true)
+      {
+         return Append(entities, CurrentSpaceForWrite, disposeOnFail);
+      }
+
+      /// <summary>
+      /// Appends the sequence of entities to the specified owner 
+      /// BlockTableRecord. The specified owner BlockTableRecord must 
+      /// be open for write.
+      /// <remarks>
+      /// If disposeOnError is true (the default), and an exception 
+      /// occurs before all entities were appended to the owner block, 
+      /// this method attempts to dispose any entities from the input 
+      /// sequence that haven't been appended to the owner block.
+      /// </remarks>
+      /// <param name="entities">The sequence of entities to append to
+      /// the owner BlockTableRecord</param>
+      /// <param name="owner">The owner BlockTableRecord to append the entities to</param>
+      /// <param name="disposeOnFail">A value indicating if entities
+      /// from the source sequence that have not been appended to the
+      /// owner should be disposed if an exception occurs (default: true).</param>
+      /// <returns>An ObjectIdCollection containing the ObjectIds of
+      /// all entities appended to the owner BlockTableRecord</returns>
+      /// </summary>
+
+      public ObjectIdCollection Append(IEnumerable<Entity> entities, BlockTableRecord owner, bool disposeOnFail = true)
+      {
+         CheckDisposed();
          Assert.IsNotNull(entities, nameof(entities));
          Assert.IsNotNullOrDisposed(owner, nameof(owner));
          AcRx.ErrorStatus.NotOpenForWrite.ThrowIf(!owner.IsWriteEnabled);
@@ -417,24 +456,85 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          {
             try
             {
-               while(e.MoveNext()) 
+               while(e.MoveNext())
                {
                   var entity = e.Current;
-                  if(entity == null)
-                     Assert.IsNotNull(entity, nameof(entity));
+                  Assert.IsNotNullOrDisposed(entity, nameof(entity));
                   owner.AppendEntity(entity);
-                  AddNewlyCreatedDBObject(entity, true);
+                  Add(entity);
+                  OnAppended(owner, entity);
                   result.Add(entity.ObjectId);
                }
                return result;
             }
             catch(System.Exception ex)
             {
-               while(e.MoveNext())
-                  e.Current?.Dispose();
+               if(disposeOnFail)
+               {
+                  while(e.MoveNext())
+                     e.Current?.Dispose();
+               }
                throw ex;
             }
          }
+      }
+
+      /// <summary>
+      /// Appends the entities in the DBObjectCollection to the specified
+      /// owner BlockTableRecord. The owner argument must be open for write.
+      /// 
+      /// If the dispose argument is true, the entire contents of the given
+      /// DBObjectCollection (including non-Entity based objects) will be 
+      /// disposed after all entities have been appended.
+      /// 
+      /// If an exception occurs before all entities in the DBObjectCollection
+      /// have been appended to the owner, the entities that were not appended 
+      /// will be disposed.
+      /// </summary>
+      /// <param name="entities">The DBObjectCollection containing the entities
+      /// to be appended to the owner block</param>
+      /// <param name="owner">The owner BlockTableRecord to append the entities to</param>
+      /// <param name="dispose">A value indicating if all elements in the source
+      /// DBObjectCollection should be disposed upon successful completion of the
+      /// operation.</param>
+      /// <returns></returns>
+
+      public ObjectIdCollection Append(DBObjectCollection entities, BlockTableRecord owner, bool dispose = true)
+      {
+         IDisposable disposer = dispose ? entities.EnsureDispose(false) : null;
+         using(disposer)
+         {
+            return Append(entities.OfType<Entity>(), owner, true);
+         }
+      }
+
+      /// <summary>
+      /// Overload of the above that appends the entities to the
+      /// current space.
+      /// </summary>
+
+      public ObjectIdCollection Append(DBObjectCollection entities, bool dispose = true)
+      {
+         return Append(entities, CurrentSpaceForWrite, dispose);
+      }
+
+      protected BlockTableRecord CurrentSpaceForWrite
+      {
+         get
+         {
+            if(currentSpace == null || currentSpace.IsDisposed || currentSpace.ObjectId != CurrentSpaceId)
+               currentSpace = GetObject<BlockTableRecord>(CurrentSpaceId, OpenMode.ForWrite);
+            else if(!currentSpace.IsWriteEnabled)
+               currentSpace.UpgradeOpen();
+            return currentSpace;
+         }
+      }
+
+      protected static void TryUpgradeOpen(DBObject target)
+      {
+         Assert.IsNotNullOrDisposed(target, nameof(target));   
+         if(!target.IsWriteEnabled)
+            target.UpgradeOpen();
       }
 
       /// <summary>
@@ -454,7 +554,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          foreach(T entity in source)
          {
             if(!entity.IsWriteEnabled)
-               GetObject(entity.ObjectId, OpenMode.ForWrite, false, upgradeOnLockedLayers);
+            {
+               if(upgradeOnLockedLayers)
+                  GetObject(entity.ObjectId, OpenMode.ForWrite, false, upgradeOnLockedLayers);
+               else
+                  entity.UpgradeOpen();
+            }
             yield return entity;
          }
       }
@@ -469,6 +574,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public T GetObject<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T:DBObject
       {
+         CheckDisposed();
          return (T) base.GetObject(id, mode, openErased, openOnLockedLayer);
       }
 
@@ -479,6 +585,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public T GetObjectChecked<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T : DBObject
       {
+         CheckDisposed();
          AcRx.ErrorStatus.WrongObjectType.Requires<T>(id);
          return (T)base.GetObject(id, mode, openErased, openOnLockedLayer);
       }
@@ -529,7 +636,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       void CheckDisposed()
       {
-         if(this.IsDisposed || !this.AutoDelete || this.database.IsDisposed)
+         if(this.IsDisposed || !this.AutoDelete || this.database == null || this.database.IsDisposed)
             throw new InvalidOperationException("Transaction or Database was ended or disposed.");
       }
 
@@ -1017,19 +1124,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public bool IsCompatibilityMode => 
          SymbolUtilityServices.IsCompatibilityMode(ThisDb);
 
-      public bool TryValidateSymbolName(string name, bool allowVerticalBar = false)
-      {
-         Assert.IsNotNullOrWhiteSpace(name, nameof(name));
-         try
-         {
-            SymbolUtilityServices.ValidateSymbolName(name, false);
-            return true;
-         }
-         catch(AcRx.Exception)
-         {
-            return false;
-         }
-      }
 
    }
 

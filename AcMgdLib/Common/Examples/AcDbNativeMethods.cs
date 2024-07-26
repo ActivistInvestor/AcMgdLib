@@ -93,6 +93,12 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    ///    defined above:
    ///    
    ///       acdbGetAdsName = DllImport.AcDbImport<acdbGetAdsNameFunc>(acdbGetAdsName64);
+   /// 
+   ///    Alternatively, you can use the Load() extension 
+   ///    method that targets the delegate type, to simplify 
+   ///    the above method call:
+   ///    
+   ///       acdbGetAdsName = acdbGetAdsName.Load(acdbGetAdsName64);
    ///    
    /// Once complete, the delegate variable acdbGetAdsName
    /// represents the dynamically-loaded native method, and 
@@ -138,8 +144,15 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
 
       static AcRx.ErrorStatus acdbGetAdsNameLoader(out AdsName ename, ObjectId id)
       {
-         acdbGetAdsName = DllImport.AcDbImport<acdbGetAdsNameFunc>(acdbGetAdsName64);
+         acdbGetAdsName = acdbGetAdsName.Load(acdbGetAdsName64);
+         // acdbGetAdsName = DllImport.AcDbImport<acdbGetAdsNameFunc>(acdbGetAdsName64);
          return acdbGetAdsName(out ename, id);
+
+         // Alternative syntax using an extension method that
+         // targets the delegate type:
+         //
+         //   acdbGetAdsName = acdbGetAdsName.LoadAcDb(acdbGetAdsName64);
+
       }
 
       /// acdbEntGet doesn't need to be dynamically-loaded:

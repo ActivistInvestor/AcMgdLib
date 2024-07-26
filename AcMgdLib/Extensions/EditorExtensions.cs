@@ -44,37 +44,10 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          return result.Status == PromptStatus.OK ? result.ObjectId : ObjectId.Null;
       }
 
-      //public static ObjectId GetEntity<T>(this Editor editor, PromptEntityOptions peo = null)
-      //   where T : Entity
-      //{
-      //   Assert.IsNotNull(editor, nameof(editor));
-      //   if(peo == null)
-      //   {
-      //      peo = new PromptEntityOptions($"\nSelect {RXClass<T>.Value.Name}: ");
-      //      peo.AllowObjectOnLockedLayer = true;
-      //      peo.AddAllowedClass(typeof(T), false);
-      //   }
-      //   var per = editor.GetEntity(peo);
-      //   return per.Status == PromptStatus.OK ? per.ObjectId : ObjectId.Null;
-      //}
-
-      //public static ObjectId GetEntity<T>(this Editor editor, string message)
-      //   where T : Entity
-      //{
-      //   Assert.IsNotNull(editor, nameof(editor));
-      //   Assert.IsNotNullOrWhiteSpace(message, nameof(message));
-      //   string name = RXClass<T>.Value.Name;
-      //   var peo = new PromptEntityOptions(message);
-      //   peo.AllowObjectOnLockedLayer = true;
-      //   peo.AddAllowedClass(typeof(T), false);
-      //   var per = editor.GetEntity(peo);
-      //   return per.Status == PromptStatus.OK ? per.ObjectId : ObjectId.Null;
-      //}
-
       public static string GetBlockName(this Editor editor, string message, string defaultValue = null, bool allowExisting = true)
       {
          Assert.IsNotNull(editor, nameof(editor));
-         /// TODO: Reormat supplied message to include defaultValue
+         /// TODO: Reformat supplied message to include defaultValue
          if(string.IsNullOrEmpty(message))
             message = "\nBlock name: ";
          PromptStringOptions pso = new PromptStringOptions(message);
@@ -92,12 +65,10 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
             if(string.IsNullOrWhiteSpace(pr.StringResult))
                return defaultValue;
             Database db = editor.Document.Database;
-            using(var tr = new DatabaseTransaction(db, false))
+            using(var tr = new DatabaseTransaction(db, true))
             {
                tr.IsReadOnly = true;
-               /// TODO: This API is not dependent on a Database,
-               /// and should be moved elsewhere:
-               if(!tr.TryValidateSymbolName(pr.StringResult))
+               if(!SymbolUtilities.TryValidateSymbolName(pr.StringResult))
                {
                   editor.WriteMessage("\nInvalid block name,");
                   continue;
