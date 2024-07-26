@@ -5,7 +5,6 @@
 /// Distributed under the terms of the MIT license.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,8 +24,8 @@ namespace AcMgdLib.Common.Examples
       /// writing a Dictionary<string, List<int>> to an Xrecord.
       /// </summary>
 
-      [CommandMethod("DICTWRITE")]
-      public static void SetXRec()
+      [CommandMethod("WRITEXRECORD")]
+      public static void WriteXrecord()
       {
          var map = CreateDictionary();
          var peo = new PromptEntityOptions("\nPick an entity: ");
@@ -35,32 +34,25 @@ namespace AcMgdLib.Common.Examples
          var psr = ed.GetEntity(peo);
          if(psr.Status != PromptStatus.OK)
             return;
-         var rb = map.ToResultBuffer(DxfCode.Text, DxfCode.Int32);
-         try
+         var resbuf = map.ToResultBuffer(DxfCode.Text, DxfCode.Int32);
+         using(var trans = new DocumentTransaction())
          {
-            using(var tr = new DocumentTransaction())
-            {
-               var ent = tr.GetObject<Entity>(psr.ObjectId, OpenMode.ForWrite);
-               ent.SetXRecordData("test", tr, rb);
-               tr.Commit();
-               ed.WriteMessage("\nDictionary<string, List<int>> written to Xrecord: ");
-               map.Dump();
-            }
-         }
-         catch(System.Exception ex)
-         {
-            ed.WriteMessage(ex.ToString());
+            var ent = trans.GetObject<Entity>(psr.ObjectId, OpenMode.ForWrite);
+            ent.SetXRecordData("test", trans, resbuf);
+            trans.Commit();
+            ed.WriteMessage("\nDictionary<string, List<int>> written to Xrecord: ");
+            map.Dump();
          }
       }
 
       /// <summary>
       /// Exercises/tests the ToListDictionary() extension method, 
       /// by reading a Dictionary<string, List<int>> from an Xrecord 
-      /// that was written by the DICTWRITE command.
+      /// that was written by the WRITEXRECORD command.
       /// </summary>
       
-      [CommandMethod("DICTREAD")]
-      public static void GetXRec()
+      [CommandMethod("READXRECORD")]
+      public static void ReadXrecord()
       {
          var peo = new PromptEntityOptions("\nPick an entity: ");
          Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -80,9 +72,9 @@ namespace AcMgdLib.Common.Examples
                }
                else
                {
-                  var dict = resbuf.ToListDictionary<string, int>();
+                  var map = resbuf.ToListDictionary<string, int>();
                   ed.WriteMessage("\nDictionary<string, List<int>> read from Xrecord: ");
-                  dict.Dump();
+                  map.Dump();
                }
                tr.Commit();
             }
@@ -180,6 +172,11 @@ namespace AcMgdLib.Common.Examples
             fmt.WriteLn(args);
          }
       }
+
+      /// <summary>
+      /// Create a Dictionary<string, List<int>> and populate it with
+      /// data for testing purposes:
+      /// </summary>
 
       static Dictionary<string, IEnumerable<int>> CreateDictionary()
       {
