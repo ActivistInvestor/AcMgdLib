@@ -21,6 +21,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Utility;
 using System.Windows.Documents;
+using AcMgdLib.Common.Examples;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
@@ -795,8 +796,13 @@ namespace Autodesk.AutoCAD.Runtime
       }
 
       /// <summary>
-      /// Returns the argument if it is an 
-      /// array, or converts to an array. 
+      /// Returns the argument if it is an array, 
+      /// or converts it to an array.  
+      /// 
+      /// Useful for avoiding a costly call to ToArray() in 
+      /// cases where it's possible that an IEnumerable<T> 
+      /// might be an array and the operation that uses the 
+      /// array does not modify it.
       /// </summary>
 
       public static T[] AsArray<T>(this IEnumerable<T> source)
@@ -955,6 +961,60 @@ namespace Autodesk.AutoCAD.Runtime
       }
 
       /// <summary>
+      /// Converts a Dictionary<TKey, IEnumerable<TValue>> to a
+      /// LISP-compatible ResultBuffer that converts to a proper
+      /// association list in LISP, with each sublist having the 
+      /// key as the first element (car) and the values as the 
+      /// remaining elements. If there is only a single TValue
+      /// element in an entry, it is returned as the cdr of a 
+      /// dotted-pair with the car being the key.
+      /// 
+      /// The counterpart to this method is ToLispDictionary(),
+      /// which performs the reverse conversion.
+      /// 
+      /// </summary>
+      /// <typeparam name="TKey"></typeparam>
+      /// <typeparam name="TValue"></typeparam>
+      /// <param name="items"></param>
+      /// <param name="keyCode"></param>
+      /// <param name="valueCode"></param>
+      /// <returns></returns>
+
+      public static ResultBuffer ToResultBuffer<TKey, TValue>(
+         this Dictionary<TKey, IEnumerable<TValue>> items,
+         LispDataType dtKeyCode,
+         LispDataType dtValueCode)
+      {
+         Assert.IsNotNull(items, nameof(items));
+         var result = new ResultBuffer();
+         int cnt = 0;
+         short keyCode = (short)dtKeyCode;
+         short valueCode = (short)dtValueCode;
+         foreach(var pair in items)
+         {
+            cnt = 0;
+            result.Add(lispListBegin);
+            result.Add(new TypedValue(keyCode, pair.Key));
+            if(pair.Value != null)
+            {
+               foreach(TValue value in pair.Value)
+               {
+                  result.Add(new TypedValue(valueCode, value));
+                  ++cnt;
+               }
+            }
+            if(cnt == 1)
+               result.Add(lispDotEnd);
+            else
+               result.Add(lispListEnd);
+         }
+         return result;
+      }
+
+      // public static Dictionary<TKey, IEnumerable<TValue>> ToDictionary
+
+
+      /// <summary>
       /// Converts a ResultBuffer to a Dictionary<TKey, ICollection<TValue>>.
       /// 
       /// Constraints:
@@ -973,7 +1033,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// default container is a List<TValue></param>
       /// <returns>A dictionary holding the contents of the ResultBuffer</returns>
       /// <exception cref="InvalidOperationException"></exception>
-      
+
       public static Dictionary<TKey, IEnumerable<TValue>> 
       ToListDictionary<TKey, TValue>(this ResultBuffer resbuf, 
          Func<ICollection<TValue>> factory = null)
@@ -989,7 +1049,7 @@ namespace Autodesk.AutoCAD.Runtime
             if(!e.MoveNext())
                throw new InvalidOperationException("Count mismatch");
             TypedValue cur = e.Current;
-            if(!cur.IsEqualTo(dxfListBegin))
+            if(!cur.IsListBegin())
                throw new InvalidOperationException(
                   $"Malformed list: expecting List Begin: {cur.TypeCode}, {cur.Value}");
             ICollection<TValue> list = factory();
@@ -999,7 +1059,7 @@ namespace Autodesk.AutoCAD.Runtime
                   throw new InvalidOperationException(
                      $"Malformed list: expecting List End");
                cur = e.Current;
-               if(cur.IsEqualTo(dxfListEnd))
+               if(cur.IsListEnd())
                   break;
                list.Add((TValue) cur.Value);
             }
@@ -1007,6 +1067,45 @@ namespace Autodesk.AutoCAD.Runtime
          }
          return result;
       }
+
+      public static Dictionary<TKey, IEnumerable<TValue>>
+      ToLispDictionary<TKey, TValue>(this ResultBuffer resbuf,
+         Func<ICollection<TValue>> factory = null)
+      {
+         Assert.IsNotNull(resbuf, nameof(resbuf));
+         if(factory == null)
+            factory = () => new List<TValue>();
+         var result = new Dictionary<TKey, IEnumerable<TValue>>();
+         var e = resbuf.GetEnumerator();
+         int i = 0;
+         while(e.MoveNext())
+         {
+            // ($"[{i++}]: " + e.Current.Format()).WriteLn();
+            if(!e.Current.IsListBegin())
+               throw new InvalidOperationException("Error Expecting List Begin");
+            if(!e.MoveNext())
+               throw new InvalidOperationException("Malformed List");
+            var key = e.Current.Value;
+            if(! (key is TKey))
+               throw new InvalidOperationException($"Invalid Key type: {key.GetType().Name}");
+            // ($"[{i++}]: " + e.Current.Format()).WriteLn();
+            ICollection<TValue> list = factory();
+            while(e.MoveNext())
+            {
+               // ($"[{i++}]: " + e.Current.Format()).WriteLn();
+               TypedValue cur = e.Current;
+               if(cur.IsListEnd())
+                  break;
+               list.Add((TValue)cur.Value);
+            }
+            if(!e.Current.IsListEnd())
+               throw new InvalidOperationException("Malformed list: Expecting List End");
+            result.Add((TKey)key, list);
+         }
+         return result;
+      }
+
+
 
       /// <summary>
       /// Converts a sequence of TypedValues that use LISP list 
@@ -1017,7 +1116,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// Storing a ResultBuffer in an Xrecord requires this
       /// conversion.
       /// </summary>
-      
+
       public static IEnumerable<TypedValue> ToDxfList(this IEnumerable<TypedValue> items)
       {
          foreach(TypedValue item in items)
@@ -1063,14 +1162,18 @@ namespace Autodesk.AutoCAD.Runtime
          new TypedValue((short) LispDataType.ListBegin);
       static readonly TypedValue lispListEnd =
          new TypedValue((short) LispDataType.ListEnd);
+      static readonly TypedValue lispDotEnd =
+         new TypedValue((short)LispDataType.DottedPair);
+
 
       public static bool IsListBegin(this TypedValue value) =>
          value.TypeCode == 5016 || value.IsEqualTo(dxfListBegin);
 
-
-      public static bool IsListEnd(this TypedValue value) =>
-         value.TypeCode == 5017 || value.IsEqualTo(dxfListEnd);
-      
+      public static bool IsListEnd(this TypedValue value)
+      {
+         short code = value.TypeCode;
+         return code == 5017 || code == 5018 || value.IsEqualTo(dxfListEnd);
+      } 
 
       /// A Fix for TypedValue.Equals()
 

@@ -64,6 +64,7 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
    {
       Document doc = null;
       DocumentLock docLock = null;
+      TransactionManager manager = null;
       protected static readonly DocumentCollection Documents = Application.DocumentManager;
 
       public DocumentTransaction(bool lockDocument = true, bool readOnly = false)
@@ -80,6 +81,7 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
                doc.LockMode(true) == DocumentLockMode.NotLocked)
             docLock = doc.LockDocument();
          this.IsReadOnly = readOnly;
+         this.manager = doc.TransactionManager;
          doc.TransactionManager.EnableGraphicsFlush(true);
          doc.TransactionManager.StartTransaction().ReplaceWith(this);
       }
@@ -92,12 +94,12 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
 
       protected override void Dispose(bool disposing)
       {
+         base.Dispose(disposing);
          if(disposing && docLock != null)
          {
             docLock.Dispose();
             docLock = null;
          }
-         base.Dispose(disposing);
       }
 
       public Document Document => doc;

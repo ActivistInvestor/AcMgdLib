@@ -27,7 +27,7 @@ namespace AcMgdLib.Common.Examples
       [CommandMethod("WRITEXRECORD")]
       public static void WriteXrecord()
       {
-         var map = CreateDictionary();
+         var map = CreateListDictionary();
          var peo = new PromptEntityOptions("\nPick an entity: ");
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Editor ed = doc.Editor;
@@ -129,7 +129,7 @@ namespace AcMgdLib.Common.Examples
       {
          /// Create and populate dictionary:
 
-         var map = CreateDictionary();
+         var map = CreateListDictionary();
 
          /// Save the initial dictionary for comparision
          /// with the instance that is reconstituted from 
@@ -173,12 +173,59 @@ namespace AcMgdLib.Common.Examples
          }
       }
 
+      [LispFunction("get-list-dict")]
+      public static ResultBuffer GetListDictionary(ResultBuffer args)
+      {
+         var dict = CreateListDictionary();
+         ResultBuffer rb = dict.ToResultBuffer<string, int>(
+            LispDataType.Text, LispDataType.Int32);
+         rb = new ResultBuffer(rb.Cast<TypedValue>().ToLispList().ToArray());
+         return rb;
+      }
+
+      /// <summary>
+      /// Round-trip tests the ToResultBuffer() overload that 
+      /// takes LispDataType arguments and its ToLispDictionary() 
+      /// complementing method. 
+      /// </summary>
+      
+      [CommandMethod("DICT2ALIST")]
+      public static void Dict2AList()
+      {
+         var dict = CreateListDictionary();
+         dict.Dump("\nOriginal dictionary:\n");
+         var resbuf = dict.ToResultBuffer<string, int>(
+            LispDataType.Text, LispDataType.Int32);
+         resbuf.Format().WriteLn();
+         var result = resbuf.ToLispDictionary<string, int>();
+         result.Dump("\nConverted dictionary:\n");
+         $"result.IsEqualTo(dict) = {result.IsEqualTo(dict)}".WriteLn();
+      }
+
+      //public static IEnumerable<TypedValue> List(params object[] args)
+      //{
+      //   var p = Autodesk.AutoCAD.Runtime.Marshaler.ObjectsToResbuf(args);
+      //   ResultBuffer rb = ResultBuffer.Create(p, true);
+      //   yield return new TypedValue((short)LispDataType.ListBegin);
+      //   foreach(TypedValue tv in rb)
+      //      yield return tv;
+      //   var p2 = Autodesk.AutoCAD.Runtime.Marshaler.ObjectToResbuf("foo");
+      //   yield return new TypedValue((short)LispDataType.ListEnd);
+      //}
+
+      //static void Test()
+      //{
+      //   var list = List("One", 2, 300.0, "Four", 555);
+      //}
+
+
+
       /// <summary>
       /// Create a Dictionary<string, List<int>> and populate it with
       /// data for testing purposes:
       /// </summary>
 
-      static Dictionary<string, IEnumerable<int>> CreateDictionary()
+      static Dictionary<string, IEnumerable<int>> CreateListDictionary()
       {
          var map = new Dictionary<string, IEnumerable<int>>();
          int i = 1;
@@ -191,18 +238,30 @@ namespace AcMgdLib.Common.Examples
                list.Add(v++);
             }
             map.Add(key, list);
-            ++i;
+            if(key == "Second")
+               map.Add("Dotted", new List<int>() { 99 });
+            else
+               ++i;
          }
          return map;
+      }
+
+      static Dictionary<string, int> CreateDictionary()
+      {
+         Dictionary<string, int> result = new Dictionary<string, int>();
+         int i = 1;
+         foreach(var key in new[] { "One", "Two", "Three", "Four", "Five", "Six"})
+            result[key] = i++;
+         return result;
       }
    }
 
    public static class Helpers
    {
 
-      public static void Dump<TKey, TValue>(this Dictionary<TKey, IEnumerable<TValue>> map)
+      public static void Dump<TKey, TValue>(this Dictionary<TKey, IEnumerable<TValue>> map, string label = null)
       {
-         WriteLn(map.Format());
+         WriteLn((label ?? "") + map.Format());
       }
 
       public static string Format<TKey, TValue>(this Dictionary<TKey, IEnumerable<TValue>> map)

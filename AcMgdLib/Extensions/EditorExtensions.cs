@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -36,13 +37,22 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          string name = rxclass.DxfName;
          if(string.IsNullOrEmpty(name))
             name = rxclass.Name;
-         options.SetRejectMessage($"\nInvalid selection, {name} required,");
+         if(GetRejectMessage(options) == null)
+            options.SetRejectMessage($"\nInvalid selection, {name} required,");
          options.AddAllowedClass(typeof(T), false);
          if(readOnly)
             options.AllowObjectOnLockedLayer = true;
          var result = ed.GetEntity(options);
-         return result.Status == PromptStatus.OK ? result.ObjectId : ObjectId.Null;
+         return result.IsFailed() ? ObjectId.Null : result.ObjectId;         
       }
+
+      static object GetRejectMessage(PromptEntityOptions options)
+      {
+         return m_rejectMessage.GetValue(options);
+      }
+
+      static FieldInfo m_rejectMessage = typeof(PromptEntityOptions).GetField(
+         "m_rejectMessage", BindingFlags.NonPublic | BindingFlags.Instance);
 
       public static string GetBlockName(this Editor editor, string message, string defaultValue = null, bool allowExisting = true)
       {
@@ -50,7 +60,7 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          /// TODO: Reformat supplied message to include defaultValue
          if(string.IsNullOrEmpty(message))
             message = "\nBlock name: ";
-         PromptStringOptions pso = new PromptStringOptions(message);
+         var pso = new PromptStringOptions(message);
          pso.AllowSpaces = true;
          if(!string.IsNullOrWhiteSpace(defaultValue))
          {
@@ -59,8 +69,8 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          }
          while(true)
          {
-            PromptResult pr = editor.GetString(pso);
-            if(pr.Status != PromptStatus.OK)
+            var pr = editor.GetString(pso);
+            if(pr.IsFailed())
                return null;
             if(string.IsNullOrWhiteSpace(pr.StringResult))
                return defaultValue;
@@ -82,5 +92,20 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
             }
          }
       }
+
+      public static bool IsFailed(this PromptResult pr)
+      {
+         return pr.Status != PromptStatus.OK && pr.Status != PromptStatus.Keyword
+            && pr.Status != PromptStatus.Other;
+      }
+
+      public static bool IsFailed(this PromptSelectionResult psr)
+      {
+         return psr.Status != PromptStatus.OK && psr.Status != PromptStatus.Keyword
+            && psr.Status != PromptStatus.Other;
+      }
+
+
+
    }
 }

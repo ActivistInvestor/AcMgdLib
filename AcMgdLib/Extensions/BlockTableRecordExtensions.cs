@@ -7,6 +7,7 @@
 /// Extension methods targeting the Entity class.
 
 using Autodesk.AutoCAD.Runtime;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
@@ -170,6 +171,44 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
+      /// Returns a sequence containing the ObjectIds of all
+      /// BlockTableRecords whose definitions are dependent on
+      /// the BlockTableRecord which this method is invoked on.
+      /// </summary>
+      /// <param name="btr">The BlockTableRecord whose dependent
+      /// BlockTableRecords are to be searched for.</param>
+      /// <param name="includingDynamic">A value indicating if
+      /// anonymous dynamic block references should resolve to
+      /// the dynamic block definition or the anonymous block
+      /// definition.</param>
+      /// <returns></returns>
+
+      public static IEnumerable<ObjectId> GetDependentBlockIds(
+         this BlockTableRecord btr,
+         bool includingDynamic = true)
+      {
+         HashSet<ObjectId> ids = new HashSet<ObjectId>();
+         using(var trans = new ReadOnlyTransaction())
+         {
+            var blkrefs = btr.GetBlockReferences(trans, OpenMode.ForRead, false, false);
+            foreach(BlockReference blkref in blkrefs)
+            {
+               ids.Add(blkref.BlockTableRecord);
+               if(blkref.IsDynamicBlock && includingDynamic && 
+                     blkref.DynamicBlockTableRecord != blkref.BlockTableRecord)
+                  ids.Add(blkref.DynamicBlockTableRecord);
+            }
+         }
+         return ids;
+      }
+
+      public static IEnumerable<BlockReference> GetDependentBlockReferences(
+         this BlockTableRecord btr, Transaction trans, OpenMode mode = OpenMode.ForRead, bool openLocked = false)
+      {
+         return btr.GetBlockReferences(trans, mode, openLocked, false);
+      }
+
+      /// <summary>
       /// Like GetBlockReferenceIds() except that it 
       /// returns the resulting ObjectIds in a HashSet.
       /// </summary>
@@ -210,12 +249,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Returns a value indicating if one or more elements in
-      /// the entities argument directly or indirectly references
-      /// the BlockTableRecord which this method is invoked on.
+      /// the argument has a direct or indirect dependence on the 
+      /// BlockTableRecord which this method is invoked on.
       /// 
       /// This method's principal purpose is to detect and avoid 
-      /// the creation of self-referencing blocks when adding one
-      /// or more objects to an existing block.
+      /// conditions that would cause an existing block to become 
+      /// self-referencing when adding one or more objects to it.
       /// 
       /// If the includingDynamic argument is true, this method
       /// considers any direct or indirect reference to anonymous 

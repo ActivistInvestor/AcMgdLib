@@ -11,8 +11,8 @@ using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
-using Autodesk.AutoCAD.ApplicationServices.Extensions;
-using Autodesk.AutoCAD.EditorInput;
+using System.Windows.Navigation;
+using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
@@ -21,52 +21,12 @@ using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-   /// <summary>
-   /// A specialization of Autodesk.AutoCAD.DatabaseServices.Transaction
-   /// 
-   /// This class encapsulates both a Database and a Transaction. 
-   /// 
-   /// Instance members mirroring methods of the DatabaseExtensions 
-   /// class are included in this class and can be used to perform a 
-   /// variety of operations. 
-   /// 
-   /// The methods that mirror the methods of the DatabaseExtensions 
-   /// class are instance methods that can be invoked on an instance of 
-   /// this type or a derived type. That allows these methods to be 
-   /// called without the need to pass a Transaction or a Database as 
-   /// arguments.
-   /// 
-   /// Current working database management:
-   /// 
-   /// If the Database argument's AutoDelete property is true (meaning 
-   /// it is not a Database that is open in the Editor), the constructor 
-   /// will set it to the current working database, and will restore the 
-   /// previous working database when the instance is disposed.
-   /// 
-   /// An optional argument to the constructor can be supplied to
-   /// prevent changing the current working database.
-   /// 
-   /// When allowing an instance to change the current working database
-   /// to the database argument passed to the constructor, the previous
-   /// working database must not be destroyed or deleted during the life
-   /// of the instance.
-   /// 
-   /// If a DatabaseTransaction is used in a loop to iteratively
-   /// process .DWG files that are opened via ReadDwgFile(), each 
-   /// instance must be disposed before the next instance is created. 
-   /// 
-   /// Allowing multiple instances of a DatabaseTransaction to exist 
-   /// concurrently can result in the current working database being
-   /// set to an invalid or disposed Database when the last instance 
-   /// is disposed.
-   /// 
-   /// </summary>
 
    public class DatabaseTransaction : Transaction
    {
       Database database;
       BlockTableRecord currentSpace = null;
-      TransactionManager manager = null;   
+      TransactionManager manager = null;
       Database prevWorkingDb = null;
       static Dictionary<Database, DatabaseTransaction> transactions =
          new Dictionary<Database, DatabaseTransaction>();
@@ -92,9 +52,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          : base(new IntPtr(-1), false)
       {
          Assert.IsNotNullOrDisposed(database, nameof(database));
-         if(transactions.ContainsKey(database))
-            throw new InvalidOperationException("Database already owned by a DatabaseTransaction");
-         transactions.Add(database, this);
+         /// TODO: Do not add derived DBOpenCloseTransactions to
+         /// map, because multiple instances are permitted:
+         if(!IsOpenCloseTransaction)
+         {
+            if(transactions.ContainsKey(database))
+               throw new InvalidOperationException("Database already owned by a DatabaseTransaction");
+            transactions.Add(database, this);
+         }
          this.database = database;
          this.manager = database.TransactionManager;
          var curDb = WorkingDatabase;
@@ -103,8 +68,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          /// one open in the drawing editor. This may need to change.
          if(asWorkingDatabase && database.AutoDelete && curDb != database)
             prevWorkingDb = SetWorkingDatabase(database);
+         StartTransaction(manager);
+      }
+
+      protected virtual void StartTransaction(TransactionManager manager)
+      {
          manager.StartTransaction().ReplaceWith(this);
       }
+
+      public virtual bool IsOpenCloseTransaction => false;
 
       /// <summary>
       /// True if this transaction is associated with 
@@ -131,11 +103,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNullOrDisposed(mgr, nameof(mgr));
          if(db.AutoDelete)
             throw new InvalidOperationException("Database is not open in the drawing editor");
-         if(transactions.ContainsKey(db))
+         if(!IsOpenCloseTransaction && transactions.ContainsKey(db))
             throw new InvalidOperationException("Database already owned by a DatabaseTransaction");
          this.database = db;
          this.manager = mgr;
-         transactions.Add(db, this);
+         if(!IsOpenCloseTransaction)
+            transactions.Add(db, this);
          IsDocTransaction = true;
       }
 
@@ -152,10 +125,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
       /// <param name="disposing"></param>
       /// <exception cref="InvalidOperationException"></exception>
-      
+
       protected override void Dispose(bool disposing)
       {
-         if(!transactions.Remove(this.database))
+         if(!IsOpenCloseTransaction && !transactions.Remove(this.database))
             Debug.WriteLine("Error: Database not found in map!");
          if(disposing)
          {
@@ -174,9 +147,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                   throw new InvalidOperationException("Cannot restore previous working database.");
                }
             }
-            if(this.AutoDelete && this.IsReadOnly)
-               base.Commit();
+            if(this.IsReadOnly)
+            {
+               if(this != Transaction)
+               {
+                  if(Transaction.AutoDelete)
+                     Transaction.Commit();
+               }
+               else if(this.AutoDelete)
+               {
+                  base.Commit();
+               }
+            }
          }
+         if(disposing && this != Transaction && !Transaction.IsDisposed)
+            Transaction.Dispose();
          base.Dispose(disposing);
          if(disposing)
             TryDisposeDatabase();
@@ -186,12 +171,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          bool result = OwnsDatabase && database != null && !database.IsDisposed
                && database.AutoDelete && database != WorkingDatabase;
-         if(result) 
+         if(result)
             database.Dispose();
          return result;
       }
 
       public Database Database => database;
+
+      public Database DatabaseChecked
+      {
+         get
+         {
+            CheckDisposed();
+            return this.database;
+         }
+      }
 
       public bool IsCurrentWorkingDatabase => this.database == WorkingDatabase;
 
@@ -232,8 +226,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="mode"></param>
       /// <param name="asWorkingDatabase"></param>
       /// <returns></returns>
-      
-      public static DatabaseTransaction Open(string path, FileOpenMode mode, 
+
+      public static DatabaseTransaction Open(string path, FileOpenMode mode,
          bool asWorkingDatabase = true)
       {
          Database db = new Database(false, true);
@@ -461,7 +455,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return Append(entities, CurrentSpaceForWrite, dispose);
       }
 
-      protected BlockTableRecord CurrentSpaceForWrite
+      public BlockTableRecord CurrentSpaceForWrite
       {
          get
          {
@@ -475,7 +469,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       protected static void TryUpgradeOpen(DBObject target)
       {
-         Assert.IsNotNullOrDisposed(target, nameof(target));   
+         Assert.IsNotNullOrDisposed(target, nameof(target));
          if(!target.IsWriteEnabled)
             target.UpgradeOpen();
       }
@@ -490,8 +484,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="source"></param>
       /// <param name="upgradeOnLockedLayers"></param>
       /// <returns></returns>
-      
-      public IEnumerable<T> UpgradeOpen<T>(IEnumerable<T> source, bool upgradeOnLockedLayers = true) where T: DBObject
+
+      public IEnumerable<T> UpgradeOpen<T>(IEnumerable<T> source, bool upgradeOnLockedLayers = true) where T : DBObject
       {
          Assert.IsNotNull(source, nameof(source));
          foreach(T entity in source)
@@ -499,7 +493,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(!entity.IsWriteEnabled)
             {
                if(upgradeOnLockedLayers)
-                  GetObject(entity.ObjectId, OpenMode.ForWrite, false, upgradeOnLockedLayers);
+                  Transaction.GetObject(entity.ObjectId, OpenMode.ForWrite, false, upgradeOnLockedLayers);
                else
                   entity.UpgradeOpen();
             }
@@ -515,11 +509,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// generic argument type or a derived type.
       /// </summary>
 
-      public T GetObject<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T:DBObject
+      public T GetObject<T>(ObjectId id, OpenMode mode = OpenMode.ForRead, bool openErased = false, bool openOnLockedLayer = false) where T : DBObject
       {
          CheckDisposed();
-         return (T) base.GetObject(id, mode, openErased, openOnLockedLayer);
+         return (T)Transaction.GetObject(id, mode, openErased, openOnLockedLayer);
       }
+
+      public virtual Transaction Transaction => this;
 
       /// <summary>
       /// A strongly-typed version of GetObject() that 
@@ -530,7 +526,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          CheckDisposed();
          AcRx.ErrorStatus.WrongObjectType.Requires<T>(id);
-         return (T)base.GetObject(id, mode, openErased, openOnLockedLayer);
+         return (T)Transaction.GetObject(id, mode, openErased, openOnLockedLayer);
       }
 
       /// <summary>
@@ -556,7 +552,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          get
          {
-            return base.GetObject(key, openMode, false, ForceOpenOnLockedLayers);
+            return Transaction.GetObject(key, openMode, false, ForceOpenOnLockedLayers);
          }
       }
 
@@ -569,7 +565,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public void Add(DBObject entity)
       {
-         base.AddNewlyCreatedDBObject(entity, true);
+         Transaction.AddNewlyCreatedDBObject(entity, true);
       }
 
       public static implicit operator Database(DatabaseTransaction operand)
@@ -577,24 +573,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return operand?.database ?? throw new ArgumentNullException(nameof(operand));
       }
 
-      void CheckDisposed()
+      protected void CheckDisposed()
       {
-         if(this.IsDisposed || !this.AutoDelete || this.database == null || this.database.IsDisposed)
+         if(Transaction.IsDisposed || !Transaction.AutoDelete || this.database == null || this.database.IsDisposed)
             throw new InvalidOperationException("Transaction or Database was ended or disposed.");
       }
+
+      public void AssertIsValid() => CheckDisposed();
 
       /// <summary>
       /// Used to get the Database instance with checks
       /// made for a disposed instance or Database:
       /// </summary>
 
-      protected Database ThisDb 
-      { 
-         get 
+      protected Database ThisDb
+      {
+         get
          {
             CheckDisposed();
-            return this.database; 
-         } 
+            return this.database;
+         }
       }
 
       /// What follows are replications of most methods of the
@@ -615,13 +613,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       ///
       /// The Database and Transaction arguments required by the
       /// extension version of this method are implicit here:
-      
+
       public IEnumerable<T> GetModelSpaceObjects<T>(
          OpenMode mode = OpenMode.ForRead,
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         return ThisDb.GetModelSpaceObjects<T>(this, mode, exact, openLocked);
+         return ThisDb.GetModelSpaceObjects<T>(Transaction, mode, exact, openLocked);
       }
 
       /// <summary>
@@ -641,12 +639,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public IFilteredEnumerable<T, TCriteria> GetModelSpaceObjects<T, TCriteria>(
             Expression<Func<T, ObjectId>> keySelector,
             Expression<Func<TCriteria, bool>> predicate)
-         where T : Entity 
-         where TCriteria: DBObject
+         where T : Entity
+         where TCriteria : DBObject
       {
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(predicate, nameof(predicate));
-         return ThisDb.GetModelSpaceObjects<T>(this, OpenMode.ForRead, false, false)
+         return ThisDb.GetModelSpaceObjects<T>(Transaction, OpenMode.ForRead, false, false)
             .WhereBy<T, TCriteria>(keySelector, predicate);
       }
 
@@ -662,10 +660,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>A sequence of entities that 
       /// satisfy the filter criteria</returns>
 
-      public IEnumerable<T> GetModelSpaceObjects<T>(IFilter<T> filter) where T:Entity
+      public IEnumerable<T> GetModelSpaceObjects<T>(IFilter<T> filter) where T : Entity
       {
          Assert.IsNotNull(filter, nameof(filter));
-         return ThisDb.GetModelSpaceObjects<T>(this, OpenMode.ForRead, false, false)
+         return ThisDb.GetModelSpaceObjects<T>(Transaction, OpenMode.ForRead, false, false)
             .Where(filter.Predicate);
       }
 
@@ -674,7 +672,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false)
       {
-         return ThisDb.GetModelSpaceObjects<Entity>(this, mode, exact, openLocked);
+         return ThisDb.GetModelSpaceObjects<Entity>(Transaction, mode, exact, openLocked);
       }
 
       /// <summary>
@@ -693,7 +691,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         return ThisDb.GetObjects<T>(this, mode, exact, openLocked);
+         return ThisDb.GetObjects<T>(Transaction, mode, exact, openLocked);
       }
 
       public IEnumerable<T> GetObjects<T, TCriteria>(
@@ -709,7 +707,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public IEnumerable<T> GetObjects<T>(IFilter<T> filter) where T : Entity
       {
          Assert.IsNotNull(filter, nameof(filter));
-         return ThisDb.GetObjects<T>(this, OpenMode.ForRead, false, false)
+         return ThisDb.GetObjects<T>(Transaction, OpenMode.ForRead, false, false)
             .Where(filter.Predicate);
       }
 
@@ -718,7 +716,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead,
          bool openLocked = false)
       {
-         return ThisDb.GetObjects<Entity>(this, mode, false, openLocked);
+         return ThisDb.GetObjects<Entity>(Transaction, mode, false, openLocked);
       }
 
       public IEnumerable<T> GetPaperSpaceObjects<T>(
@@ -726,21 +724,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         return ThisDb.GetPaperSpaceObjects<T>(this, mode, exact, openLocked);
+         return ThisDb.GetPaperSpaceObjects<T>(Transaction, mode, exact, openLocked);
       }
 
       public Layout GetLayout(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetLayout(name, this, mode, throwIfNotFound);
+         return ThisDb.GetLayout(name, Transaction, mode, throwIfNotFound);
       }
 
       public BlockTableRecord GetBlock(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<BlockTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<BlockTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public BlockTableRecord GetModelSpaceBlock(OpenMode mode = OpenMode.ForRead)
@@ -753,86 +751,86 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return GetObject<BlockTableRecord>(ThisDb.CurrentSpaceId, mode);
       }
 
-      public LayerTableRecord GetLayer(string name, 
+      public LayerTableRecord GetLayer(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<LayerTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<LayerTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public LinetypeTableRecord GetLinetype(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<LinetypeTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<LinetypeTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public ViewportTableRecord GetViewportTableRecord(Func<ViewportTableRecord, bool> predicate,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<ViewportTableRecord>(predicate, this, mode);
+         return ThisDb.GetRecord<ViewportTableRecord>(predicate, Transaction, mode);
       }
 
       public ViewportTableRecord GetViewportTableRecord(int vpnum,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<ViewportTableRecord>(vptr => vptr.Number == vpnum, this, mode);
+         return ThisDb.GetRecord<ViewportTableRecord>(vptr => vptr.Number == vpnum, Transaction, mode);
       }
 
       public ViewTableRecord GetView(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<ViewTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<ViewTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public DimStyleTableRecord GetDimStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<DimStyleTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<DimStyleTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public RegAppTableRecord GetRegApp(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<RegAppTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<RegAppTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public TextStyleTableRecord GetTextStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<TextStyleTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<TextStyleTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public UcsTableRecord GetUcs(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetRecord<UcsTableRecord>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<UcsTableRecord>(name, Transaction, mode, throwIfNotFound);
       }
 
       public T GetNamedObject<T>(string key,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = true) where T : DBObject
       {
-         return ThisDb.GetNamedObject<T>(key, this, mode, throwIfNotFound);
+         return ThisDb.GetNamedObject<T>(key, Transaction, mode, throwIfNotFound);
       }
 
       public IEnumerable<T> GetNamedObjects<T>(OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
-         return ThisDb.GetNamedObjects<T>(this, mode);
+         return ThisDb.GetNamedObjects<T>(Transaction, mode);
       }
 
       public T GetRecord<T>(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false) where T : SymbolTableRecord
       {
-         return ThisDb.GetRecord<T>(name, this, mode, throwIfNotFound);
+         return ThisDb.GetRecord<T>(name, Transaction, mode, throwIfNotFound);
       }
 
       public ObjectId GetRecordId(SymbolTable table, string key)
@@ -853,7 +851,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public T GetRecord<T>(Func<T, bool> predicate,
          OpenMode mode = OpenMode.ForRead) where T : SymbolTableRecord
       {
-         return ThisDb.GetRecord<T>(predicate, this, mode);
+         return ThisDb.GetRecord<T>(predicate, Transaction, mode);
       }
 
       public ObjectId GetLayoutId(string layoutName, bool throwIfNotFound = false)
@@ -873,7 +871,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return ThisDb.GetDictionaryEntryId<T>(predicate);
       }
 
-      public IEnumerable<ObjectId> GetDictionaryEntryIds<T>(Func<T, bool> predicate) 
+      public IEnumerable<ObjectId> GetDictionaryEntryIds<T>(Func<T, bool> predicate)
          where T : DBObject
       {
          return ThisDb.GetDictionaryEntryIds<T>(predicate);
@@ -883,103 +881,103 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = true) where T : DBObject
       {
-         return ThisDb.GetDictionaryObject<T>(key, this, mode, throwIfNotFound);
+         return ThisDb.GetDictionaryObject<T>(key, Transaction, mode, throwIfNotFound);
       }
 
       public T GetDictionaryObject<T>(Func<T, bool> predicate,
          OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
-         return ThisDb.GetDictionaryObject<T>(this, predicate, mode);
+         return ThisDb.GetDictionaryObject<T>(Transaction, predicate, mode);
       }
 
-      public IEnumerable<T> GetDictionaryObjects<T>(OpenMode mode = OpenMode.ForRead) 
+      public IEnumerable<T> GetDictionaryObjects<T>(OpenMode mode = OpenMode.ForRead)
          where T : DBObject
       {
-         return ThisDb.GetDictionaryObjects<T>(this, mode);
+         return ThisDb.GetDictionaryObjects<T>(Transaction, mode);
       }
 
       public Group GetGroup(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetGroup(name, this, mode, throwIfNotFound);
+         return ThisDb.GetGroup(name, Transaction, mode, throwIfNotFound);
       }
 
       public DataLink GetDataLink(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetDataLink(name, this, mode, throwIfNotFound);
+         return ThisDb.GetDataLink(name, Transaction, mode, throwIfNotFound);
       }
 
       public DetailViewStyle GetDetailViewStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetDetailViewStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetDetailViewStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public SectionViewStyle GetSectionViewStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetSectionViewStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetSectionViewStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public MLeaderStyle GetMLeaderStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetMLeaderStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetMLeaderStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public TableStyle GetTableStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetTableStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetTableStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public PlotSettings GetPlotSettings(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetPlotSettings(name, this, mode, throwIfNotFound);
+         return ThisDb.GetPlotSettings(name, Transaction, mode, throwIfNotFound);
       }
 
       public DBVisualStyle GetVisualStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetVisualStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetVisualStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public Material GetMaterial(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetMaterial(name, this, mode, throwIfNotFound);
+         return ThisDb.GetMaterial(name, Transaction, mode, throwIfNotFound);
       }
 
       public MlineStyle GetMlineStyle(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetMlineStyle(name, this, mode, throwIfNotFound);
+         return ThisDb.GetMlineStyle(name, Transaction, mode, throwIfNotFound);
       }
 
       public Layout GetLayoutByKey(string name,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
-         return ThisDb.GetLayoutByKey(name, this, mode, throwIfNotFound);
+         return ThisDb.GetLayoutByKey(name, Transaction, mode, throwIfNotFound);
       }
 
       public IEnumerable<BlockTableRecord> GetLayoutBlocks(
          OpenMode mode = OpenMode.ForRead,
          bool includingModelSpace = false)
       {
-         return ThisDb.GetLayoutBlocks(this, mode, includingModelSpace);
+         return ThisDb.GetLayoutBlocks(Transaction, mode, includingModelSpace);
       }
 
       public IEnumerable<BlockTableRecord> GetLayoutBlocks(params string[] names)
@@ -1006,7 +1004,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead,
          Func<BlockTableRecord, bool> predicate = null)
       {
-         return ThisDb.GetBlockReferences(pattern, this, mode, predicate);
+         return ThisDb.GetBlockReferences(pattern, Transaction, mode, predicate);
       }
 
       /// <summary>
@@ -1050,21 +1048,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// SymbolUtilityServices methods expressed as instance properties:
 
       public ObjectId CurrentSpaceId => ThisDb.CurrentSpaceId;
-      public ObjectId ModelSpaceBlockId => 
+      public ObjectId ModelSpaceBlockId =>
          SymbolUtilityServices.GetBlockModelSpaceId(ThisDb);
-      public ObjectId PaperSpaceBlockId => 
+      public ObjectId PaperSpaceBlockId =>
          SymbolUtilityServices.GetBlockPaperSpaceId(ThisDb);
       public ObjectId ByBlockLinetype => ThisDb.ByBlockLinetype;
       public ObjectId ByLayerLinetype => ThisDb.ByLayerLinetype;
       public ObjectId ContinuousLinetype => ThisDb.ContinuousLinetype;
-      public ObjectId RegAppAcadId => 
+      public ObjectId RegAppAcadId =>
          SymbolUtilityServices.GetRegAppAcadId(ThisDb);
-      public ObjectId TextStyleStandardId => 
+      public ObjectId TextStyleStandardId =>
          SymbolUtilityServices.GetTextStyleStandardId(ThisDb);
-      public ObjectId LayerDefpointsId => 
+      public ObjectId LayerDefpointsId =>
          SymbolUtilityServices.GetLayerDefpointsId(ThisDb);
       public ObjectId LayerZeroId => ThisDb.LayerZero;
-      public bool IsCompatibilityMode => 
+      public bool IsCompatibilityMode =>
          SymbolUtilityServices.IsCompatibilityMode(ThisDb);
 
 

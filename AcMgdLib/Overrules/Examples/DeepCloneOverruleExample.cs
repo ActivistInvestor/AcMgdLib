@@ -7,15 +7,20 @@
 /// Examples demonstrating the use of DeepCloneOverrule
 /// and related/supporting APIs.
 
+using System;
+using System.IO;
 using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.EditorInput.Extensions;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
 
-namespace Autodesk.AutoCAD.DatabaseServices.Extensions
+namespace AcMgdLib.Overrules.Examples
 {
    public static class AddToBlockExamples
    {
@@ -73,9 +78,35 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var btr = (BlockTableRecord)tr.GetObject(
                blkref.DynamicBlockTableRecord, OpenMode.ForRead);
 
-            /// Check for and reject selections containing objects 
-            /// that would result in a self-referencing block.
-            /// This code uses an API from this library:
+            /// Avoiding operations that cause a block to
+            /// become self-referencing:
+            /// 
+            /// This note applies to any code that adds objects 
+            /// to existing block definitions.
+            /// 
+            /// Adding objects to an existing block definition is
+            /// an inherently-dangerous process that can silently
+            /// corrupt drawing files.
+            /// 
+            /// It's critically-important that objects added to
+            /// an existing block have no dependence on that block, 
+            /// either direct or indirect. Adding objects that have
+            /// a dependence on the block they're added to creates a
+            /// cyclical reference, resulting in a self-referencing 
+            /// block. 
+            /// 
+            /// The related, underlying managed and native APIs DO NOT 
+            /// check for cyclical references when appending entities 
+            /// to a block within the deep-clone process, meaning that 
+            /// those APIs will allow the creation of self-referencing 
+            /// blocks and offer no indication that it happened, which
+            /// often results in the corruption not being discovered 
+            /// until an audit is done or a file is subsequently opened
+            /// and errors are reported.
+            /// 
+            /// This code will check for cyclical references in the 
+            /// selected objects to be added to the block definition,
+            /// and if any are found, will reject the selection:
 
             if(btr.IsReferencedByAny(idArray))
             {
@@ -171,94 +202,156 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          pso.RejectObjectsFromNonCurrentSpace = true;
          pso.RejectPaperspaceViewport = true;
          var psr = ed.GetSelection(pso);
-         if(psr.Status != PromptStatus.OK)
+         if(psr.IsFailed())
             return;
          var idBlkRef = ed.GetEntity<BlockReference>("\nSelect block insertion: ");
          if(idBlkRef.IsNull)
             return;
-         using(var tr = new DocumentTransaction())
+         try
          {
-            var blkref = tr.GetObject<BlockReference>(idBlkRef);
-
-            var btr = tr.GetObject<BlockTableRecord>(
-               blkref.DynamicBlockTableRecord);
-
-            /// This applies to any code that adds objects to 
-            /// existing blocks: 
-            /// 
-            /// Adding objects to an existing block definition is
-            /// an inherently-dangerous process, that can silently
-            /// corrupt drawing files.
-            /// 
-            /// It's critically-important that objects added to
-            /// an existing block have no dependence on that block, 
-            /// either direct or indirect. Adding objects that have
-            /// a dependence on the block they're added to creates a
-            /// cyclical reference, resulting in a self-referencing 
-            /// block. 
-            /// 
-            /// The underlying managed and native APIs DO NOT check
-            /// for cyclical references when appending entities to a 
-            /// block within the deep-clone process, meaning that the
-            /// API allows the creation of self-referencing blocks and 
-            /// gives no indication whatsoever that it happened, which
-            /// often results in the corruption not being discovered 
-            /// until an audit is done or a file is subsequently opened
-            /// and errors are reported.
-            /// 
-            /// This code will check for cyclical references in the 
-            /// selected objects to be added to the block definition,
-            /// and if any are found, will reject the selection:
-
-            ObjectId[] ids = psr.Value.GetObjectIds();
-
-            if(btr.IsReferencedByAny(ids))
+            using(var tr = new DocumentTransaction())
             {
-               ed.WriteMessage("\nInvalid: One or more selected objects"
-                  + " are dependent on the selected block.");
+               var blkref = tr.GetObject<BlockReference>(idBlkRef);
+               ObjectId ownerId = blkref.DynamicBlockTableRecord;
+               var newOwner = tr.GetObject<BlockTableRecord>(ownerId);
+               ObjectId[] ids = psr.Value.GetObjectIds();
+
+               /// Check for and reject selections that have
+               /// a dependence on the selected block:
+
+               if(newOwner.IsReferencedByAny(ids))
+               {
+                  ed.WriteMessage("\nInvalid: One or more selected objects"
+                     + " are dependent on the selected block.");
+                  tr.Commit();
+                  return;
+               }
+
+               /// The code up to this point is nearly identical to the 
+               /// corresponding code in the first example. What follows 
+               /// is vastly-different.
+
+               /// Get the transformation matrix required to transform
+               /// the selected objects into the block's WCS:
+
+               var transform = blkref.BlockTransform.Inverse();
+
+               /// This method is called by the DeepCloneOverrule once 
+               /// for each primary object that's cloned. It's passed 
+               /// the source object and its clone. It erases the source 
+               /// object and transforms the clone, all in one swell foop.
+
+               void OnCloned(Entity source, Entity clone)
+               {
+                  source.UpgradeOpen();
+                  source.Erase(true);
+                  clone.TransformBy(transform);
+               }
+
+               /// The CopyTo() extension method acts as a wrapper for 
+               /// the Database's DeepCloneObjects() method, that also
+               /// manages a DeepCloneOverrule that will call the above
+               /// OnCloned() method, allowing the programmer to avoid 
+               /// having to deal directly with the DeepCloneOverrule 
+               /// class. Although CopyTo() method returns the IdMapping 
+               /// representing the result of the deep clone operation, 
+               /// it isn't needed in this case, because the OnCloned() 
+               /// function above does all the work:
+
+
+               ids.CopyTo<Entity>(ownerId, OnCloned);
+
+               string name = newOwner.Name;
+               Database db = newOwner.Database;
                tr.Commit();
-               return;
+               db.SetUndoRequiresRegen();
+               ed.Regen();
+               ed.WriteMessage($"\n{ids.Length} items added to block {name}.");
             }
-
-            /// The code up to this point is nearly identical to the 
-            /// corresponding code in the first example. What follows 
-            /// is vastly-different.
-
-            /// Get the transformation matrix required to transform
-            /// the selected objects into the block's WCS:
-
-            var transform = blkref.BlockTransform.Inverse();
-
-            /// This method is called by the DeepCloneOverrule for each
-            /// object that's cloned. It's passed each source object and
-            /// its clone. It erases the source object and transforms the
-            /// clone, all in one swell foop.
-
-            void OnCloned(Entity source, Entity clone)
-            {
-               source.UpgradeOpen(); 
-               source.Erase(true);
-               clone.TransformBy(transform);
-            }
-
-            /// This extension method serves as a wrapper for the
-            /// Database's DeepCloneObjects() method, that also
-            /// manages the DeepCloneOverrule that calls the above
-            /// OnCloned() method, allowing the programmer to avoid 
-            /// having to deal directly with the DeepCloneOverrule 
-            /// class. Although the CopyTo<>() method returns the
-            /// IdMapping containing the result of the deep clone
-            /// operation, it isn't needed because the OnCloned()
-            /// delgate above does all the required work:
-
-            ids.CopyTo<Entity>(btr.ObjectId, OnCloned);
-
-            tr.Commit();
-            ed.Regen();
-            btr.Database.SetUndoRequiresRegen();
-            ed.WriteMessage($"\nAdded {ids.Length} items to block.");
+         }
+         catch(System.Exception ex)
+         {
+            AcConsole.Write(ex.ToString());
          }
       }
+
+      /// <summary>
+      /// A no-frills emulation of the AutoCAD COPY command that
+      /// uses the Copy() extension method to copy a selection of
+      /// objects, translated by a specified displacement. 
+      /// 
+      /// Note that in spite of the fact that the clones/copies 
+      /// are translated, there is no use of a transaction at all 
+      /// in this method, as all of the work is done by the Copy() 
+      /// extension method.
+      /// 
+      /// </summary>
+      
+      [CommandMethod("MYCOPY", CommandFlags.UsePickSet)]
+      public static void MyCopy()
+      {
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         Editor ed = doc.Editor;
+         var pso = new PromptSelectionOptions();
+         pso.RejectObjectsFromNonCurrentSpace = true;
+         pso.RejectPaperspaceViewport = true;
+         var psr = ed.GetSelection(pso);
+         if(psr.IsFailed())
+            return;
+         var ppo = new PromptPointOptions("\nBase point: ");
+         var ppr = ed.GetPoint(ppo);
+         if(ppr.IsFailed())
+            return;
+         Point3d basePt = ppr.Value;
+         ppo.BasePoint = basePt;
+         ppo.UseBasePoint = true;
+         ppo.Message = "\nDisplacement: ";
+         ppr = ed.GetPoint(ppo);
+         if(ppr.IsFailed())
+            return;
+         var ids = psr.Value.GetObjectIds();
+         ids.Copy(Matrix3d.Displacement(basePt.GetVectorTo(ppr.Value)));
+      }
+
+      /// <summary>
+      /// Uses the CopyTo() method to write the selected objects
+      /// to the model space of a new DWG file, translated by a 
+      /// specified displacement, and then saves the file to disk.
+      /// 
+      /// Note again, how each clone is transformed by the delegate
+      /// passed to CopyTo(), avoiding the need to iteratively open 
+      /// each of them after the fact:
+      /// </summary>
+
+      static string myDocuments = Environment.GetFolderPath(
+         Environment.SpecialFolder.MyDocuments);
+      static readonly string path = Path.Combine(myDocuments, "WBLOCKED.dwg");
+
+      [CommandMethod("MYWBLOCK", CommandFlags.UsePickSet)]
+      public static void MyWblock()
+      {
+         Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+         var pso = new PromptSelectionOptions();
+         pso.RejectObjectsFromNonCurrentSpace = true;
+         pso.RejectPaperspaceViewport = true;
+         var psr = ed.GetSelection(pso);
+         if(psr.IsFailed())
+            return;
+         var ppr = ed.GetPoint("\nBase point: ");
+         if(ppr.IsFailed())
+            return;
+         Matrix3d transform = Matrix3d.Displacement(ppr.Value.GetAsVector()).Inverse();
+         var ids = psr.Value.GetObjectIds();
+         using(var db = new Database(true, true))
+         {
+            ids.CopyTo(db.GetModelSpaceBlockId(),
+               (source, clone) => clone.TransformBy(transform));
+            db.SaveAs(path, true, DwgVersion.Current, null);
+            ed.WriteMessage($"\n{psr.Value.Count} objects written to {path}");
+         }
+      }
+
+
    }
 
 }

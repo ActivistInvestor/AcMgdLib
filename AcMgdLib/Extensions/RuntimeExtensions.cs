@@ -229,8 +229,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// This API must be used with extreme care.
       /// 
       /// The replacement wrapper must be a class derived from 
-      /// the original wrapper, or be a class derived from the 
-      /// nearest concrete base type of the original wrapper.
+      /// the original wrapper.
       /// 
       /// After replacement, the <paramref name="replacement"/> argument
       /// becomes the managed wrapper for the <paramref name="original"/>'s

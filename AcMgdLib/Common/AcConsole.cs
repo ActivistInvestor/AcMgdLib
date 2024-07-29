@@ -96,9 +96,20 @@ namespace Autodesk.AutoCAD.Runtime
          Write(new StackTrace(1, true).ToString());
       }
 
+      public static void TraceCaller()
+      {
+         var st = new StackTrace(1, false);
+         Write(st.GetFrame(0).ToString());
+      }
+
+      public static string GetCaller()
+      {
+         return new StackTrace(1, false).GetFrame(1).ToString();
+      }
+
       public static void TraceProps(object target, string delimiter = "\n")
       {
-         WriteLine(GetProperties(target, delimiter));
+         WriteLine(GetCaller() + GetProperties(target, delimiter));
       }
 
       public static string GetProperties(object target, string delimiter = "\n")

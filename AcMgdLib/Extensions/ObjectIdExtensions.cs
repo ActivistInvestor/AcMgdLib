@@ -10,6 +10,9 @@
 /// Note: Recent refactorings may require C# 7.0.
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.Extensions;
+using System.Linq;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
@@ -104,7 +107,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          where T : DBObject
       {
          AcRx.ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
-         using(var obj = id.Open(OpenMode.ForRead, false, false))
+         using(var obj = id.Open(OpenMode.ForRead, true, false))
          {
             return func((T)obj);
          }
@@ -113,10 +116,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static TValue GetValue<TValue>(this ObjectId id, Func<DBObject, TValue> func)
       {
          AcRx.ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
-         using(var obj = id.Open(OpenMode.ForRead, false, false))
+         using(var obj = id.Open(OpenMode.ForRead, true, false))
          {
             return func(obj);
          }
+      }
+
+      public static T Open<T>(this ObjectId id, OpenMode mode = OpenMode.ForRead) where T : DBObject
+      {
+         AcRx.ErrorStatus.WrongObjectType.Requires<T>(id);
+         return (T)id.Open(mode, true, true);
       }
 
       /// <summary>
@@ -129,6 +138,28 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          return GetValue<T, TValue>(id, func);
       }
+
+      public static ObjectId TryGetOwnerId(this ObjectIdCollection ids)
+      {
+         Assert.IsNotNullOrDisposed(ids, nameof(ids));
+         if(ids.Count == 0)
+            return ObjectId.Null;
+         return ids[0].GetOwnerId();
+      }
+
+      public static ObjectId TryGetOwnerId(this IEnumerable<ObjectId> ids)
+      {
+         Assert.IsNotNull(ids, nameof(ids));
+         if(!ids.Any())
+            return ObjectId.Null;
+         return ids.First().GetOwnerId();
+      }
+
+      public static ObjectId GetOwnerId(this ObjectId id)
+      {
+         return id.GetValue<ObjectId>(obj => obj.OwnerId);
+      }
+
    }
 
 }

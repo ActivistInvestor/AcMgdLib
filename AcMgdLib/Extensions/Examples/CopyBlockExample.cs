@@ -34,8 +34,7 @@ namespace CopyBlockExample
             {
                using(var tr = new DocumentTransaction())
                {
-                  var bt = tr.BlockTable;
-                  if(bt.Contains(newName))
+                  if(tr.BlockTable.Contains(newName))
                   {
                      ed.WriteMessage("\nA block with the specified name already exists.");
                      tr.Commit();
