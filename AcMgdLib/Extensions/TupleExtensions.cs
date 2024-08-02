@@ -4,6 +4,7 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
+using System.Collections;
 using System.Diagnostics.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
@@ -15,7 +16,7 @@ namespace System.Extensions
    /// Extension methods that facilitate conversion between
    /// TypedValue[], ResultBuffer and ValueTuple[]
    /// </summary>
-   
+
    public static partial class TupleExtensions
    {
 
@@ -92,3 +93,4 @@ namespace System.Extensions
 
    }
 }
+

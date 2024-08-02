@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
+using System.Windows.Forms;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
@@ -21,12 +22,12 @@ using AcRx = Autodesk.AutoCAD.Runtime;
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    public static partial class ObjectIdExtensions
-   { 
+   {
 
       /// <summary>
-      /// An extension of ObjectId that opens the ObjectId and
+      /// An extension of ToObjectId that opens the ToObjectId and
       /// casts it to the specified argument type (no checking
-      /// is done to verify that the ObjectId is compatible).
+      /// is done to verify that the ToObjectId is compatible).
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <param name="trans"></param>
@@ -95,7 +96,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// type of the function argument.</typeparam>
       /// <typeparam name="TValue">The type of the result of
       /// this method, and the given function.</typeparam>
-      /// <param name="id">The ObjectId to be opened.</param>
+      /// <param name="id">The ToObjectId to be opened.</param>
       /// <param name="func">A function that takes an instance
       /// of the generic argument, and returns a value of the
       /// type TValue</param>
@@ -158,6 +159,85 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static ObjectId GetOwnerId(this ObjectId id)
       {
          return id.GetValue<ObjectId>(obj => obj.OwnerId);
+      }
+
+      static readonly RXClass entityClass = RXObject.GetClass(typeof(Entity));
+
+      public static bool IsAllEntities(this ObjectIdCollection ids)
+      {
+         Assert.IsNotNullOrDisposed(ids, nameof(ids));
+         foreach(ObjectId id in ids)
+         {
+            if(!id.ObjectClass.IsDerivedFrom(entityClass))
+               return false;
+         }
+         return true;
+      }
+
+      public static bool IsAllEntities(this IEnumerable<ObjectId> ids)
+      {
+         Assert.IsNotNull(ids, nameof(ids));
+         return ids.All(static id => id.ObjectClass.IsDerivedFrom(entityClass));
+      }
+
+      /// <summary>
+      /// Tentative - pending integration of RXClass 
+      /// extensions from CacheUtils.cs
+      /// </summary>
+      /// <param name="ids"></param>
+      /// <returns></returns>
+
+      public static RXClass GetRXClass(this IEnumerable<ObjectId> ids)
+      {
+         return ids.Select(id => id.ObjectClass)
+            .Aggregate((left, right) => left.IntersectWith(right));
+      }
+
+      static readonly RXClass objectClass = RXObject.GetClass(typeof(RXObject));
+
+      static int GetDepth(this RXClass rxclass)
+      {
+         int i = 0;
+         while(rxclass != objectClass)
+         {
+            ++i;
+            rxclass = rxclass.MyParent;
+         }
+         return i;
+      }
+
+      static RXClass IntersectWith<TLeft, TRight, TDefault>()
+         where TDefault : RXObject where TLeft: TDefault where TRight : TDefault
+      {
+         return IntersectWith(RXClass<TLeft>.Value, 
+            RXClass<TRight>.Value,
+            RXClass<TDefault>.Value);
+      }
+
+      static void Swap<T>(ref T left, ref T right)
+      {
+         T temp = left;
+         left = right;
+         right = temp;
+      }
+
+      static RXClass IntersectWith(this RXClass left, RXClass right, RXClass defaultClass = null)
+      {
+         if(left.IsDerivedFrom(right))
+            return right;
+         if(right.IsDerivedFrom(left))
+            return left;
+         int lDepth = left.GetDepth();
+         int rDepth = right.GetDepth();
+         if(lDepth > rDepth)
+            Swap(ref left, ref right);
+         defaultClass = defaultClass ?? RXObject.GetClass(typeof(RXObject));
+         for(RXClass next = left.MyParent; next != defaultClass; next = next.MyParent)
+         {
+            if(right.IsDerivedFrom(next))
+               return next;
+         }
+         return defaultClass;
       }
 
    }

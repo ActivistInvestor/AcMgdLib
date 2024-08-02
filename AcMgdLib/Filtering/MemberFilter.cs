@@ -13,17 +13,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
-using System.Windows.Forms;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
-   /// Automates filtering items by set membership of values
+   /// Automates filtering items by set membership of source
    /// derived from each item by a user-supplied delegate.
    /// 
    /// An item satisifies the filter criteria if the TKey value
    /// produced by the delegate given an item, is contained in 
-   /// the set of values passed to the constructor, or added to
+   /// the set of source passed to the constructor, or added to
    /// the instance via the Add() method.
    /// 
    /// The Inverted property can be set to true to invert that

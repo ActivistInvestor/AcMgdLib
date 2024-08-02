@@ -43,7 +43,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// <summary>
       /// Invokable on an ErrorStatus, for example:
       /// 
-      ///   ObjectId someId = ....
+      ///   ToObjectId someId = ....
       ///   
       ///   ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
       ///   
@@ -66,7 +66,7 @@ namespace Autodesk.AutoCAD.Runtime
       }
 
       /// <summary>
-      /// Throws an exception if the given ObjectId does not
+      /// Throws an exception if the given ToObjectId does not
       /// represent an instance of the generic argument or a
       /// type derived from it.
       /// 
@@ -74,7 +74,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// 
       ///    ErrorStatus.WrongObjectType.Requires<Curve>(id);
       ///    
-      /// throws an exception if the ObjectId does not represent
+      /// throws an exception if the ToObjectId does not represent
       /// an object that is derived from Curve. This method can
       /// also be used with concrete types:
       ///    
@@ -83,19 +83,19 @@ namespace Autodesk.AutoCAD.Runtime
       /// The above throws and exception if the argument does not
       /// represent a Polyline.
       ///    
-      /// If the given ObjectId is null, the ErrorStatus will be
+      /// If the given ToObjectId is null, the ErrorStatus will be
       /// ErrorStatus.NullObjectId, rather than the ErrorStatus
       /// which the method is invoked through.
       /// 
-      /// This method can be used to both validate an ObjectId as 
+      /// This method can be used to both validate an ToObjectId as 
       /// not being null, and as representing an instance of the
       /// specified managed wrapper type.
       /// </summary>
       /// <typeparam name="T">The managed wrapper type which the
-      /// ObjectId must represent an instance of</typeparam>
+      /// ToObjectId must represent an instance of</typeparam>
       /// <param name="es">The ErrorStatus to pass to the Exception</param>
-      /// <param name="id">The ObjectId to validate</param>
-      /// <param name="exact">A value indicating if the ObjectId can
+      /// <param name="id">The ToObjectId to validate</param>
+      /// <param name="exact">A value indicating if the ToObjectId can
       /// represent an instance of a derived type or not.</param>
       /// <param name="msg">An optional message to display</param>
 
@@ -200,7 +200,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// 
       /// Example:
       /// 
-      ///    ObjectId id = .....
+      ///    ToObjectId id = .....
       ///    
       ///    if(id.IsA<Circle>())
       ///       Console.WriteLine("This id references a Circle entity");
@@ -336,7 +336,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// <param name="rxclass">The runtime class to test
       /// against the generic argument of this type</param>
       /// <param name="exactMatch">A value indicating if the
-      /// type of the DBObject represented by an ObjectId must 
+      /// type of the DBObject represented by an ToObjectId must 
       /// be equal to the type of the generic argument (true), 
       /// or can be any type that is derived from same (false).
       /// 
@@ -356,10 +356,10 @@ namespace Autodesk.AutoCAD.Runtime
       /// the argument is derived from the runtime class associated 
       /// with the generic argument type.
       /// </summary>
-      /// <param name="id">The ObjectId whose runtime class is to be 
+      /// <param name="id">The ToObjectId whose runtime class is to be 
       /// compared to the runtime class of the generic argument</param>
       /// <param name="exactMatch">A value indicating if the
-      /// type of the DBObject represented by an ObjectId must 
+      /// type of the DBObject represented by an ToObjectId must 
       /// be equal to the type of the generic argument (true), 
       /// or be any type that is derived from same (false).
       /// 
@@ -375,9 +375,9 @@ namespace Autodesk.AutoCAD.Runtime
       }
 
       /// <summary>
-      /// Returns a predicate function that takes an ObjectId
+      /// Returns a predicate function that takes an ToObjectId
       /// as an argument and returns a value indicating if the
-      /// ObjectId argument represents a DBObject whose managed
+      /// ToObjectId argument represents a DBObject whose managed
       /// type equals the generic argument type or, is a type 
       /// derived from the generic argument type, depending on 
       /// the <paramref name="exactMatch"/> argument.
@@ -398,15 +398,15 @@ namespace Autodesk.AutoCAD.Runtime
       /// </summary>
       /// <typeparam name="T">The type of DBObject to match</typeparam>
       /// <param name="exactMatch">A value indicating if the
-      /// type of the DBObject represented by an ObjectId must 
+      /// type of the DBObject represented by an ToObjectId must 
       /// be equal to the type of the generic argument (true), 
       /// or be any type that is derived from same (false). The
       /// default is false (e.g., matches any derived type).
       /// 
       /// If the generic argument type is abstract, this argument 
       /// is ignored and is effectively-false</param>
-      /// <returns>A predicate that when passed an ObjectId returns
-      /// a value indicating if the ObjectId matches the criteria</returns>
+      /// <returns>A predicate that when passed an ToObjectId returns
+      /// a value indicating if the ToObjectId matches the criteria</returns>
 
       public static Func<ObjectId, bool> GetIdPredicate(bool exactMatch = false)
       {
@@ -430,10 +430,10 @@ namespace Autodesk.AutoCAD.Runtime
       /// 
       /// There are two versions of each delegate. One matches 
       /// exactly and the other matches any derived type. There
-      /// are overloads that test the ObjectClass of an ObjectId,
+      /// are overloads that test the ObjectClass of an ToObjectId,
       /// and overloads that test an RXClass.
       /// 
-      /// Note: No check is performed on the ObjectId argument
+      /// Note: No check is performed on the ToObjectId argument
       /// to ensure it is not null or has a null ObjectClass:
       /// </summary>
 

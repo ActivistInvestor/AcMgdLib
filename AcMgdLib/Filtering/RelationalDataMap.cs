@@ -1,4 +1,4 @@
-﻿/// DBObjectDataMapBase.cs  
+﻿/// RelationalDataMap.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
@@ -39,12 +39,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public override Type TKeyType => typeof(TKey);
 
       /// <summary>
-      /// The type of the object from which cached values are obtained:
+      /// The type of the object from which cached source are obtained:
       /// </summary>
       public override Type TValueSourceType => typeof(TValueSource);
 
       /// <summary>
-      /// The type of the cached values:
+      /// The type of the cached source:
       /// </summary>
       public override Type TValueType => typeof(TValue);
 

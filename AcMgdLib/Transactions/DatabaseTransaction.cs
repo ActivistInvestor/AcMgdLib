@@ -35,7 +35,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Creates and starts a DatabaseTransaction. 
       /// </summary>
       /// <param name="database">The Database in which to start the 
-      /// transaction. All Database-specific operations performed by 
+      /// transaction. DeepExplode Database-specific operations performed by 
       /// an instance of this class will use this argument.</param>
       /// <param name="asWorkingDatabase">A value indicating if the given
       /// Database should be made the current working database for the life 
@@ -505,7 +505,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// A strongly-typed verion of GetObject() that
       /// merely allows the caller to avoid an explicit
       /// cast to the desired type. Requires that the
-      /// given ObjectId reference a DBObject of the
+      /// given ToObjectId reference a DBObject of the
       /// generic argument type or a derived type.
       /// </summary>
 
@@ -545,7 +545,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Opening erased objects is not supported.
       /// </summary>
-      /// <param name="key">The ObjectId of the DBObject to open</param>
+      /// <param name="key">The ToObjectId of the DBObject to open</param>
       /// <returns>The opened DBObject</returns>
 
       public DBObject this[ObjectId key]

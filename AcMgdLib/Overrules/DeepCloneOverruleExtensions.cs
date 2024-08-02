@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -21,7 +22,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    {
       /// <summary>
       /// Extension methods targeting ObjectIdCollection and
-      /// IEnumerable<ObjectId>, that perform a deep clone or
+      /// IEnumerable<ToObjectId>, that perform a deep clone or
       /// Wblock clone of the collection elements to the same 
       /// or a different owner, and optionally give the caller 
       /// the means to operate on each source object and its 
@@ -57,7 +58,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Overload of the above Copy() method that accepts an 
-      /// IEnumerable<ObjectId> in lieu of an ObjectIdCollection:
+      /// IEnumerable<ToObjectId> in lieu of an ObjectIdCollection:
       /// </summary>
       /// <param name="source"></param>
       /// <param name="transform"></param>
@@ -76,9 +77,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// applys a transformation to each clone.
       /// </summary>
       /// <param name="source">The source objects to be copied</param>
-      /// <param name="ownerId">The ObjectId of the new owner 
+      /// <param name="ownerId">The ToObjectId of the new owner 
       /// object which the source objects are to be copied to.
-      /// If this value is ObjectId.Null, the source objects are 
+      /// If this value is ToObjectId.Null, the source objects are 
       /// copied to their current owner.</param>
       /// <param name="transform">An optional transformation matrix
       /// to apply to the copied objects.</param>
@@ -103,9 +104,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// the delegate must take Entity arguments.
       /// </summary>
       /// <param name="source">An ObjectIdCollection or an
-      /// IEnumerable<ObjectId> containing the ObjectIds of
+      /// IEnumerable<ToObjectId> containing the ObjectIds of
       /// the objects to be copied.</param>
-      /// <param name="ownerId">The ObjectId of the new owner
+      /// <param name="ownerId">The ToObjectId of the new owner
       /// of the copies.</param>
       /// <param name="action">A delegate that takes two Entity
       /// arguments, the first being the source entity that was
@@ -128,7 +129,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Overload of the above method taking an IEnumerable<ObjectId> 
+      /// Overload of the above method taking an IEnumerable<ToObjectId> 
       /// in lieu of an ObjectIdCollection.
       /// </summary>
       /// <param name="source"></param>
@@ -145,7 +146,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// All of the above overloads delegate to this core method.
+      /// DeepExplode of the above overloads delegate to this core method.
       /// 
       /// Deep-clones or wblock-clones the objects referenced by the given 
       /// ObjectIdCollection to the specified owner, or to their current 
@@ -156,12 +157,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Any source/clone pairs that are not instances of this type will 
       /// not have the action applied to them.</typeparam>
       /// <param name="source">The ObjectIdCollection that references the
-      /// objects to be cloned. All DBObjects referenced by the elements 
+      /// objects to be cloned. DeepExplode DBObjects referenced by the elements 
       /// must have the same owner.</param>
-      /// <param name="ownerId">The ObjectId of the DBObject which will be
-      /// the owner of the clones. If this argument is ObjectId.Null, the 
+      /// <param name="ownerId">The ToObjectId of the DBObject which will be
+      /// the owner of the clones. If this argument is ToObjectId.Null, the 
       /// clones will have the same owner as the source objects. If this
-      /// argument is the ObjectId of an object in a Database other than 
+      /// argument is the ToObjectId of an object in a Database other than 
       /// the one containing the source objects, a Wblock clone operation 
       /// is performed using DuplicateRecordCloning.Ignore</param>
       /// <param name="action">A delegate that takes two instances of the
@@ -181,12 +182,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(ownerId.IsNull)
             ownerId = source.TryGetOwnerId();
          AcRx.ErrorStatus.InvalidOwnerObject.ThrowIf(ownerId.IsNull);
-         bool wblock = ownerId.Database != source[0].Database;
+         Database db = source[0].Database;
+         bool wblock = ownerId.Database != db;
          IdMapping result = new IdMapping();
          DeepCloneOverrule<T> overrule = null;
          if(action != null)
             overrule = new DeepCloneOverrule<T>(ownerId, action);
-         Database db = source[0].Database;
          using(overrule)
          {
             if(wblock)
@@ -199,7 +200,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// An overload of the above method that accepts an
-      /// IEnumerable<ObjectId> in liew of an ObjectIdCollection.
+      /// IEnumerable<ToObjectId> in lieu of an ObjectIdCollection.
       /// </summary>
 
       public static IdMapping CopyTo<T>(this IEnumerable<ObjectId> source,

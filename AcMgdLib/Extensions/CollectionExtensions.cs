@@ -219,7 +219,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// definition, use Entity as the generic argument.
       /// 
       /// Testing of each element's type is done against the
-      /// runtime class of each source ObjectId to avoid the
+      /// runtime class of each source ToObjectId to avoid the
       /// needless creation of managed wrappers for elements
       /// that are not enumerated.
       /// </summary>
@@ -282,12 +282,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// IEnumerable<ObjectId>:
+      /// IEnumerable<ToObjectId>:
       /// 
-      /// A version of GetObjects() targeting IEnumerable<ObjectId>
+      /// A version of GetObjects() targeting IEnumerable<ToObjectId>
       /// that enumerates the DBObjects represented by the ObjectIds
       /// in the source sequence represeting instances of the generic 
-      /// argument. This method applies to arrays of ObjectId as well.
+      /// argument. This method applies to arrays of ToObjectId as well.
       /// </summary>
       /// <parm name="ids">The sequence of ObjectIds representing
       /// the entities that are to be opened and returned</parm>
@@ -516,7 +516,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Assigns the given values to the XRecord having the
+      /// Assigns the given source to the XRecord having the
       /// specified key, within the owner's extension dictionary.
       /// If the Xrecord does not exist, it will be created and
       /// added to the extension dictionary. 
@@ -902,7 +902,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Gets the ObjectIds of all values in the given DBDictionary
+      /// Gets the ObjectIds of all source in the given DBDictionary
       /// that reference objects of the type of the generic argument.
       /// 
       /// To get erased entries, invoke this method on the result of 
@@ -912,7 +912,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="includingErased">A value indicating if erased
       /// elements should be included.</param>
       /// <returns>An object that enumerates the ObjectIds of the
-      /// entry values in the DBDictionary</returns>
+      /// entry source in the DBDictionary</returns>
 
       public static IEnumerable<ObjectId> GetObjectIds<T>(this DBDictionary source, bool includingErased = false)
          where T : DBObject

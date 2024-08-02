@@ -247,7 +247,7 @@ namespace System.Linq.Extensions
    }
 
    /// <summary>
-   /// Counter classes store values in a reference type,
+   /// Counter classes store source in a reference type,
    /// to avoid an assignment to an existing value, as
    /// it is far-more expensive than assigning a value to
    /// the field of a reference type.

@@ -510,7 +510,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Gets the ObjectId of a Layout given its LayoutName
+      /// Gets the ToObjectId of a Layout given its LayoutName
       /// </summary>
 
       public static ObjectId GetLayoutId(this Database db, string layoutName, bool throwIfNotFound = false)
@@ -531,28 +531,28 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Returns the ObjectId of an entry in a standard, predefined
+      /// Returns the ToObjectId of an entry in a standard, predefined
       /// DBDictionary having the given key. The generic argument type 
       /// determines which dictionary is accessed to obtain the result.
       /// 
-      /// For example, to get the ObjectId of a Group object having 
+      /// For example, to get the ToObjectId of a Group object having 
       /// the name "MyGroup" from the Group dictionary:
       /// 
-      ///    ObjectId myGroupId = db.GetDictionaryEntryId<Group>("MyGroup");
+      ///    ToObjectId myGroupId = db.GetDictionaryEntryId<Group>("MyGroup");
       ///    
       /// The generic argument type is used to resolve which of the
       /// standard dictionaries the entry is retrieved from. Those
       /// are the dictionaries that have corresponding properties on
       /// the Database class (e.g., XxxxxDictionaryId).
       /// </summary>
-      /// <typeparam name="T">The type of the DBObject whose ObjectId
+      /// <typeparam name="T">The type of the DBObject whose ToObjectId
       /// is to be returned, which determines which DBDictionary the 
       /// DBObject is obtained from</typeparam>
       /// <param name="db">The source Database</param>
       /// <param name="key">The key of the dictionary entry to retreive</param>
       /// <param name="throwIfNotFound">A value indicating if the method
       /// should throw a KeyNotFound exception if an entry with the specified
-      /// key does not exist, if false, the method returns ObjectId.Null if an 
+      /// key does not exist, if false, the method returns ToObjectId.Null if an 
       /// entry with the specified key does not exist.</param>
       /// <returns>The DBDictionaryEntry's Value</returns>
       /// <exception cref="ArgumentException"></exception>
@@ -725,7 +725,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Opens and enumerates all objects referenced by the values 
+      /// Opens and enumerates all objects referenced by the source 
       /// in the specified standard dictionary that are instances of 
       /// the generic argument type.
       /// </summary>
@@ -912,13 +912,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// more intuitive to use.
       /// 
       /// The WhereBy() method requires two delegate arguments. The
-      /// first delegate returns the ObjectId of the related object
+      /// first delegate returns the ToObjectId of the related object
       /// from which the query criteria is obtained (in this case,
       /// it returns the BlockId of its Etity argument). The second
       /// delegate is a predicate that will be applied to the related 
       /// objects to determine if the sequence element is included in
       /// the result (in this case, the related object the predicate
-      /// is applied to is the BlockTableRecord whose ObjectId was
+      /// is applied to is the BlockTableRecord whose ToObjectId was
       /// returned by the first delegate).
       /// 
       /// </summary>

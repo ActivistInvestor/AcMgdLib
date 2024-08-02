@@ -37,7 +37,7 @@ namespace AutoCAD.AcDbLinq.Examples
    /// AutoCAD's properties palette displays the effective color
    /// of selected entities in the swatch of the Color property.
    /// 
-   /// Nested entities (e.g. 'BYBLOCK') are not supported.
+   /// List entities (e.g. 'BYBLOCK') are not supported.
    /// 
    /// This class is mainly intended to serve as an example
    /// showing how to specialize the underlying classes for 
@@ -63,7 +63,7 @@ namespace AutoCAD.AcDbLinq.Examples
    public class EffectiveColorMap : DBObjectDataMap<Entity, LayerTableRecord, Color>
    {
       /// <summary>
-      /// Optionally pass the ObjectId of a model space viewport
+      /// Optionally pass the ToObjectId of a model space viewport
       /// that should be used to calculate the effective color of
       /// entities used with the instance.
       /// </summary>
@@ -80,9 +80,9 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// The keySelector delegate passed to the constructor
-      /// will return the entity's LayerId, or ObjectId.Null
+      /// will return the entity's LayerId, or ToObjectId.Null
       /// if the entity's color is not BYLAYER. If the result
-      /// is ObjectId.Null, this method is called and returns
+      /// is ToObjectId.Null, this method is called and returns
       /// the value of the entity's Color property.
       /// </summary>
 
@@ -154,7 +154,7 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// The viewport that's used to compute the effective
-      /// color, is the viewport whose ObjectId is provided,
+      /// color, is the viewport whose ToObjectId is provided,
       /// or the viewport that's active at the point when this 
       /// method is called without a viewport argument.
       /// </summary>

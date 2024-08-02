@@ -1,11 +1,13 @@
-﻿using System.Linq;
+﻿using System.Diagnostics.Extensions;
+using System.Linq;
 
 namespace System.Collections.Generic.Extensions
 {
    /// <summary>
-   /// A variant of Queue<T> whose elemets are constrained 
-   /// to be distinct. This class disallows adding values 
-   /// that alredy exist in the queue. 
+   /// A variant of Queue<T> whose elements are constrained 
+   /// to be distinct. This class disallows adding items that
+   /// that alredy exist in the queue, effectively making it
+   /// a set.
    /// 
    /// Unlike the Queue.Enqueue() method, the corresponding
    /// method of this class returns a bool indicating if the
@@ -28,10 +30,9 @@ namespace System.Collections.Generic.Extensions
       /// returns true if all elements were added
       /// </summary>
 
-      public bool Enqueue(IEnumerable<T> items)
+      public bool EnqueueRange(IEnumerable<T> items)
       {
-         if(items == null)
-            throw new ArgumentNullException("items");
+         Assert.IsNotNull(items, nameof(items));
          if(items.Any())
          {
             bool result = true;
@@ -46,8 +47,7 @@ namespace System.Collections.Generic.Extensions
 
       public bool Enqueue(T item)
       {
-         if(item == null)
-            throw new ArgumentNullException("item");
+         Assert.IsNotNull(item, nameof(item));  
          bool result = set.Add(item);
          if(result)
             queue.Enqueue(item);

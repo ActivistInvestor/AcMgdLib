@@ -499,9 +499,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// DataType, or null if there are fewer occurences of an
       /// item having the given DataType 
       /// 
-      /// For example, to get the 3rd Point3d in the list:
+      /// For example, to get the 3rd ToPoint3d in the list:
       /// 
-      ///   dwgDataList.OfTypeAt(DwgDataType.Point3d, 2);
+      ///   dwgDataList.OfTypeAt(DwgDataType.ToPoint3d, 2);
       ///   
       /// </summary>
       /// <param name="type"></param>
@@ -580,12 +580,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// NOTE: The index is 1-based, not 0-based. 
       /// 
-      /// For example, to get the 3rd Point3d value that was 
+      /// For example, to get the 3rd ToPoint3d value that was 
       /// filed out by the DBObject, you would use:
       /// <code>
       /// 
-      ///    Point3d thirdPoint;
-      ///    if(myDwgDataList.TryGetValueAt(DwgDataType.Point3d, 3, out thirdPoint))
+      ///    ToPoint3d thirdPoint;
+      ///    if(myDwgDataList.TryGetValueAt(DwgDataType.ToPoint3d, 3, out thirdPoint))
       ///    {
       ///        Debug.WriteLine("\nFound 3rd point: ", thirdPoint);
       ///    }
@@ -684,8 +684,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// This value represents the Nth occurence of a
       /// value with the DataType in the output list.
       /// 
-      /// E.g., the first Point3d written out will have a 
-      /// TypeIndex of 0. The second Point3d written out 
+      /// E.g., the first ToPoint3d written out will have a 
+      /// TypeIndex of 0. The second ToPoint3d written out 
       /// will have a TypeIndex of 1, and so on. 
       /// 
       /// This value is distinct for each DataType.
@@ -760,7 +760,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       NotRecognized = 19,
 
       /// <summary>
-      /// Application-specific, not all values are supported.
+      /// Application-specific, not all source are supported.
       /// </summary>
       Point3d = 20,
       Point2d = 21,

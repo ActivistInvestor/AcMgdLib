@@ -69,7 +69,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// of a RibbonCommandButton assigned to its Button property, the 
    /// instance cannot be shared by multiple RibbonCommandButtons.
    /// 
-   /// All of the above can be further automated by simply using
+   /// DeepExplode of the above can be further automated by simply using
    /// the included ModalRibbonCommandButton, rather than its
    /// base class, as shown in RibbonEventManagerExample.cs.
    /// 

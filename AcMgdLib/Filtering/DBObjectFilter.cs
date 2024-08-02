@@ -34,7 +34,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    ///    
    ///    Both TFitlered and TCriteria must be DBObjects.
    ///    
-   ///    The ObjectId of a TCriteria instance must be obtainable
+   ///    The ToObjectId of a TCriteria instance must be obtainable
    ///    from a referencing TFiltered instance.
    /// 
    /// A simple example that filters Entities,
@@ -61,7 +61,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// object. To determine what referenced object it must get 
    /// the data from, it requiresd a caller-supplied delegate
    /// that takes the entity as an argument, and returns the 
-   /// referenced object's ObjectId. That is the first delegate 
+   /// referenced object's ToObjectId. That is the first delegate 
    /// passed to the constructor in the above example:
    ///   
    ///    entity => entity.LayerId
@@ -80,7 +80,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// The first delgate takes an entity, and returns a 'key'
    /// that identifies the referenced object whose data is to
    /// be used to determine if the entity satisfies the query
-   /// criteria. The key in this case, is the ObjectId of the
+   /// criteria. The key in this case, is the ToObjectId of the
    /// LayerTableRecord representing the layer which the entity
    /// resides on. That key is first used to lookup the layer's
    /// query criteria in a cache, and if found, it is used to 
@@ -89,7 +89,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// and it is passed to the second delegate, which returns 
    /// the data that determines if the entity satisfies the query
    /// criteria. That returned data is then cached, keyed to the
-   /// LayerTableRecord's ObjectId, and reused in all subsequent
+   /// LayerTableRecord's ToObjectId, and reused in all subsequent
    /// reequests for the query criteria for the same layer.
    /// 
    /// Hence, regardless of how many entities reference a given
@@ -317,9 +317,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="operation">The logical operation to
       /// combine the filters or predicates with</param>
       /// <param name="keySelector">A delegate that produces
-      /// the ObjectId key for a given TFiltered instance</param>
+      /// the ToObjectId key for a given TFiltered instance</param>
       /// <param name="predicate">A predicate that is applied
-      /// to the TCriteria instance referenced by the ObjectId
+      /// to the TCriteria instance referenced by the ToObjectId
       /// return by the keySelector, that determines if the 
       /// TFiltered instance satisfies the filter criteria</param>
       /// <exception cref="ArgumentException"></exception>

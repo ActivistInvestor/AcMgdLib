@@ -7,10 +7,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
-using System.Diagnostics.Extensions;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -77,7 +77,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// with the specified filter criteria.
       /// 
       /// Overloads are provided for BlockTableRecord,
-      /// ObjectIdCollection, and IEnumerable<ObjectId>
+      /// ObjectIdCollection, and IEnumerable<ToObjectId>
       /// 
       /// (Complete documentation to come)
       /// </summary>

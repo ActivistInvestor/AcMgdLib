@@ -22,7 +22,7 @@ using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.Overrules.Examples
 {
-   public static class AddToBlockExamples
+   public static class DeepCloneOverruleExampleCommands
    {
       /// <summary>
       /// This example prompts for a selection of objects 
@@ -78,7 +78,7 @@ namespace AcMgdLib.Overrules.Examples
             var btr = (BlockTableRecord)tr.GetObject(
                blkref.DynamicBlockTableRecord, OpenMode.ForRead);
 
-            /// Avoiding operations that cause a block to
+            /// Avoiding operations that can cause a block to
             /// become self-referencing:
             /// 
             /// This note applies to any code that adds objects 
@@ -186,7 +186,7 @@ namespace AcMgdLib.Overrules.Examples
       /// model coordinate system, and then it erases the source 
       /// object after upgrading its OpenMode to OpenMode.ForWrite. 
       /// 
-      /// All of the required operations are performed by a single 
+      /// DeepExplode of the required operations are performed by a single 
       /// delegate with three lines of code, and without the need 
       /// to iterate over and open the originally-selected objects 
       /// or the resulting clones.
@@ -212,8 +212,8 @@ namespace AcMgdLib.Overrules.Examples
             using(var tr = new DocumentTransaction())
             {
                var blkref = tr.GetObject<BlockReference>(idBlkRef);
-               ObjectId ownerId = blkref.DynamicBlockTableRecord;
-               var newOwner = tr.GetObject<BlockTableRecord>(ownerId);
+               ObjectId newOwnerId = blkref.DynamicBlockTableRecord;
+               var newOwner = tr.GetObject<BlockTableRecord>(newOwnerId);
                ObjectId[] ids = psr.Value.GetObjectIds();
 
                /// Check for and reject selections that have
@@ -253,13 +253,14 @@ namespace AcMgdLib.Overrules.Examples
                /// manages a DeepCloneOverrule that will call the above
                /// OnCloned() method, allowing the programmer to avoid 
                /// having to deal directly with the DeepCloneOverrule 
-               /// class. Although CopyTo() method returns the IdMapping 
+               /// class. 
+               /// 
+               /// Although the CopyTo() method returns the IdMapping 
                /// representing the result of the deep clone operation, 
                /// it isn't needed in this case, because the OnCloned() 
                /// function above does all the work:
 
-
-               ids.CopyTo<Entity>(ownerId, OnCloned);
+               ids.CopyTo<Entity>(newOwnerId, OnCloned);
 
                string name = newOwner.Name;
                Database db = newOwner.Database;
@@ -280,15 +281,18 @@ namespace AcMgdLib.Overrules.Examples
       /// uses the Copy() extension method to copy a selection of
       /// objects, translated by a specified displacement. 
       /// 
+      /// The overload of the Copy() method used in this example 
+      /// takes a Matrix3d argument, and transforms the clones by 
+      /// the given matrix.
+      /// 
       /// Note that in spite of the fact that the clones/copies 
       /// are translated, there is no use of a transaction at all 
       /// in this method, as all of the work is done by the Copy() 
       /// extension method.
-      /// 
       /// </summary>
       
       [CommandMethod("MYCOPY", CommandFlags.UsePickSet)]
-      public static void MyCopy()
+      public static void MyCopyCommand()
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Editor ed = doc.Editor;
@@ -314,21 +318,23 @@ namespace AcMgdLib.Overrules.Examples
       }
 
       /// <summary>
-      /// Uses the CopyTo() method to write the selected objects
+      /// A no-frills emulation of one form of the WBLOCK command
+      /// that uses the CopyTo() method to copy selected objects
       /// to the model space of a new DWG file, translated by a 
       /// specified displacement, and then saves the file to disk.
       /// 
       /// Note again, how each clone is transformed by the delegate
       /// passed to CopyTo(), avoiding the need to iteratively open 
-      /// each of them after the fact:
+      /// each of them after the fact, and eliminating the need for
+      /// a Transaction:
       /// </summary>
 
       static string myDocuments = Environment.GetFolderPath(
          Environment.SpecialFolder.MyDocuments);
-      static readonly string path = Path.Combine(myDocuments, "WBLOCKED.dwg");
+      static readonly string path = Path.Combine(myDocuments, "MYWBLOCK.dwg");
 
       [CommandMethod("MYWBLOCK", CommandFlags.UsePickSet)]
-      public static void MyWblock()
+      public static void MyWblockCommand()
       {
          Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
          var pso = new PromptSelectionOptions();
@@ -337,15 +343,16 @@ namespace AcMgdLib.Overrules.Examples
          var psr = ed.GetSelection(pso);
          if(psr.IsFailed())
             return;
-         var ppr = ed.GetPoint("\nBase point: ");
+         var ppr = ed.GetPoint("\nInsertion base point: ");
          if(ppr.IsFailed())
             return;
-         Matrix3d transform = Matrix3d.Displacement(ppr.Value.GetAsVector()).Inverse();
+         Vector3d translate = ppr.Value.GetAsVector().Negate();
+         Matrix3d transform = Matrix3d.Displacement(translate);
          var ids = psr.Value.GetObjectIds();
          using(var db = new Database(true, true))
          {
-            ids.CopyTo(db.GetModelSpaceBlockId(),
-               (source, clone) => clone.TransformBy(transform));
+            var newOwnerId = db.GetModelSpaceBlockId();
+            ids.CopyTo(newOwnerId, (source, clone) => clone.TransformBy(transform));
             db.SaveAs(path, true, DwgVersion.Current, null);
             ed.WriteMessage($"\n{psr.Value.Count} objects written to {path}");
          }

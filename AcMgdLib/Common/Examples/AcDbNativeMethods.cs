@@ -35,7 +35,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    /// 
    ///   [DllImport("acdb19.dll", CallingConvention = 
    ///      CallingConvention.Cdecl, 
-   ///      EntryPoint = "someFunction")]
+   ///      Name = "someFunction")]
    ///
    /// Nothing more than the above use of [DllImport] 
    /// makes the assembly that contains it dependent on
@@ -70,7 +70,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    ///    have the same signature as the equivalent method 
    ///    having the [DllImport] attribute applied to it:
    ///    
-   ///       delegate ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ObjectId id);
+   ///       delegate ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ToObjectId id);
    ///    
    /// 2. Declare a static variable of the defined delegate 
    ///    type. In the example below, this is 'acdbGetAdsName':
@@ -78,10 +78,10 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    ///       static acdbGetAdsNameFunc acdbGetAdsName;
    /// 
    /// 3. Assign the entry point/export name of the native
-   ///    API, which is the same value that is passed to 
-   ///    the [DllImport] attribute's EntryPoint argument.
-   ///    In the example below, the string is assigned to
-   ///    'acdbGetAdsName64':
+   ///    API (which is the same value that is passed to 
+   ///    the [DllImport] attribute's Name argument)
+   ///    to a static const variable. In the example below, 
+   ///    the string is assigned to 'acdbGetAdsName64':
    ///    
    ///       const string acdbGetAdsName64 = 
    ///          "?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z";
@@ -105,7 +105,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    /// can be used to invoke it:
    /// 
    ///    
-   ///      ObjectId id = ...
+   ///      ToObjectId id = ...
    ///      AdsName ename;
    ///      ErrorStatus es;
    ///      es = acdbGetAdsName(out ename, id);
@@ -125,16 +125,23 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
 
    public static class AcDbNativeMethods
    {
-      const string acdbGetAdsName64 =
-         "?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z";
+      //const string acdbGetAdsName64 =
+      //   "?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z";
+
+      // Docs not updated yet - The entry point can be
+      // specified by applying the EntryPointAttribute
+      // to the delegate type:
+
+      [EntryPoint("?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z")]
       delegate AcRx.ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ObjectId id);
+
       static acdbGetAdsNameFunc acdbGetAdsName = acdbGetAdsNameLoader;
 
       /// <summary>
       /// This proxy/stub loader function is initially assigned to 
       /// acdbGetAdsName, so that the first time that delegate is called, 
       /// the real acdbGetAdsName method is loaded and assigned to the
-      /// same identifier the delegate is assigned to, allowing the real
+      /// same identifier the loader is assigned to, allowing the real
       /// function to subsequently be called directly. The loader's job 
       /// is to load the exported API and then execute it. This design 
       /// provides for 'just-in-time' loading of exported functions the 
@@ -144,18 +151,16 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
 
       static AcRx.ErrorStatus acdbGetAdsNameLoader(out AdsName ename, ObjectId id)
       {
-         acdbGetAdsName = acdbGetAdsName.Load(acdbGetAdsName64);
-         // acdbGetAdsName = DllImport.AcDbImport<acdbGetAdsNameFunc>(acdbGetAdsName64);
+         acdbGetAdsName = acdbGetAdsName.Load();
          return acdbGetAdsName(out ename, id);
-
-         // Alternative syntax using an extension method that
-         // targets the delegate type:
-         //
-         //   acdbGetAdsName = acdbGetAdsName.LoadAcDb(acdbGetAdsName64);
-
       }
 
-      /// acdbEntGet doesn't need to be dynamically-loaded:
+      /// <summary>
+      /// acdbEntGet doesn't need to be dynamically-
+      /// loaded, because accore.dll is not a version-
+      /// dependent filename.
+      /// </summary>
+
       [System.Security.SuppressUnmanagedCodeSecurity]
       [DllImport("accore.dll", 
          CallingConvention = CallingConvention.Cdecl,
@@ -206,5 +211,16 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
          Assert.IsNotNullOrDisposed(dbObj, nameof(dbObj));
          return EntGet(dbObj.ObjectId);
       }
+   }
+
+   [AttributeUsage(AttributeTargets.Delegate, AllowMultiple = false, Inherited =false)]
+   public class EntryPointAttribute : System.Attribute
+   {
+      public EntryPointAttribute(string name)
+      {
+         this.Name = name;
+      }
+
+      public string Name { get;set; }
    }
 }

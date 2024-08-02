@@ -89,8 +89,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          foreach(var obj in source ?? new T[0])
          {
-            DisposableWrapper wrapper = obj as DisposableWrapper;
-            if(wrapper?.IsDisposed == true)
+            if(obj is DisposableWrapper wrapper && wrapper.IsDisposed)
                continue;
             obj?.Dispose();
          }

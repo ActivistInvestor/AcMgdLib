@@ -30,10 +30,14 @@
 /// regardless of if the expressions use different parameter 
 /// names.
 /// 
+/// This requirement is brought about as a result of a need
+/// to use Expressions as Dictionary keys, or storing them in 
+/// HashSets.
+/// 
 /// Other changes were made only to eliminate any dependence
 /// on the rest of the codebase (namely, exception messages).
 /// 
-/// /// </summary>
+/// </summary>
 
 using System.Collections;
 using System.Collections.Generic;

@@ -11,7 +11,7 @@ using System;
 
 namespace System.Linq.Expressions.Predicates
 {
-   public interface IFilter<T> // where T : DBObject
+   public interface IFilter<T> 
    {
       bool IsMatch(T source);
       Func<T, bool> Predicate { get;}

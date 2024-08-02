@@ -311,7 +311,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Overload that accepts an ObjectIdCollection in lieu
-      /// of an IEnumerable<ObjectId> and uses an optimized path.
+      /// of an IEnumerable<ToObjectId> and uses an optimized path.
       /// </summary>
 
       public static bool IsReferencedByAny(this BlockTableRecord btr, 

@@ -1,4 +1,5 @@
-﻿/// DatabaseTransaction.cs  
+﻿/// ******* EXPERIMENTAL *******
+/// DBOpenClosTransaction.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
@@ -7,6 +8,7 @@
 /// dependence on AcMgd/AcCoreMgd.
 
 using Autodesk.AutoCAD.Runtime;
+using System;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -14,6 +16,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// A specialization of DatabaseTransaction that 
    /// wraps an OpenCloseTransaction.
    /// 
+   /// This code is largely-untested and not suitable 
+   /// for production use.
+   /// 
+   /// This class looks and acts like the DatabaseTransaction, 
+   /// but internally, it uses an OpenCloseTransaction, which
+   /// addresses a need to use the latter in certain situations.
    /// </summary>
 
    public class DBOpenCloseTransaction : DatabaseTransaction
@@ -51,20 +59,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public override DBObject GetObject(ObjectId id, OpenMode mode, bool openErased, bool forceOpenOnLockedLayer)
       {
+         ErrorStatus.WrongDatabase.ThrowIf(id.Database != this.Database);
          return trans.GetObject(id, mode, openErased, forceOpenOnLockedLayer);
       }
 
       public override DBObject GetObject(ObjectId id, OpenMode mode)
       {
+         ErrorStatus.WrongDatabase.ThrowIf(id.Database != this.Database);
          return trans.GetObject(id, mode);
       }
 
       public override DBObject GetObject(ObjectId id, OpenMode mode, bool openErased)
       {
+         ErrorStatus.WrongDatabase.ThrowIf(id.Database != this.Database);
          return trans.GetObject(id, mode, openErased);
       }
 
       public override int NumberOfOpenedObjects => trans.NumberOfOpenedObjects;
+
+      public override TransactionManager TransactionManager =>
+         throw new NotImplementedException();
 
       public override bool IsOpenCloseTransaction => true;
    }

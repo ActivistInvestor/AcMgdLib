@@ -9,6 +9,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace Autodesk.AutoCAD.Runtime.NativeInterop
 {
@@ -41,7 +42,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       {
          string acad = Process.GetCurrentProcess().MainModule.FileName;
          string basePath = Path.GetDirectoryName(acad);
-         for(int ver = 27; ver > 16; ver--)
+         for(int ver = 30; ver > 16; ver--)
          {
             string file = $"acdb{ver}.dll";
             string found = FindFile(Path.Combine(basePath, file));
@@ -73,10 +74,10 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       /// the exported function signature</typeparam>
       /// <param name="entryPoint">The C++ mangled export name of 
       /// the API to import (should be the same string used as the 
-      /// EntryPoint argument to the [DllImport] attribute).</param>
+      /// Name argument to the [DllImport] attribute).</param>
       /// <returns>A delegate representing the exported function.</returns>
 
-      public static T AcDbImport<T>(string entryPoint) where T : Delegate
+      public static T AcDbImport<T>(string entryPoint = null) where T : Delegate
       {
          string filename = GetAcDbDllName();
          if(string.IsNullOrEmpty(filename))
@@ -88,8 +89,13 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
          return result;
       }
 
-      public static T Load<T>(this T del, string entryPoint) where T:Delegate
+      public static T Load<T>(this T del, string entryPoint = null) where T:Delegate
       {
+         //Type type = del.GetType();
+         //EntryPointAttribute epa = type.GetCustomAttribute<EntryPointAttribute>();
+         //if(epa == null && !string.IsNullOrWhiteSpace(entryPoint))
+         //   throw new ArgumentException("No EntryPointAttribute found on delegate type");
+         //string key = epa?.Name ?? entryPoint;
          return AcDbImport<T>(entryPoint);
       }
 
@@ -107,11 +113,16 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       /// extension</param>
       /// <param name="entryPoint">The C++ mangled export name of 
       /// the API to import (should be the same string used in the
-      /// EntryPoint argument to the [DllImport] attribute).</param>
+      /// Name argument to the [DllImport] attribute).</param>
       /// <returns></returns>
 
-      public static T GetNativeDelegate<T>(string module, string entryPoint) where T : Delegate
+      public static T GetNativeDelegate<T>(string module, string entryPoint = null) where T : Delegate
       {
+         Type type = typeof(T);
+         EntryPointAttribute epa = type.GetCustomAttribute<EntryPointAttribute>();
+         if(epa == null && !string.IsNullOrWhiteSpace(entryPoint))
+            throw new ArgumentException("No EntryPointAttribute found on delegate type");
+         entryPoint = epa?.Name ?? entryPoint;
          if(string.IsNullOrWhiteSpace(module))
             throw new ArgumentException(nameof(module));
          if(string.IsNullOrWhiteSpace(entryPoint))
