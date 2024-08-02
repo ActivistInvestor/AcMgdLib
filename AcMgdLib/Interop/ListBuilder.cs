@@ -174,7 +174,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// to LISP in a ResultBuffer.</returns>
       /// <exception cref="ArgumentException"></exception>
 
-      internal static IEnumerable<TypedValue> ToListWorker(
+      static IEnumerable<TypedValue> ToListWorker(
          this IEnumerable args,
          bool convertIds = false,
          int depth = 0)
@@ -579,7 +579,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static IEnumerable<TypedValue> ToLispList(this IEnumerable arg)
       {
-         return ListBuilder.ToListWorker(arg, false);
+         return ToListWorker(arg, false);
       }
 
       /// <summary>
