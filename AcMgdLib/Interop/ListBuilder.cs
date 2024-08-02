@@ -63,7 +63,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static TypedValueIterator List(params object[] args)
       {
-         return new Iterator(ToListWorker(args)).ToIterator();
+         return new Iterator(ToListWorker(args)).ToResbuf();
       }
 
       /// <summary>
@@ -95,7 +95,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
          else
          {
-            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToIterator();
+            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToResbuf();
          }
       }
 
@@ -107,7 +107,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       
       public static TypedValueIterator ToList(params object[] args)
       {
-         return ToListWorker(args, false).ToIterator();
+         return ToListWorker(args, false).ToResbuf();
       }
 
       /// <summary>
@@ -145,7 +145,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
             throw new ArgumentException("Invalid IEnumerable (no strings)");
-         return new Iterator(ToListWorker(arg), IteratorType.ShallowExplode).ToIterator();
+         return new Iterator(ToListWorker(arg), IteratorType.Explode).ToResbuf();
       }
 
       /// <summary>
@@ -158,11 +158,13 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static TypedValueIterator Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert).ToIterator();
+         return args.OfType<IEnumerable>().SelectMany(Insert).ToResbuf();
       }
 
       /// <summary>
-      /// Performs the work for the List() method. 
+      /// Performs the work for the List() method. This method is not
+      /// public, and implements the core functionality for converting
+      /// managed objects to their LISP representations.
       /// </summary>
       /// <param name="args">An IEnumerable to be transformed</param>
       /// <param name="convertIds">A value indicating if collections
@@ -330,26 +332,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             throw new ArgumentException($"Malformed list: (+{level}");
       }
 
-      /// <summary>
-      /// Returns LispDataType.Nil if the given sequence is empty.
-      /// </summary>
-
-      public static IEnumerable<TypedValue> ToTypedValues<T>(this IEnumerable<T> source, LispDataType type)
-      {
-         Assert.IsNotNull(source, nameof(source));
-         if(!source.Any())
-         {
-            yield return Nil;
-         }
-         else
-         {
-            yield return ListBegin;
-            foreach(var item in source)
-               yield return new TypedValue((int)type, item);
-            yield return ListEnd;
-         }
-      }
-
       static bool IsListBegin(TypedValue tv)
       {
          return tv.IsEqualTo(ListBegin);
@@ -376,13 +358,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          {
             (enumerator as IDisposable)?.Dispose();
          }
-      }
-
-      static IEnumerable<T> ConsT<T>(T car, IEnumerable<T> list)
-      {
-         yield return car;
-         foreach(T item in list)
-            yield return item;
       }
 
       public static TypedValue ToInt32(int value)
@@ -483,7 +458,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       {
          Default = 0,         // Enumerate all elements as-is.
          List = 1,            // Enclose all elements in a ListBegin/End sequence.
-         ShallowExplode = 2,  // Explode only top-level nested lists
+         Explode = 2,         // Explode only top-most nested lists
          DeepExplode = 4      // Explode nested lists at any depth.
       }
 
@@ -498,15 +473,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          {
             this.source = source;
             this.type = type;
-         }
-
-         public ResultBuffer ToResultBuffer()
-         {
-            if(buffer == null)
-            {
-               buffer = new ResultBuffer(this.ToArray());
-            }
-            return buffer;
          }
 
          public IEnumerator<TypedValue> GetEnumerator()
@@ -526,10 +492,10 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             if(type.HasFlag(IteratorType.List))
                yield return ListBegin;
 
-            bool explodeAll = type.HasFlag(IteratorType.DeepExplode);
-            bool explodeTop = type.HasFlag(IteratorType.ShallowExplode);
+            bool deepExplode = type.HasFlag(IteratorType.DeepExplode);
+            bool explode = type.HasFlag(IteratorType.Explode);
             int depth = 0;
-            if(!(explodeAll || explodeTop))
+            if(!(deepExplode || explode))
             {
                foreach(var tv in source)
                   yield return tv;
@@ -541,9 +507,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                   if(tv.IsListBegin())
                   {
                      ++depth;
-                     if(depth > 1 && explodeAll)
+                     if(depth > 1 && deepExplode)
                         continue;
-                     if(depth == 1 && explodeTop)
+                     if(depth == 1 && explode)
                         continue;
                   }
                   else if(tv.IsListEnd())
@@ -551,9 +517,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                      --depth;
                      if(depth < 0)
                         throw new InvalidOperationException("Malformed List");
-                     if(depth > 0 && explodeAll)
+                     if(depth > 0 && deepExplode)
                         continue;
-                     if(depth == 0 && explodeTop)
+                     if(depth == 0 && explode)
                         continue;
                   }
                   yield return tv;
@@ -564,16 +530,45 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return ListEnd;
          }
 
-         public static implicit operator ResultBuffer(Iterator operand)
+      }
+
+      /// <summary>
+      /// Converts a homogenous sequence of values to a sequence of
+      /// TypedValues representing the values.
+      /// 
+      /// Returns LispDataType.Nil if the given sequence is empty.
+      /// </summary>
+      /// <typeparam name="T">The type of the source objects</typeparam>
+      /// <param name="source">The source objects</param>
+      /// <param name="type">The TypeCode to set each resulting TypedValue to</param>
+      /// <param name="list">A value indicating if the elements should be
+      /// enclosed in a matching pair of ListBegin/ListEnd elements</param>
+      /// <returns>The sequence of TypedValues derived from the source</returns>
+
+      public static IEnumerable<TypedValue> ToTypedValues<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
+      {
+         Assert.IsNotNull(source, nameof(source));
+         if(!source.Any())
          {
-            Assert.IsNotNull(operand, nameof(operand));
-            return operand.ToResultBuffer();
+            yield return Nil;
+         }
+         else
+         {
+            int code = (int)type;
+            if(list)
+               yield return ListBegin;
+            foreach(var item in source)
+               yield return new TypedValue(code, item);
+            if(list)
+               yield return ListEnd;
          }
       }
-   }
 
-   public static class ListBuilderExtensions
-   {
+      static TypedValueIterator ToResbuf(this IEnumerable<TypedValue> arg)
+      {
+         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
+      }
+
       /// <summary>
       /// An extension method that can be used with Linq
       /// operations to convert a sequence of values to
@@ -593,18 +588,14 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
-      
+
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
-         return new ResultBuffer(ToLispList(args).ToArray());
+         // return new ResultBuffer(ToLispList(args).ToArray());
+         return ToLispList(args).ToResbuf();
       }
-
-      public static TypedValueIterator ToIterator(this IEnumerable<TypedValue> arg)
-      {
-         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
-      }
-
    }
+
 }
 
 

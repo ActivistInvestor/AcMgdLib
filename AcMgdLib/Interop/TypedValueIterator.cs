@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Extensions;
+using System.Linq;
 
 namespace Autodesk.AutoCAD.Runtime.Extensions
 {
@@ -14,42 +15,40 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
    public class TypedValueIterator : IEnumerable<TypedValue>
    {
       IEnumerable<TypedValue> source = null;
-      Cached<ResultBuffer> value;
+      readonly Cached<TypedValue[]> items;
+      readonly Cached<ResultBuffer> value;
 
       public TypedValueIterator(IEnumerable<TypedValue> source)
       {
          Assert.IsNotNull(source, nameof(source));
          this.source = source;
-         value = new (() => new ResultBuffer(source.AsArray()));
+         items = new(() => source.AsArray());
+         value = new(() => new ResultBuffer(items));
       }
 
-      public ResultBuffer Value 
-      { 
-         get
-         {
-            return value;
-         } 
-      }
-
-      public void Invalidate()
-      {
-         value.Invalidate();
-      }
+      public TypedValue[] Items => items;
+      public ResultBuffer Value => value;
 
       public IEnumerator<TypedValue> GetEnumerator()
       {
-         return source.GetEnumerator();
+         return ((IEnumerable<TypedValue>) Items).GetEnumerator();
       }
 
       IEnumerator IEnumerable.GetEnumerator()
       {
-         return ((IEnumerable)source).GetEnumerator();
+         return this.GetEnumerator();
       }
 
       public static implicit operator ResultBuffer(TypedValueIterator operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          return operand.Value;
+      }
+
+      public static implicit operator TypedValue[](TypedValueIterator operand)
+      {
+         Assert.IsNotNull(operand, nameof(operand));
+         return operand.Items;
       }
    }
 

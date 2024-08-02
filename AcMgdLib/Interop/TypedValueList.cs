@@ -1,11 +1,9 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.EditorInput;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Extensions;
-using System.Linq;
 using System.Runtime.InteropServices;
+using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Autodesk.AutoCAD.Runtime.Extensions
 {
@@ -104,12 +102,12 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// support ValueTuples.
       
       
-      // Implicit conversion to SelectionFilter
-      public static implicit operator SelectionFilter(TypedValueList src)
-      {
-         Assert.IsNotNull(src, nameof(src));
-         return new SelectionFilter(src);
-      }
+      //// Implicit conversion to SelectionFilter
+      //public static implicit operator SelectionFilter(TypedValueList src)
+      //{
+      //   Assert.IsNotNull(src, nameof(src));
+      //   return new SelectionFilter(src);
+      ////}
 
       // Implicit conversion to ResultBuffer
       public static implicit operator ResultBuffer(TypedValueList src)
@@ -132,12 +130,12 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          return new TypedValueList(src);
       }
 
-      // Implicit conversion from SelectionFilter
-      public static implicit operator TypedValueList(SelectionFilter src)
-      {
-         Assert.IsNotNull(src, nameof(src));
-         return new TypedValueList(src.GetFilter());
-      }
+      //// Implicit conversion from SelectionFilter
+      //public static implicit operator TypedValueList(SelectionFilter src)
+      //{
+      //   Assert.IsNotNull(src, nameof(src));
+      //   return new TypedValueList(src.GetFilter());
+      //}
 
       // Implicit conversion from ResultBuffer
       public static implicit operator TypedValueList(ResultBuffer src)
