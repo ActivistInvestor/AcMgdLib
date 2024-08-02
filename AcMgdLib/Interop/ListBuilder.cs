@@ -91,7 +91,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          var first = ToList(car);
          if(IsEnumerable(cdr))
          {
-            return ToList(ConsT<object>(car, ((IEnumerable)cdr).Cast<object>()));
+            return List(car, Insert((IEnumerable)cdr));
          }
          else
          {
