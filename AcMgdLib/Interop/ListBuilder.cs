@@ -591,7 +591,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
-         // return new ResultBuffer(ToLispList(args).ToArray());
          return ToLispList(args).ToResbuf();
       }
    }
