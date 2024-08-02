@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
+using System.DirectoryServices;
 using System.Linq;
 using System.Text;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -50,19 +51,19 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// as the result of a lisp-callable method having the
       /// LispFunction attribute applied to it.
       /// 
-      /// The included ToResultBuffer() extension method can 
-      /// be invoked on the result of this method to convert 
-      /// it to a ResultBuffer:
-      /// 
-      ///   var rb = List(1, 2, 3).ToResultBuffer();
-      ///    
+      /// The result of List() is a type that can act as an
+      /// IEnumerable<TypedValue> and also implicitly convert 
+      /// itself to a ResultBuffer. Hence, the result of List()
+      /// can be returned directly by a LispFunction or any other 
+      /// method that returns a ResultBuffer, and can be assigned 
+      /// to a ResultBuffer variable.
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static IEnumerable<TypedValue> List(params object[] args)
+      public static TypedValueIterator List(params object[] args)
       {
-         return new Iterator(ToListWorker(args));
+         return new Iterator(ToListWorker(args)).ToIterator();
       }
 
       /// <summary>
@@ -75,7 +76,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// Note that this is not a functionally-complete 
       /// emulation of LISP's (cons) and may have some 
       /// limitations. Not all possible uses of the LISP 
-      /// counterpart have been tested.
+      /// analog have been tested.
       /// </summary>
       /// <param name="car">The element to add to the
       /// head/car of the result </param>
@@ -86,16 +87,15 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// first argument as the new first element/car.
       /// </returns>
       
-      public static IEnumerable<TypedValue> Cons(object car, object cdr)
+      public static TypedValueIterator Cons(object car, object cdr)
       {
-         var first = ToList(car);
          if(IsEnumerable(cdr))
          {
             return List(car, Insert((IEnumerable)cdr));
          }
          else
          {
-            return ToList(ListBegin, first, cdr, DotEnd);
+            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToIterator();
          }
       }
 
@@ -105,9 +105,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// the result nested in a list.
       /// </summary>
       
-      public static IEnumerable<TypedValue> ToList(params object[] args)
+      public static TypedValueIterator ToList(params object[] args)
       {
-         return ToListWorker(args, false);
+         return ToListWorker(args, false).ToIterator();
       }
 
       /// <summary>
@@ -140,12 +140,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <returns></returns>
       /// <exception cref="ArgumentException"></exception>
 
-      public static IEnumerable<TypedValue> Insert(IEnumerable arg)
+      public static TypedValueIterator Insert(IEnumerable arg)
       {
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
             throw new ArgumentException("Invalid IEnumerable (no strings)");
-         return new Iterator(ToListWorker(arg), IteratorType.ShallowExplode);
+         return new Iterator(ToListWorker(arg), IteratorType.ShallowExplode).ToIterator();
       }
 
       /// <summary>
@@ -156,9 +156,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static IEnumerable<TypedValue> Append(params IEnumerable[] args)
+      public static TypedValueIterator Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert);
+         return args.OfType<IEnumerable>().SelectMany(Insert).ToIterator();
       }
 
       /// <summary>
@@ -487,7 +487,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          DeepExplode = 4      // Explode nested lists at any depth.
       }
 
-      class Iterator : IEnumerable<TypedValue> 
+      class Iterator : IEnumerable<TypedValue>
       {
          IEnumerable<TypedValue> source;
          IteratorType type = IteratorType.Default;
@@ -563,6 +563,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             if(type.HasFlag(IteratorType.List))
                yield return ListEnd;
          }
+
+         public static implicit operator ResultBuffer(Iterator operand)
+         {
+            Assert.IsNotNull(operand, nameof(operand));
+            return operand.ToResultBuffer();
+         }
       }
    }
 
@@ -591,6 +597,11 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
          return new ResultBuffer(ToLispList(args).ToArray());
+      }
+
+      public static TypedValueIterator ToIterator(this IEnumerable<TypedValue> arg)
+      {
+         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
       }
 
    }

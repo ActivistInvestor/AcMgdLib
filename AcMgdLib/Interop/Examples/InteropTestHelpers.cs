@@ -95,6 +95,13 @@ namespace AcMgdLib.Interop.Examples
          Write("\n" + value?.ToString() ?? "(null)", args);
       }
 
+      public static void WriteLines(this IEnumerable<string> values)
+      {
+         if(values != null)
+            foreach(var value in values)
+               WriteLine(value);
+      }
+
       public static void Write(this object value, params object[] args)
       {
          string val = value?.ToString() ?? "(null)";

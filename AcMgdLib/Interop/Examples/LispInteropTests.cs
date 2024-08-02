@@ -74,87 +74,119 @@ namespace AcMgdLib.Interop.Examples
          objectIds.Add(db.BlockTableId);
          objectIds.Add(db.GroupDictionaryId);
 
-         /// Create a list that can be returned to LISP:
-         
-         var list =
-            List("Hello", "List", 
-               12.0,
-               List("Item1", 2, "Item3", 44.0),
-               99,
+         /// Create a list and return it back to LISP:
 
-               /// Sublists can be expressed using nested 
-               /// calls to List(), nested to any depth:
+         return List("Hello", "List",
+            12.0,
+            List("Item1", 2, "Item3", 44.0),
+            99,
 
-               List("A", List(10, 20, 30, 40), "C", "D"),
+            /// Sublists can be expressed using nested 
+            /// calls to List(), nested to any depth:
 
-               /// Point3d elements are supported and are
-               /// converted to their LISP representation:
-               
-               new Point3d(20.0, 40.0, 60.0),
+            List("A", List(10, 20, 30, 40), "C", "D"),
 
-               /// Sub-lists can also be expressed as a sequence
-               /// of individual elements that start/end with the 
-               /// ListBegin and ListEnd elements:
-               
-               ListBegin,                      // Begin a sublist
-               "Single List Element",          // sublist element
-               ListEnd,                        // End sublist
+            /// Point3d elements are supported and are
+            /// converted to their LISP representation:
 
-               // Error checking is performed on list nesting.
-               // Uncommenting either of the following two
-               // lines triggers a malformed list exception:
+            new Point3d(20.0, 40.0, 60.0),
 
-               // ListEnd,
-               // ListBegin,
+            /// Sub-lists can also be expressed as a sequence
+            /// of individual elements that start/end with the 
+            /// ListBegin and ListEnd elements, although doing
+            /// this is far more confusing than simply using the 
+            /// List() method:
 
-               // An IEnumerable is converted to a nested list:
+            ListBegin,                      // Begin a sublist
+               "First Element",             // sublist element
+               "Second Element",            // sublist element
+               "Third Element",             // sublist element
+            ListEnd,                        // End sublist
 
-               new object[] { "Object1", 2.0, "Object3", 44 },
+            // What the above 5 lines do is precisely
+            // equivalent to doing this:
 
-               // List() provides optimized support for both
-               // ObjectIdCollections and Point3dCollections,
-               // both of which are converted to nested lists
-               // of entity names and point lists:
+            List("First Element", "Second Element", "Third Element"),
 
-               objectIds,              // Adds a sublist containing the
-                                       // elements in the ObjectIdCollection
+            // Error checking is performed on list nesting.
+            // Uncommenting either of the following two
+            // lines triggers a malformed list exception:
 
-               new object[0],           // Converts to nil
+            // ListEnd,
+            // ListBegin,
 
-               points,                  // Adds a sublist containing the
-                                        // elements in the Point3dCollection
-               
-               doc.Database.LayerZero,  // Add a single ObjectId
-               
-               null,                    // Converts to nil
+            // An IEnumerable is converted to a nested list:
 
-               Insert(objectIds),       // Inserts the collection elements into
-                                        // the list without nesting them within 
-                                        // a sublist. See the (mgd-insert-test)
-                                        // LispFunction included below.
+            new object[] { "Object1", 2.0, "Object3", 44 },
 
-               // In case it isn't obvious, this
-               // adds a nested association list:
-               
-               List(                       
-                  Cons("key1", "Value1"),  // Association lists can
-                  Cons("key2", "Value2"),  // be created using the
-                  Cons("Key3", "Value3")   // Cons() method.
-               ),
-               200,
+            objectIds,               // Adds a sublist containing the
+                                     // elements in the ObjectIdCollection
 
-               // Because the result of a call to List() can be
-               // passed as an argument in another call to that
-               // method, calls can be nested to any depth, just
-               // like the LISP counterpart:
+            new object[0],           // Converts to nil
 
-               List(300, List("1", 2, List("31", "32", 33), 44.0), 400),
+            points,                  // Adds a sublist containing the
+                                     // elements in the Point3dCollection
 
-               500
-            );
+            doc.Database.LayerZero,  // Add a single ObjectId
 
-         return list.ToResultBuffer();
+            null,                    // Converts to nil
+
+            Insert(objectIds),       // Inserts the collection elements into
+                                     // the list without nesting them within 
+                                     // a sublist. See the (mgd-insert-test)
+                                     // LispFunction included below.
+
+            // In case it isn't obvious, this
+            // adds a nested association list:
+
+            List(
+               Cons("key1", "Value1"),  // Association lists can
+               Cons("key2", "Value2"),  // be created using the
+               Cons("Key3", "Value3")   // Cons() method.
+            ),
+            200,
+
+            // Because the result of a call to List() can be
+            // passed as an argument in another call to that
+            // method, calls can be nested to any depth, just
+            // like the LISP counterpart:
+
+            List(300, List("1", 2, List("31", "32", 33), 44.0), 400),
+
+            500
+         );
       }
+
+      // The above code should return the 
+      // following list back to LISP:
+
+      //  ("Hello" 
+      //    "List"
+      //    12.0
+      //    ("Item1" 2 "Item3" 44.0)
+      //    99
+      //    ("A" (10 20 30 40) "C" "D")
+      //    (20.0 40.0 60.0)
+      //    ("First Element" "Second Element" "Third Element")
+      //    ("First Element" "Second Element" "Third Element")
+      //    ("Object1" 2.0 "Object3" 44)
+      //    (<Entity name: 15cc9953100> <Entity name: 15cc9953020>
+      //       <Entity name: 15cc9953010> <Entity name: 15cc99530d0>
+      //    )
+      //    nil
+      //    ((2.0 2.0 0.0) (12.0 5.0 0.0) (22.0 7.0 9.0) (14.0 6.0 0.0))
+      //    <Entity name: 15cc9953100>
+      //    nil
+      //    <Entity name: 15cc9953100>
+      //    <Entity name: 15cc9953020>
+      //    <Entity name: 15cc9953010>
+      //    <Entity name: 15cc99530d0>
+      //    (("key1" . "Value1") ("key2" . "Value2") ("Key3" . "Value3"))
+      //    200
+      //    (300 ("1" 2 ("31" "32" 33) 44.0) 400)
+      //    500
+      //)
+
 
       /// <summary>
       /// Calls the above (mgd-list) function and
@@ -164,7 +196,7 @@ namespace AcMgdLib.Interop.Examples
       [LispFunction("mgd-list-dump")]
       public static ResultBuffer DumpGetMgdList(ResultBuffer args)
       {
-         var result = GetMgdList(new ResultBuffer());
+         var result = GetMgdList(args);
          result.Dump();
          return result;
       }
@@ -172,22 +204,23 @@ namespace AcMgdLib.Interop.Examples
       /// <summary>
       /// Builds and returns an association list back
       /// to LISP, using the ListBuilder's Cons() and
-      /// List() methods:
+      /// List() methods. Note that one of the elements
+      /// is cons'd with a list rather than an atom. 
+      /// 
+      /// As is the case with the LISP analog, the second
+      /// argument to Cons() can be an atom or a list:
       /// </summary>
 
       [LispFunction("mgd-alist")]
       public static ResultBuffer GetMgdAList(ResultBuffer args)
       {
-         var alist =
-            List(
-               Cons("key1", "Value1"),
-               Cons("key2", "Value2"),
-               Cons("Key3", "Value3"),
-               Cons("key4", "Value4"),
-               Cons("key5", "Value5")
-            );
-
-         return alist.ToResultBuffer();
+         return List(
+            Cons("key1", "Value1"),
+            Cons("key2", "Value2"),
+            Cons("Key3", List("Value31", "Value32", "Value33")),
+            Cons("key4", "Value4"),
+            Cons("key5", "Value5")
+         );
       }
 
       /// <summary>
@@ -232,7 +265,7 @@ namespace AcMgdLib.Interop.Examples
          var result2 = Cons(list2, items);
          // Expecting '(("car 1" 2 "car 3" "car 4") "One" 2 33.0)
          result2.Dump("Cons(<list>, <list>):\n");
-         return result2.ToResultBuffer();
+         return result2;
       }
 
       /// <summary>
@@ -271,9 +304,7 @@ namespace AcMgdLib.Interop.Examples
          var list2 = List(100, 200, 300);
          var list3 = List(1.0, 2.0, 3.0);
 
-         var result = List(list1, Insert(list2), list3);
-
-         return result.ToResultBuffer();
+         return List(list1, Insert(list2), list3);
       }
 
       [LispFunction("mgd-list-test")]
@@ -282,9 +313,8 @@ namespace AcMgdLib.Interop.Examples
          var list1 = List("One", "Two", "Three");
          var list2 = List(100, 200, 300);
          var list3 = List(1.0, 2.0, 3.0);
-         var result = List(list1, list2, list3);
-         
-         return result.ToResultBuffer();
+
+         return List(list1, list2, list3);
       }
 
       /// <summary>
@@ -297,8 +327,8 @@ namespace AcMgdLib.Interop.Examples
          var list1 = List("One", "Two", "Three");
          var list2 = List(100, 200, 300);
          var list3 = List(1.0, 2.0, 3.0);
-         var result = Append(list1, list2, list3);
-         return result.ToResultBuffer();
+
+         return Append(list1, list2, list3);
       }
 
       [LispFunction("mgd-dump")]
@@ -323,9 +353,7 @@ namespace AcMgdLib.Interop.Examples
             LispDataType.Text, LispDataType.Int32);
       }
 
-      static string[] lispFuncs = null;
-
-      static Cached<string[]> lispFunctions = new(() => 
+      static Cached<string[]> lispFuncs = new(() => 
          typeof(LispInteropTests).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(mi => mi.IsDefined(typeof(LispFunctionAttribute), false))
             .Select(mi => mi.GetCustomAttribute<LispFunctionAttribute>().GlobalName)
@@ -338,10 +366,7 @@ namespace AcMgdLib.Interop.Examples
       [CommandMethod("MgdLispInteropTests")]
       public static void Mgd2LispFunctionsList()
       {
-         foreach(var name in (string[]) lispFunctions)
-         {
-            name.WriteLine();
-         }
+         ((string[])lispFuncs).WriteLines();
       }
    }
 

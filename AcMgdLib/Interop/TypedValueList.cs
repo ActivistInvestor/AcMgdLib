@@ -2,7 +2,9 @@
 using Autodesk.AutoCAD.EditorInput;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Extensions;
 using System.Extensions;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace Autodesk.AutoCAD.Runtime.Extensions
@@ -105,48 +107,42 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       // Implicit conversion to SelectionFilter
       public static implicit operator SelectionFilter(TypedValueList src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return new SelectionFilter(src);
       }
 
       // Implicit conversion to ResultBuffer
       public static implicit operator ResultBuffer(TypedValueList src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return new ResultBuffer(src);
       }
 
       // Implicit conversion to TypedValue[] 
       public static implicit operator TypedValue[](TypedValueList src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return src.ToArray();
       }
 
       // Implicit conversion from TypedValue[] 
       public static implicit operator TypedValueList(TypedValue[] src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return new TypedValueList(src);
       }
 
       // Implicit conversion from SelectionFilter
       public static implicit operator TypedValueList(SelectionFilter src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return new TypedValueList(src.GetFilter());
       }
 
       // Implicit conversion from ResultBuffer
       public static implicit operator TypedValueList(ResultBuffer src)
       {
-         if(src == null)
-            throw new ArgumentNullException(nameof(src));
+         Assert.IsNotNull(src, nameof(src));
          return new TypedValueList(src.AsArray());
       }
 
@@ -173,6 +169,8 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       {
          return new TypedValueList(args);
       }
+
+      // NEW: Implicit conversion to a ResultBuffer
 
    }
 
