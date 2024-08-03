@@ -1021,7 +1021,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// Constraints:
       /// 
       /// TKey and TValue must both be simple value types (or strings)
-      /// that can be assigned to a TypedValue's Value property and be 
+      /// that can be assigned to a TypedValue's Result property and be 
       /// written to an XRecord. Reference types other than string are 
       /// not supported. Arrays are not supported.
       /// </summary>

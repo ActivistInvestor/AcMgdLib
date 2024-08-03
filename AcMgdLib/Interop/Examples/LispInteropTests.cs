@@ -157,10 +157,10 @@ namespace AcMgdLib.Interop.Examples
          );
       }
 
-      // The above code should return the 
-      // following list back to LISP:
+      // The above code should return a list having
+      // the following structure back to LISP:
 
-      //  ("Hello" 
+      // (  "Hello" 
       //    "List"
       //    12.0
       //    ("Item1" 2 "Item3" 44.0)
@@ -185,12 +185,12 @@ namespace AcMgdLib.Interop.Examples
       //    200
       //    (300 ("1" 2 ("31" "32" 33) 44.0) 400)
       //    500
-      //)
+      // )
 
 
       /// <summary>
-      /// Calls the above (mgd-list) function and
-      /// dumps the alist to the console:
+      /// Calls the above (mgd-list) function and dumps
+      /// the returned ResultBuffer to the console:
       /// </summary>
 
       [LispFunction("mgd-list-dump")]
@@ -250,62 +250,52 @@ namespace AcMgdLib.Interop.Examples
       {
          var items = new object[] { "One", 2, 33.0 };
 
-         // Add a new first element:
+         // Add a new first element to a list:
          var result = Cons("car value", items);
-         // Expecting '("car value" "One" 2 33.0)
+         // Expecting: '("car value" "One" 2 33.0)
          result.Dump("Cons(<atom>, <list>):\n");
 
          // Create a dotted pair:
          result = Cons("car value", "cdr value");
-         // Expecting '("car value" . "cdr value")
+         // Expecting: '("car value" . "cdr value")
          result.Dump("Cons(<atom>, <atom>):\n");
 
-         // Add a list as the new first element:
-         object[] list2 = new object[]{ "car 1", 2, "car 3", "car 4" };
+         // Add a list as new first element of a list:
+         object[] list2 = new object[]{ "car 1", 2, "car 3", 4 };
          var result2 = Cons(list2, items);
-         // Expecting '(("car 1" 2 "car 3" "car 4") "One" 2 33.0)
+         // Expecting: '(("car 1" 2 "car 3" 4) "One" 2 33.0)
          result2.Dump("Cons(<list>, <list>):\n");
          return result2;
       }
 
       /// <summary>
-      /// Compares the List() method's behavior when instances
-      /// of IEnumerable<TypedValue> are passed as arguments to
-      /// the behavior of the Insert() method.
+      /// Compares the behavior of the List(), Insert(), and
+      /// Append() methods when combining lists.
       /// 
-      /// Unlike the way they are treated by the List() method,
-      /// instances of IEnumerable<TypedValue> are appended to
-      /// the list, rather than nested in it.
+      /// The only difference between the following three
+      /// LispFunctions is that one uses List(), the second
+      /// uses Insert() to add the second element, and the
+      /// third uses Append() to concatenate the three lists.
       /// 
-      /// The only difference between the following two
-      /// LispFunctions is that one uses List() and the
-      /// other uses Insert() to add the second element.
+      /// All three methods use the same input but transform
+      /// it in different ways:
       /// 
-      /// The results of the two methods are:
+      ///   var list1 = List("One", "Two", "Three");
+      ///   var list2 = List(100, 200, 300);
+      ///   var list3 = List(1.0, 2.0, 3.0);
       /// 
-      ///    Command: (mgd-insert-test)
+      /// The results of the three methods with the same input:
+      /// 
+      ///    Command: (mgd-list-test)
+      ///    (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
       ///    
+      ///    Command: (mgd-insert-test) 
       ///    (("One" "Two" "Three") 100 200 300 (1.0 2.0 3.0))
       ///    
-      ///    Command: (mgd-list-test)
-      ///    
-      ///    (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
+      ///    Command: (mgd-append-test)
+      ///    ("One" "Two" "Three" 100 200 300 1.0 2.0 3.0)
       ///
-      /// When the Insert() method is used in lieu of List(), 
-      /// the elements are not nested in a sub-list, but are
-      /// instead spliced into the list containing the call to
-      /// Insert().
       /// </summary>
-
-      [LispFunction("mgd-insert-test")]
-      public static ResultBuffer MgdInsertTest(ResultBuffer args)
-      {
-         var list1 = List("One", "Two", "Three");
-         var list2 = List(100, 200, 300);
-         var list3 = List(1.0, 2.0, 3.0);
-
-         return List(list1, Insert(list2), list3);
-      }
 
       [LispFunction("mgd-list-test")]
       public static ResultBuffer MgdListTest(ResultBuffer args)
@@ -315,6 +305,16 @@ namespace AcMgdLib.Interop.Examples
          var list3 = List(1.0, 2.0, 3.0);
 
          return List(list1, list2, list3);
+      }
+
+      [LispFunction("mgd-insert-test")]
+      public static ResultBuffer MgdInsertTest(ResultBuffer args)
+      {
+         var list1 = List("One", "Two", "Three");
+         var list2 = List(100, 200, 300);
+         var list3 = List(1.0, 2.0, 3.0);
+
+         return List(list1, Insert(list2), list3);
       }
 
       /// <summary>
@@ -338,9 +338,9 @@ namespace AcMgdLib.Interop.Examples
       }
 
       /// <summary>
-      /// A LISP-callable function that returns the test
-      /// dictionary used in this code as an association
-      /// list including an element that is a dotted pair.
+      /// A LISP-callable function that returns a dictionary 
+      /// as an association list including an element that is 
+      /// a dotted pair.
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>

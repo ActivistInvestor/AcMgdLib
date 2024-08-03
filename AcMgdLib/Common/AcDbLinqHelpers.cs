@@ -216,7 +216,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static string CSharpName(this Type type)
       {
-         return csharpNames[type];
+         return type.IsGenericType ? csharpNames[type] : type.Name;
       }
 
       static Cache<Type, string> csharpNames = 

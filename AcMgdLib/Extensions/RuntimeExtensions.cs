@@ -309,7 +309,7 @@ namespace Autodesk.AutoCAD.Runtime
    /// expressed as a generic parameter, instead of using
    /// <code>RXObject.GetClass(typeof(T))</code> to get the 
    /// associated runtime class, one can instead use 
-   /// <code>RXClass<T>.Value</code> which doesn't require 
+   /// <code>RXClass<T>.Result</code> which doesn't require 
    /// a call to GetClass() and more importantly, when used 
    /// within lambda functions, allows the lambda function to 
    /// avoid a variable capture of the equivalent value stored 
@@ -390,7 +390,7 @@ namespace Autodesk.AutoCAD.Runtime
       /// In the delegates returned by this method, the 
       /// expression:
       /// 
-      ///   <code>  RXClass<T>.Value  </code>
+      ///   <code>  RXClass<T>.Result  </code>
       ///   
       /// is merely a reference to a <em>static field of a static 
       /// type</em>, which has significantly-less overhead compared

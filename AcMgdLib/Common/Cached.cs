@@ -20,7 +20,7 @@ namespace System.Extensions
    /// to be recomputed when subsequently requested.
    /// 
    /// The encapsulated value is cached and returned 
-   /// by the Value property until the point when the 
+   /// by the Result property until the point when the 
    /// Invalidate() method is called. 
    /// 
    /// Each time Invalidate() is called, the supplied 

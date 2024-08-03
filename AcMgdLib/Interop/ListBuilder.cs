@@ -53,9 +53,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// 
       /// The result of List() is a type that can act as an
       /// IEnumerable<TypedValue> and also implicitly convert 
-      /// itself to a ResultBuffer. Hence, the result of List()
-      /// can be returned directly by a LispFunction or any other 
-      /// method that returns a ResultBuffer, and can be assigned 
+      /// itself to a ResultBuffer. Hence, the result can be 
+      /// returned directly by a LispFunction or any other 
+      /// method that returns a ResultBuffer, or be assigned 
       /// to a ResultBuffer variable.
       /// </summary>
       /// <param name="args"></param>
@@ -89,9 +89,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       
       public static TypedValueIterator Cons(object car, object cdr)
       {
-         if(IsEnumerable(cdr))
+         if(cdr is IEnumerable items && !(items is string))
          {
-            return List(car, Insert((IEnumerable)cdr));
+            return List(car, Insert(items));
          }
          else
          {
@@ -266,20 +266,11 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                }
             }
             if(arg is ResultBuffer rb)
-            {
                arg = rb.Cast<TypedValue>();
-            }
             if(arg is IEnumerable<TypedValue> values)
             {
-               if(!values.Any()) // Empty sequence translates to empty list/nil.
-               {
-                  yield return Nil;
-                  continue;
-               }
-
-               foreach(TypedValue item in values)
+               foreach(var item in values.ToList(LispDataType.Point3d))
                   yield return item;
-
                continue;
             }
 
@@ -290,7 +281,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                arg = pc.Cast<Point3d>();
             if(arg is IEnumerable<Point3d> points)
             {
-               foreach(var item in points.ToTypedValues(LispDataType.Point3d))
+               foreach(var item in points.ToList(LispDataType.Point3d))
                   yield return item;
                continue;
             }
@@ -300,7 +291,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
             if(arg is IEnumerable<ObjectId> ids)
             {
-               foreach(var item in ids.ToTypedValues(LispDataType.ObjectId))
+               foreach(var item in ids.ToList(LispDataType.ObjectId))
                   yield return item;
                continue;
             }
@@ -360,27 +351,27 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      public static TypedValue ToInt32(int value)
+      static TypedValue ToInt32(int value)
       {
          return new TypedValue((short)LispDataType.Int32, value);
       }
 
-      public static TypedValue ToInt16(short value)
+      static TypedValue ToInt16(short value)
       {
          return new TypedValue((short)LispDataType.Int16, value);
       }
 
-      public static TypedValue ToDouble(double value)
+      static TypedValue ToDouble(double value)
       {
          return new TypedValue((short)LispDataType.Double, value);
       }
 
-      public static TypedValue ToAngle(double value)
+      static TypedValue ToAngle(double value)
       {
          return new TypedValue((short)LispDataType.Angle, value);
       }
 
-      public static TypedValue ToOrientation(object value)
+      static TypedValue ToOrientation(object value)
       {
          return new TypedValue((short)LispDataType.Orientation, value);
       }
@@ -427,7 +418,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.Point2d, new Point2d(x, y));
       }
 
-      public static TypedValue ToText(string value)
+      static TypedValue ToText(string value)
       {
          return new TypedValue((short)LispDataType.Text, value);
       }
@@ -452,6 +443,68 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static readonly TypedValue None =
          new TypedValue((short)LispDataType.None);
+
+      /// <summary>
+      /// Converts a homogenous sequence of values to a sequence of
+      /// TypedValues representing the values.
+      /// 
+      /// Returns LispDataType.Nil if the given sequence is empty.
+      /// </summary>
+      /// <typeparam name="T">The type of the source objects</typeparam>
+      /// <param name="source">The source objects</param>
+      /// <param name="type">The TypeCode to set each resulting TypedValue to</param>
+      /// <param name="list">A value indicating if the elements should be
+      /// enclosed in a matching pair of ListBegin/ListEnd elements</param>
+      /// <returns>The sequence of TypedValues derived from the source</returns>
+
+      public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
+      {
+         Assert.IsNotNull(source, nameof(source));
+         if(!source.Any())
+         {
+            yield return Nil;
+         }
+         else
+         {
+            int code = (int)type;
+            if(list)
+               yield return ListBegin;
+            foreach(var item in source)
+               yield return new TypedValue(code, item);
+            if(list)
+               yield return ListEnd;
+         }
+      }
+
+      static TypedValueIterator ToResbuf(this IEnumerable<TypedValue> arg)
+      {
+         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
+      }
+
+      /// <summary>
+      /// An extension method that can be used with Linq
+      /// operations to convert a sequence of values to
+      /// a sequence of TypedValues representing a Lisp list.
+      /// </summary>
+      /// <param name="args"></param>
+      /// <returns></returns>
+
+      public static IEnumerable<TypedValue> ToLispList(this IEnumerable arg)
+      {
+         return ToListWorker(arg, false);
+      }
+
+      /// <summary>
+      /// Converts a sequence of objects to a ResultBuffer
+      /// representing a LISP list:
+      /// </summary>
+      /// <param name="args"></param>
+      /// <returns></returns>
+
+      public static ResultBuffer ToResultBuffer(this IEnumerable args)
+      {
+         return ToLispList(args).ToResbuf();
+      }
 
       [Flags]
       enum IteratorType
@@ -532,67 +585,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       }
 
-      /// <summary>
-      /// Converts a homogenous sequence of values to a sequence of
-      /// TypedValues representing the values.
-      /// 
-      /// Returns LispDataType.Nil if the given sequence is empty.
-      /// </summary>
-      /// <typeparam name="T">The type of the source objects</typeparam>
-      /// <param name="source">The source objects</param>
-      /// <param name="type">The TypeCode to set each resulting TypedValue to</param>
-      /// <param name="list">A value indicating if the elements should be
-      /// enclosed in a matching pair of ListBegin/ListEnd elements</param>
-      /// <returns>The sequence of TypedValues derived from the source</returns>
-
-      public static IEnumerable<TypedValue> ToTypedValues<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
-      {
-         Assert.IsNotNull(source, nameof(source));
-         if(!source.Any())
-         {
-            yield return Nil;
-         }
-         else
-         {
-            int code = (int)type;
-            if(list)
-               yield return ListBegin;
-            foreach(var item in source)
-               yield return new TypedValue(code, item);
-            if(list)
-               yield return ListEnd;
-         }
-      }
-
-      static TypedValueIterator ToResbuf(this IEnumerable<TypedValue> arg)
-      {
-         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
-      }
-
-      /// <summary>
-      /// An extension method that can be used with Linq
-      /// operations to convert a sequence of values to
-      /// a sequence of TypedValues representing a Lisp list.
-      /// </summary>
-      /// <param name="args"></param>
-      /// <returns></returns>
-
-      public static IEnumerable<TypedValue> ToLispList(this IEnumerable arg)
-      {
-         return ToListWorker(arg, false);
-      }
-
-      /// <summary>
-      /// Converts a sequence of objects to a ResultBuffer
-      /// representing a LISP list:
-      /// </summary>
-      /// <param name="args"></param>
-      /// <returns></returns>
-
-      public static ResultBuffer ToResultBuffer(this IEnumerable args)
-      {
-         return ToLispList(args).ToResbuf();
-      }
    }
 
 }

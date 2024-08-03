@@ -290,7 +290,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          else
             base.Abort();
       }
-
+      
       ~DatabaseTransaction()
       {
          if(!IsDisposed)

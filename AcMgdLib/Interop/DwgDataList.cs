@@ -864,10 +864,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Type type = item.DataType.GetRuntimeType(true);
          Type valueType = item.Value?.GetType();
          if(valueType == null)
-            throw new InvalidOperationException($"{idx} Value is null");
+            throw new InvalidOperationException($"{idx} Result is null");
          if(type != valueType)
             throw new InvalidOperationException(
-               $"{idx}Type mismatch DwgDataType: {type.Name} Value: {valueType.Name}");
+               $"{idx}Type mismatch DwgDataType: {type.Name} Result: {valueType.Name}");
       }
 
 

@@ -554,7 +554,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// should throw a KeyNotFound exception if an entry with the specified
       /// key does not exist, if false, the method returns ToObjectId.Null if an 
       /// entry with the specified key does not exist.</param>
-      /// <returns>The DBDictionaryEntry's Value</returns>
+      /// <returns>The DBDictionaryEntry's Result</returns>
       /// <exception cref="ArgumentException"></exception>
 
       public static ObjectId GetDictionaryEntryId<T>(this Database db, string key, bool throwIfNotFound = false)
