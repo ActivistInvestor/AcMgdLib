@@ -187,21 +187,6 @@ namespace AcMgdLib.Interop.Examples
       //    500
       // )
 
-      [LispFunction("slist")]
-      public static ResultBuffer MgdSimpleList(ResultBuffer arg)
-      {
-         try
-         { 
-            var list1 = List(3, 4, 5);
-            return List(1, 2, list1, 6, 7, new ObjectIdCollection(), 8);
-         }
-         catch(System.Exception ex)
-         {
-            AcConsole.WriteLine(ex.ToString());
-            return null;
-         }
-      }
-
       /// <summary>
       /// Calls the above (mgd-list) function and dumps
       /// the returned ResultBuffer to the console:
