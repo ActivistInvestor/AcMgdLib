@@ -1,9 +1,9 @@
-﻿using Autodesk.AutoCAD.Runtime;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Utility;
 
 namespace System.Collections.Generic.Extensions
@@ -15,14 +15,17 @@ namespace System.Collections.Generic.Extensions
    /// IEnumerable<T> multiple times.
    /// 
    /// This class is useful when the cost of enumerating 
-   /// the wrapped IEnumerable<T> is expensive.
+   /// the wrapped IEnumerable<T> is expensive, and the
+   /// wrapped IEnumerable<T>'s result does not change
+   /// across multiple enumerations.
    /// 
    /// The caching performed by this class is fully-lazy
    /// and does not occur until the instance is enumerated.
    /// 
    /// To force a complete enumeration of the source and
    /// caching of the results, call ToArray() or Count() 
-   /// on the instance.
+   /// on the instance, although doing that should not be
+   /// necessary in most useage scenarios.
    /// </summary>
    /// <typeparam name="T">The element type</typeparam>
 
@@ -31,6 +34,14 @@ namespace System.Collections.Generic.Extensions
       readonly IEnumerable<T> source;
       readonly bool lazy = true;
       T[] items = null;
+
+      /// <summary>
+      /// The instance can use either of two caching policies,
+      /// One is 'eager', and the other fully-lazy. The second
+      /// argument to this constructor specifies which caching 
+      /// policy should be used. The default is the fully-lazy 
+      /// caching policy.
+      /// </summary>
       
       public CachedEnumerable(IEnumerable<T> source, bool lazy = true)
       {
@@ -42,7 +53,8 @@ namespace System.Collections.Generic.Extensions
 
       /// <summary>
       /// Forces enumeration of the source sequence
-      /// and caching of the results
+      /// and caching of the results. The result is
+      /// an array of T[].
       /// </summary>
       
       protected IEnumerable<T> Items
@@ -70,7 +82,7 @@ namespace System.Collections.Generic.Extensions
       }
 
       /// <summary>
-      /// Uses an 'eager' caching policy
+      /// Uses the 'eager' caching policy
       /// </summary>
       struct Enumerator : IEnumerator<T>
       {
@@ -86,9 +98,12 @@ namespace System.Collections.Generic.Extensions
          {
             if(source == null)
             {
-               if(owner.items == null)
-                  owner.items = owner.source.AsArray();
-               source = ((IEnumerable<T>)owner.items).GetEnumerator();
+               lock(owner)
+               {
+                  if(owner.items == null)
+                     owner.items = owner.source.AsArray();
+                  source = ((IEnumerable<T>)owner.items).GetEnumerator();
+               }
             }
             return source.MoveNext();
          }
@@ -117,14 +132,14 @@ namespace System.Collections.Generic.Extensions
       }
 
       /// <summary>
-      /// Uses a fully-lazy caching policy
+      /// Uses the fully-lazy caching policy
       /// </summary>
 
       struct LazyEnumerator : IEnumerator<T>
       {
          readonly CachedEnumerable<T> owner;
+         readonly List<T> list = new List<T>();
          IEnumerator<T> source;
-         List<T> list = new List<T>();
          T current;
 
          public LazyEnumerator(CachedEnumerable<T> owner)
@@ -144,10 +159,18 @@ namespace System.Collections.Generic.Extensions
             }
             else
             {
-               if(owner.items == null || owner.items.Length < list.Count)
+               lock(owner)
                {
-                  owner.items = new T[list.Count];
-                  list.CopyTo(owner.items, 0);
+                  if(owner.items == null || owner.items.Length < list.Count)
+                  {
+                     owner.items = new T[list.Count];
+                     if(list.Count > 0)
+                     {
+                        var destination = owner.items.AsSpan();
+                        var src = CollectionsMarshal.AsSpan(list);
+                        src.CopyTo(destination);
+                     }
+                  }
                }
             }
             return result;
@@ -157,7 +180,8 @@ namespace System.Collections.Generic.Extensions
          {
             get
             {
-               Assert.IsNotNull(source, "MoveNext() not called.");
+               if(source == null)
+                  throw new InvalidOperationException("MoveNext() not called.");
                return current;
             }
          }
@@ -171,7 +195,7 @@ namespace System.Collections.Generic.Extensions
 
          public void Reset()
          {
-            list.Clear();
+            list?.Clear();
             source?.Reset();
             source = null;
          }

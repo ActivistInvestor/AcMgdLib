@@ -186,9 +186,9 @@ namespace AcMgdLib.Overrules.Examples
       /// model coordinate system, and then it erases the source 
       /// object after upgrading its OpenMode to OpenMode.ForWrite. 
       /// 
-      /// DeepExplode of the required operations are performed by a single 
-      /// delegate with three lines of code, and without the need 
-      /// to iterate over and open the originally-selected objects 
+      /// All of the required operations outlined above are done by 
+      /// a single delegate with three lines of code, and without the 
+      /// need to iterate over and open the originally-selected objects 
       /// or the resulting clones.
       /// </summary>
       

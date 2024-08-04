@@ -330,6 +330,10 @@ namespace AcMgdLib.Interop.Examples
          return Append(list1, list2, list3);
       }
 
+      /// <summary>
+      /// Dumps the ResultBuffer argument passed from LISP
+      /// </summary>
+
       [LispFunction("mgd-dump")]
       public static void MgdDumpFunc(ResultBuffer args)
       {
@@ -337,7 +341,8 @@ namespace AcMgdLib.Interop.Examples
       }
 
       /// <summary>
-      /// Tests the IEnumerable caching done by the ListBuilder class.
+      /// Tests the IEnumerable caching that is 
+      /// done by the ListBuilder class.
       /// </summary>
 
       public static ResultBuffer MgdCacheTest(ResultBuffer args)

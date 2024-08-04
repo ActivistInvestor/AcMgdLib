@@ -337,7 +337,7 @@ namespace Namespace1
       /// This event handler is needed to mitigate an issue
       /// with RibbonTextBox when it is not used with bindings, 
       /// which is that it does not update its TextValue or 
-      /// Result property as the user types in the control or 
+      /// Value property as the user types in the control or 
       /// performs clipboard operations.
       /// 
       /// Because we want to disable the button that executes

@@ -147,7 +147,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// DeepExplode of the above overloads delegate to this core method.
+      /// All of the above Copy()/CopyTo() overloads delegate to this 
+      /// core method.
       /// 
       /// Deep-clones or wblock-clones the objects referenced by the given 
       /// ObjectIdCollection to the specified owner, or to their current 
@@ -166,6 +167,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// argument is the ToObjectId of an object in a Database other than 
       /// the one containing the source objects, a Wblock clone operation 
       /// is performed using DuplicateRecordCloning.Ignore</param>
+      /// <param name="drc">The DuplicateRecordCloning to use when the 
+      /// destination is a different Database</param>
       /// <param name="action">A delegate that takes two instances of the
       /// generic argument. The first argument is the source object and the
       /// second argument is the clone of the source object. The source
@@ -175,7 +178,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static IdMapping CopyTo<T>(this ObjectIdCollection source,
             ObjectId ownerId,
-            Action<T, T> action = null) where T : DBObject
+            Action<T, T> action = null)
+         where T : DBObject
+      {
+         return CopyTo<T>(source, ownerId, DuplicateRecordCloning.Ignore, action);
+      }
+
+      public static IdMapping CopyTo<T>(this ObjectIdCollection source,
+            ObjectId ownerId,
+            DuplicateRecordCloning drc = DuplicateRecordCloning.Ignore,
+            Action<T, T> action = null)
+         where T : DBObject
       {
          Assert.IsNotNullOrDisposed(source, "source");
          if(source.Count == 0)
@@ -185,6 +198,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          AcRx.ErrorStatus.InvalidOwnerObject.ThrowIf(ownerId.IsNull);
          Database db = source[0].Database;
          bool wblock = ownerId.Database != db;
+         if(wblock)
+            Assert.IsNotNullOrDisposed(db, nameof(db));
          IdMapping result = new IdMapping();
          DeepCloneOverrule<T> overrule = null;
          if(action != null)
@@ -192,7 +207,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          using(overrule)
          {
             if(wblock)
-               db.WblockCloneObjects(source, ownerId, result, DuplicateRecordCloning.Ignore, false);
+               db.WblockCloneObjects(source, ownerId, result, drc, false);
             else
                db.DeepCloneObjects(source, ownerId, result, false);
          }
@@ -201,7 +216,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// An overload of the above method that accepts an
-      /// IEnumerable<ToObjectId> in lieu of an ObjectIdCollection.
+      /// IEnumerable<ObjectId> in lieu of an ObjectIdCollection.
       /// </summary>
 
       public static IdMapping CopyTo<T>(this IEnumerable<ObjectId> source,

@@ -66,9 +66,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static TypedValueIterator List(params object[] args)
+      public static LazyResultBuffer List(params object[] args)
       {
-         return new Iterator(ToListWorker(args)).ToResbuf();
+         return new Iterator(ToListWorker(args)).AsResultBuffer();
       }
 
       /// <summary>
@@ -92,7 +92,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// first argument as the new first element/car.
       /// </returns>
       
-      public static TypedValueIterator Cons(object car, object cdr)
+      public static LazyResultBuffer Cons(object car, object cdr)
       {
          if(cdr is IEnumerable items && !(items is string))
          {
@@ -100,7 +100,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
          else
          {
-            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToResbuf();
+            return ToList(ListBegin, ToList(car), cdr, DotEnd).AsResultBuffer();
          }
       }
 
@@ -110,9 +110,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// the result nested in a list.
       /// </summary>
       
-      public static TypedValueIterator ToList(params object[] args)
+      public static LazyResultBuffer ToList(params object[] args)
       {
-         return ToListWorker(args, false).ToResbuf();
+         return ToListWorker(args, false).AsResultBuffer();
       }
 
       /// <summary>
@@ -145,12 +145,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <returns></returns>
       /// <exception cref="ArgumentException"></exception>
 
-      public static TypedValueIterator Insert(IEnumerable arg)
+      public static LazyResultBuffer Insert(IEnumerable arg)
       {
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
             throw new ArgumentException("Invalid IEnumerable (no strings)");
-         return new Iterator(ToListWorker(arg), IteratorType.Explode).ToResbuf();
+         return new Iterator(ToListWorker(arg), IteratorType.Explode).AsResultBuffer();
       }
 
       /// <summary>
@@ -161,9 +161,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static TypedValueIterator Append(params IEnumerable[] args)
+      public static LazyResultBuffer Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert).ToResbuf();
+         return args.OfType<IEnumerable>().SelectMany(Insert).AsResultBuffer();
       }
 
       /// <summary>
@@ -500,9 +500,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      static TypedValueIterator ToResbuf(this IEnumerable<TypedValue> arg)
+      static LazyResultBuffer AsResultBuffer(this IEnumerable<TypedValue> arg)
       {
-         return arg as TypedValueIterator ?? new TypedValueIterator(arg);
+         return arg as LazyResultBuffer ?? new LazyResultBuffer(arg);
       }
 
       /// <summary>
@@ -527,7 +527,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
-         return ToLispList(args).ToResbuf();
+         return ToLispList(args).AsResultBuffer();
       }
 
       [Flags]

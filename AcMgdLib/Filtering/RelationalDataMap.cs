@@ -64,7 +64,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          sb.AppendLine($"{pad}KeySouce Type:      {TKeySourceType.Name}");
          sb.AppendLine($"{pad}Key Type:           {TKeyType.Name}");
          sb.AppendLine($"{pad}ValueSource Type:   {TValueSourceType.Name}");
-         sb.AppendLine($"{pad}Result Type:         {TValueType.Name}");
+         sb.AppendLine($"{pad}Value Type:         {TValueType.Name}");
          string s = Parent?.ToIdentity() ?? "(none)";
          sb.AppendLine($"{pad}Parent filter:      {s}");
          return sb.ToString();
