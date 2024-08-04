@@ -22,7 +22,7 @@ using static Autodesk.AutoCAD.Runtime.LispInterop.ListBuilder;
 namespace AcMgdLib.Interop.Examples
 {
    public static class LispInteropTests
-   { 
+   {
 
       /// <summary>
       /// Uses the ListBuilder class to build and a return 
@@ -187,6 +187,20 @@ namespace AcMgdLib.Interop.Examples
       //    500
       // )
 
+      [LispFunction("slist")]
+      public static ResultBuffer MgdSimpleList(ResultBuffer arg)
+      {
+         try
+         { 
+            var list1 = List(3, 4, 5);
+            return List(1, 2, list1, 6, 7, new ObjectIdCollection(), 8);
+         }
+         catch(System.Exception ex)
+         {
+            AcConsole.WriteLine(ex.ToString());
+            return null;
+         }
+      }
 
       /// <summary>
       /// Calls the above (mgd-list) function and dumps
@@ -225,7 +239,7 @@ namespace AcMgdLib.Interop.Examples
 
       /// <summary>
       /// While the included ToDictionary() extension method 
-      /// can be used to convert a Dictionary of keys and values
+      /// can be used to convert a Dictionary of keys and array
       /// to a LISP association list, that can also be done with 
       /// a bit of Linq and the Cons() method:
       /// </summary>
@@ -336,6 +350,18 @@ namespace AcMgdLib.Interop.Examples
       {
          args.Dump();
       }
+
+      /// <summary>
+      /// Tests the IEnumerable caching done by the ListBuilder class.
+      /// </summary>
+
+      public static ResultBuffer MgdCacheTest(ResultBuffer args)
+      {
+         var list1 = List("One", "Two", "Three");
+
+         return List(list1, list1, list1);
+      }
+
 
       /// <summary>
       /// A LISP-callable function that returns a dictionary 

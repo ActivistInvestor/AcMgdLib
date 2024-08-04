@@ -12,7 +12,7 @@ namespace System.Linq.Extensions
    public static partial class EnumerableExtensions 
    {
       /// <summary>
-      /// Like Concat() except allows multiple items to be
+      /// Like Concat() except allows multiple list to be
       /// concatenated and allows null elements.
       /// </summary>
       /// <typeparam name="T"></typeparam>

@@ -79,7 +79,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// Disposes all the elements in the source sequence,
       /// and the source if it is an IDisposable. Useful with
-      /// DBObjectCollection to ensure that all of the items
+      /// DBObjectCollection to ensure that all of the list
       /// retreived from it are disposed.
       /// </summary>
       /// <typeparam name="T"></typeparam>

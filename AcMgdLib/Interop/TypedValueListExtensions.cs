@@ -38,7 +38,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
    /// However, functions that are not read-only operations, such as the
    /// AddRange() overloads cannot be used on arrays of TypedValue, as 
    /// they are not resizable. A runtime check is performed that rejects
-   /// arrays in all methods that add/remove items to/from the target.
+   /// arrays in all methods that add/remove list to/from the target.
    /// 
    /// LINQ-less implementation.
    /// 
@@ -266,7 +266,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// </summary>
       /// <param name="list">The list of TypedValues</param>
       /// <returns>An instance of an ITypedValueList that
-      /// provides access to the Values of each TypedValue
+      /// provides access to the TypedValues of each TypedValue
       /// element in the given list via an indexer.</returns>
 
       public static ITypedValueList GetValueList(this IList<TypedValue> list)
@@ -534,9 +534,9 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// Note: This method is only applicable to List<TypedValue> or 
       /// TypedValueList. It cannot be used on any IList<TypedValue>.
       /// </summary>
-      /// <param name="list">The List<TypedValue> to insert the items into</param>
+      /// <param name="list">The List<TypedValue> to insert the list into</param>
       /// <param name="index">The index at which to insert the new item(s)</param>
-      /// <param name="code">The type code assigned to all newly-inserted items</param>
+      /// <param name="code">The type code assigned to all newly-inserted list</param>
       /// <param name="values">The source assigned to each newly-inserted item</param>
 
       public static void InsertRange(this List<TypedValue> list, int index, short code, params object[] values)
@@ -552,10 +552,10 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// type code, and a value produced by the given function, which takes the
       /// integer offset of the newly-inserted item relative to the index argument.
       /// </summary>
-      /// <param name="list">The List<TypedValue> to insert the items into</param>
+      /// <param name="list">The List<TypedValue> to insert the list into</param>
       /// <param name="index">The index at which to insert the new item(s)</param>
       /// <param name="count">The number of elements to be inserted</param>
-      /// <param name="code">The type code assigned to all newly-inserted items</param>
+      /// <param name="code">The type code assigned to all newly-inserted list</param>
       /// <param name="func">A function that takes an integer offset from the
       /// index parameter, and returns the value to be assigned to the element</param>
 
@@ -784,27 +784,6 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          Xrecord xrecord = new Xrecord();
          xrecord.Data = new ResultBuffer(list.AsArray());
          return xrecord;
-      }
-
-      /// <summary>
-      /// Returns the argument if it is an array, 
-      /// or converts it to an array.  
-      /// 
-      /// Useful for avoiding a costly call to ToArray() in 
-      /// cases where it's possible that an IEnumerable<T> 
-      /// might already be an array and the operation that 
-      /// requires the array does not modify it.
-      /// 
-      /// It's the caller's reponsibility to verify that the
-      /// the array is/is not modified by whatever operations 
-      /// it is supplied to.
-      /// </summary>
-
-      public static T[] AsArray<T>(this IEnumerable<T> source)
-      {
-         if(source == null)
-            throw new ArgumentNullException(nameof(source));
-         return source as T[] ?? source.ToArray();
       }
 
       public static string ToString(this IList<TypedValue> list, string delimiter = "\n")
@@ -1181,7 +1160,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       static TypedValueComparer valueComparer = TypedValueComparer.Instance;
 
       /// <summary>
-      /// Performs a stable comparison of the Values of 
+      /// Performs a stable comparison of the TypedValues of 
       /// two TypedValues. 
       /// </summary>
       /// <param name="left"></param>

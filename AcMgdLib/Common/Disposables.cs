@@ -94,7 +94,7 @@ namespace System.Extensions
       /// responsible for disposing it..
       /// 
       /// </summary>
-      /// <param name="disposable">The items to be disposed at shutdown
+      /// <param name="disposable">The list to be disposed at shutdown
       /// or when the Dispose() method is called</param>
 
       public static void Add(params IDisposable[] args)

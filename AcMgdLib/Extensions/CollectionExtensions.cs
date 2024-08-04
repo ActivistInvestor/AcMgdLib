@@ -212,7 +212,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Enumerates all or a subset of the entities in a
       /// block's definition. The generic argument type
-      /// is used to both constrain the resulting items
+      /// is used to both constrain the resulting list
       /// to only those that are instances of the generic
       /// argument, and to cast the enumerated elements to
       /// that same type. To get all entities in a block's

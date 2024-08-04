@@ -5,7 +5,7 @@ namespace System.Collections.Generic.Extensions
 {
    /// <summary>
    /// A variant of Queue<T> whose elements are constrained 
-   /// to be distinct. This class disallows adding items that
+   /// to be distinct. This class disallows adding list that
    /// that alredy exist in the queue, effectively making it
    /// a set.
    /// 

@@ -11,6 +11,7 @@ using System.Diagnostics.Extensions;
 using System.DirectoryServices;
 using System.Linq;
 using System.Text;
+using System.Utility;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
@@ -47,16 +48,20 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// method, or to the complexity of the resulting list.
       /// 
       /// The value returned by a call to this method can be
-      /// used to create a ResultBuffer that can be returned
-      /// as the result of a lisp-callable method having the
-      /// LispFunction attribute applied to it.
+      /// cast to a ResultBuffer that can be returned as the 
+      /// result of a method having the LispFunction attribute 
+      /// applied to it, to return the result to LISP.
       /// 
       /// The result of List() is a type that can act as an
       /// IEnumerable<TypedValue> and also implicitly convert 
       /// itself to a ResultBuffer. Hence, the result can be 
       /// returned directly by a LispFunction or any other 
       /// method that returns a ResultBuffer, or be assigned 
-      /// to a ResultBuffer variable.
+      /// to a ResultBuffer variable. 
+      /// 
+      /// The result of List() can also be used as an argument 
+      /// in another call to List(), and various other methods 
+      /// of this class, such as Append(), Insert(), and Cons().
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
@@ -71,7 +76,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// 
       /// This method will create dotted pairs, or add 
       /// its first argument to the front of a list of 
-      /// items given as the second argument.
+      /// list given as the second argument.
       /// 
       /// Note that this is not a functionally-complete 
       /// emulation of LISP's (cons) and may have some 
@@ -267,9 +272,15 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             }
             if(arg is ResultBuffer rb)
                arg = rb.Cast<TypedValue>();
+
+            /// The result of nested calls to List() are
+            /// processed here. If special behavior is needed,
+            /// the runtime type of the IEnumerable<TypedValue>
+            /// can be tested and acted on accordingly.
+
             if(arg is IEnumerable<TypedValue> values)
             {
-               foreach(var item in values.ToList(LispDataType.Point3d))
+               foreach(var item in values)
                   yield return item;
                continue;
             }
@@ -338,8 +349,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return obj is IEnumerable && !(obj is string);
       }
 
+      /// <summary>
+      /// Need to avoid superfluous calls to MoveNext():
+      /// </summary>
+      /// <param name="enumerable"></param>
+      /// <returns></returns>
+
       static bool IsEmpty(IEnumerable enumerable)
       {
+         if(enumerable is ICollection collection)
+            return collection.Count == 0;
+         if(enumerable is Array array)
+            return array.Length == 0;
          var enumerator = enumerable.GetEnumerator();
          try
          {
@@ -445,8 +466,8 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          new TypedValue((short)LispDataType.None);
 
       /// <summary>
-      /// Converts a homogenous sequence of values to a sequence of
-      /// TypedValues representing the values.
+      /// Converts a homogenous sequence of T to a sequence of
+      /// TypedValues, optionally nested in ListBegin/End delimters.
       /// 
       /// Returns LispDataType.Nil if the given sequence is empty.
       /// </summary>
@@ -459,18 +480,21 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
       {
+         /// Refactored to avoid calling Enumerable.Any():
          Assert.IsNotNull(source, nameof(source));
-         if(!source.Any())
+         using(var e = source.GetEnumerator())
          {
-            yield return Nil;
-         }
-         else
-         {
-            int code = (int)type;
+            if(!e.MoveNext())
+            {
+               yield return Nil;
+               yield break;
+            }
+            var code = (short)type;
             if(list)
                yield return ListBegin;
-            foreach(var item in source)
-               yield return new TypedValue(code, item);
+            yield return new TypedValue(code, e.Current);
+            while(e.MoveNext())
+               yield return new TypedValue(code, e.Current);
             if(list)
                yield return ListEnd;
          }
@@ -483,7 +507,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       /// <summary>
       /// An extension method that can be used with Linq
-      /// operations to convert a sequence of values to
+      /// operations to convert a sequence of objects to 
       /// a sequence of TypedValues representing a Lisp list.
       /// </summary>
       /// <param name="args"></param>
@@ -511,7 +535,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       {
          Default = 0,         // Enumerate all elements as-is.
          List = 1,            // Enclose all elements in a ListBegin/End sequence.
-         Explode = 2,         // Explode only top-most nested lists
+         Explode = 2,         // Explode top-most nested lists
          DeepExplode = 4      // Explode nested lists at any depth.
       }
 
@@ -519,8 +543,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       {
          IEnumerable<TypedValue> source;
          IteratorType type = IteratorType.Default;
-         IEnumerable<TypedValue> values = null;
-         ResultBuffer buffer = null;
 
          public Iterator(IEnumerable<TypedValue> source, IteratorType type = IteratorType.List)
          {
@@ -530,9 +552,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
          public IEnumerator<TypedValue> GetEnumerator()
          {
-            if(values == null)
-               values = GetValues().ToArray();
-            return values.GetEnumerator();
+            return GetValues().GetEnumerator();
          }
 
          IEnumerator IEnumerable.GetEnumerator()
@@ -578,7 +598,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                   yield return tv;
                }
             }
-
             if(type.HasFlag(IteratorType.List))
                yield return ListEnd;
          }

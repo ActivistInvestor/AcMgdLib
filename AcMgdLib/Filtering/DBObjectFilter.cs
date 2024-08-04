@@ -152,11 +152,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Adds a child filter to the filter graph, whose
-      /// result is logically-combined with the parent
+      /// result is logically-combined with the source
       /// filter using a logical 'AND' or 'OR' operation.
       /// 
       /// The child filter must target the same TFiltered
-      /// type as the parent filter it is added to, but can 
+      /// type as the source filter it is added to, but can 
       /// target any type of TCriteria.
       /// </summary>
       /// <typeparam name="TNewCriteria"></typeparam>

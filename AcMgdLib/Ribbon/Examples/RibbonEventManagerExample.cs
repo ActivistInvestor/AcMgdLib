@@ -265,7 +265,7 @@ namespace Namespace1
          InitButton(button, "Run\nMacro");
          button.CommandHandler = new MacroCommandHandler(textBox, button);
 
-         /// Create a RibbonTab to host the above items
+         /// Create a RibbonTab to host the above list
          /// and add them:
 
          RibbonPanel panel = new RibbonPanel();

@@ -1,11 +1,12 @@
-﻿using Autodesk.AutoCAD.DatabaseServices;
-using System.Collections;
+﻿using AcMgdLib.Interop.Examples;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using System.Collections.Generic;
+using System.Collections.Generic.Extensions;
 using System.Diagnostics.Extensions;
 using System.Extensions;
-using System.Linq;
 
-namespace Autodesk.AutoCAD.Runtime.Extensions
+namespace Autodesk.AutoCAD.Runtime.LispInterop
 {
    /// <summary>
    /// Wraps an IEnumerable<TypedValue> and caches
@@ -18,15 +19,17 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
    /// 
    /// Multi-level Caching:
    /// 
-   /// Enumerating the managed TypedValues has a cost, 
-   /// and converting them to a ResultBuffer also has 
-   /// a cost. 
+   /// Enumerating the managed types and converting to
+   /// a sequence of TypedValue has a cost. Converting 
+   /// the TypedValues to a ResultBuffer also has a cost. 
    /// 
-   /// This class caches both an array of TypedValue 
-   /// and a ResultBuffer, so that in the event it is 
-   /// enumerated multiple times, the enumeration costs 
-   /// are not be replicated with each enumeration. If 
-   /// the ResultBuffer is used or requested multiple 
+   /// This class caches both an array of TypedValue and 
+   /// a ResultBuffer, so that if the resulting sequence
+   /// of TypedValues is enumerated multiple times, the 
+   /// conversion costs are not be replicated with each 
+   /// enumeration. 
+   /// 
+   /// If the ResultBuffer is used or requested multiple 
    /// times, conversion will occur only on the first 
    /// request and be cached and returned on subsequent 
    /// requests. 
@@ -35,33 +38,22 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
    /// instance and the input sequence are immutable.
    /// 
    /// </summary>
-   
-   public class TypedValueIterator : IEnumerable<TypedValue>
+
+   /// AcMgdLib v0.12: refactored this class to use 
+   /// the CachedEnumerable<T> base type.
+
+   public class TypedValueIterator : CachedEnumerable<TypedValue>
    {
-      IEnumerable<TypedValue> source = null;
-      readonly Cached<TypedValue[]> items;
       readonly Cached<ResultBuffer> value;
 
       public TypedValueIterator(IEnumerable<TypedValue> source)
+         : base(source)
       {
          Assert.IsNotNull(source, nameof(source));
-         this.source = source;
-         items = new(() => source.AsArray());
-         value = new(() => new ResultBuffer(items));
+         value = new(() => new ResultBuffer((TypedValue[]) Items));
       }
 
-      public TypedValue[] Items => items.Value;
       public ResultBuffer Result => value.Value;
-
-      public IEnumerator<TypedValue> GetEnumerator()
-      {
-         return ((IEnumerable<TypedValue>) items.Value).GetEnumerator();
-      }
-
-      IEnumerator IEnumerable.GetEnumerator()
-      {
-         return this.GetEnumerator();
-      }
 
       public static implicit operator ResultBuffer(TypedValueIterator operand)
       {
@@ -72,8 +64,9 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       public static implicit operator TypedValue[](TypedValueIterator operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         return operand.Items;
+         return (TypedValue[])operand.Items;
       }
+
    }
 
 

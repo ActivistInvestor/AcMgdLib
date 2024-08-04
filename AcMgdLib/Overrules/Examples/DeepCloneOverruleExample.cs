@@ -150,7 +150,7 @@ namespace AcMgdLib.Overrules.Examples
             tr.Commit();
             ed.Regen();
             CoreUtils.SetUndoRequiresRegen(db);
-            ed.WriteMessage($"\nAdded {idArray.Length} items to block.");
+            ed.WriteMessage($"\nAdded {idArray.Length} list to block.");
          }
       }
 
@@ -267,7 +267,7 @@ namespace AcMgdLib.Overrules.Examples
                tr.Commit();
                db.SetUndoRequiresRegen();
                ed.Regen();
-               ed.WriteMessage($"\n{ids.Length} items added to block {name}.");
+               ed.WriteMessage($"\n{ids.Length} list added to block {name}.");
             }
          }
          catch(System.Exception ex)

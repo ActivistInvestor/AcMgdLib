@@ -17,7 +17,7 @@ using System.Linq.Expressions.Predicates;
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
-   /// Automates filtering items by set membership of source
+   /// Automates filtering list by set membership of source
    /// derived from each item by a user-supplied delegate.
    /// 
    /// An item satisifies the filter criteria if the TKey value
@@ -26,7 +26,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// the instance via the Add() method.
    /// 
    /// The Inverted property can be set to true to invert that
-   /// logic, causing items to satisfy the filter critera if the
+   /// logic, causing list to satisfy the filter critera if the
    /// TKey value produced by each is NOT contained in the set
    /// of keys.
    /// 

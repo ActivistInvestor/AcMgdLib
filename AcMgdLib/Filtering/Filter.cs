@@ -169,7 +169,7 @@ namespace System.Linq.Expressions.Predicates
       ///   
       ///   Func<string, bool> predicate = filter.Predicate;
       ///   
-      ///   foreach(string item in items)
+      ///   foreach(string item in list)
       ///   {
       ///      if(predicate(item))
       ///         Console.WriteLine("Item meets filter criteria");

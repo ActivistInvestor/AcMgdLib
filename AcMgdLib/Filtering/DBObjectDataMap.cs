@@ -206,7 +206,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Used as part of the key in the dictionary that 
-      /// holds child filter nodes within a parent filter.
+      /// holds child filter nodes within a source filter.
       /// </summary>
       
       public override Expression KeySelectorExpression => keySelectorExpression;

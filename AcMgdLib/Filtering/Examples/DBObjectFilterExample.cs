@@ -638,7 +638,7 @@ namespace AutoCAD.AcDbLinq.Examples
                entity => entity.LayerId,
                layer => !layer.IsLocked);
 
-            // This adds the predicate to the parent filter:
+            // This adds the predicate to the source filter:
 
             desks.Predicate.Add(blkref => blkref.ScaleFactors.IsProportional());
 
@@ -745,7 +745,7 @@ namespace AutoCAD.AcDbLinq.Examples
       /// API that was originally-designed to serve systems-level 
       /// development, rather than high-level application development.
       /// 
-      /// Note that GetNamedObject() returns items from SymbolTables
+      /// Note that GetNamedObject() returns list from SymbolTables
       /// as well as built-in DBDictionaries.
       /// </summary>
 
