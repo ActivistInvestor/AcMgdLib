@@ -1,4 +1,9 @@
-﻿using Ac2025Project.Test;
+﻿/// UtilityCommands.cs
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
@@ -7,7 +12,7 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Extensions;
 using Autodesk.AutoCAD.Runtime.NativeInterop;
 
-namespace Ac2025Project
+namespace AcMgdLib.Utility
 {
    public static class UtilityCommands
    {

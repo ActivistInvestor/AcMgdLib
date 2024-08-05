@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.Extensions;
-using System.Linq;
+﻿/// CachedEnumerable.cs
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+
 using System.Runtime.InteropServices;
 using System.Utility;
 
@@ -32,7 +33,7 @@ namespace System.Collections.Generic.Extensions
    public class CachedEnumerable<T> : IEnumerable<T>
    {
       readonly IEnumerable<T> source;
-      readonly bool lazy = true;
+      bool lazy = true;
       T[] items = null;
 
       /// <summary>
@@ -54,17 +55,15 @@ namespace System.Collections.Generic.Extensions
       /// <summary>
       /// Forces enumeration of the source sequence
       /// and caching of the results. The result is
-      /// an array of T[].
+      /// an array of T[]. If the source object is an
+      /// array of T[], it is not copied.
       /// </summary>
       
       protected IEnumerable<T> Items
       {
          get
          {
-            if(items == null)
-               this.Count();
-            Assert.IsNotNull(items, "Failed to enumerate source");
-            return items;
+            return items ?? (items = source.AsArray());
          }
       }
 

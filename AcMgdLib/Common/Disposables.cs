@@ -63,18 +63,18 @@ namespace System.Extensions
       /// 
       /// e.g.:
       /// 
-      ///    Circle circle = new Circle(ToPoint3d.Origin, Vector3d.ZAxis, 1.0);
+      ///    Circle circle = new Circle(AsLispPoint3d.Origin, Vector3d.ZAxis, 1.0);
       ///    Disposables.Add(circle);
       ///    
       /// Note that in lieu of calling Add(), the AutoDispose() 
       /// extension method can instead be used thusly:
       ///
-      ///    Circle circle = new Circle(ToPoint3d.Origin, Vector3d.ZAxis, 1.0);
+      ///    Circle circle = new Circle(AsLispPoint3d.Origin, Vector3d.ZAxis, 1.0);
       ///    circle.AutoDispose();
       ///    
       /// or with this one-liner:
       /// 
-      ///    Circle circle = new Circle(ToPoint3d.Origin, Vector3d.ZAxis, 1.0).AutoDispose();
+      ///    Circle circle = new Circle(AsLispPoint3d.Origin, Vector3d.ZAxis, 1.0).AutoDispose();
       ///    
       /// If for some reason, you no longer want an object
       /// that was previously-queued for disposal to not

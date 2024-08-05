@@ -15,18 +15,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
    /// <summary>
    /// Helper classes that allow a consumer to obtain 
-   /// the ToObjectId of a SymbolTable from a specified
+   /// the AsLispObjectId of a SymbolTable from a specified
    /// Database, given the type of the contained/owned 
    /// SymbolTableRecord expressed as a generic argument.
    /// 
-   /// For example, to get the ToObjectId of the BlockTable
+   /// For example, to get the AsLispObjectId of the BlockTable
    /// in the current database:
    /// 
    ///   Database db = HostApplicationServices.WorkingDatabase;
    ///   
    ///   var blockTableId = db.GetSymbolTableId<BlockTableRecord>();
    ///   
-   /// To get the ToObjectId of the LayerTable in the same
+   /// To get the AsLispObjectId of the LayerTable in the same
    /// database:
    /// 
    ///   var layerTableId = db.GetSymbolTableId<LayerTableRecord>();
@@ -41,7 +41,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// switch statement or a dictionary.
    /// 
    /// Instead, this class provides a generic way to obtain 
-   /// the ToObjectId of a SymbolTable given the type of the
+   /// the AsLispObjectId of a SymbolTable given the type of the
    /// records it contains with minimal overhead.
    /// </summary>
    /// <typeparam name="T">The type of the SymbolTableRecords
@@ -50,7 +50,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public static class SymbolTable<T> where T : SymbolTableRecord
    {
       /// <summary>
-      /// Gets the ToObjectId of the owning SymbolTable for
+      /// Gets the AsLispObjectId of the owning SymbolTable for
       /// the SymbolTableRecord-based generic argument type,
       /// in the given Database.
       /// 
@@ -116,14 +116,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public static partial class DatabaseExtensions
    {
       /// <summary>
-      /// Returns the ToObjectId of a symbol table from the
+      /// Returns the AsLispObjectId of a symbol table from the
       /// given Database, given the type of the contained
       /// SymbolTableRecord expressed as a generic argument.
       /// </summary>
       /// <typeparam name="T">The type of the SymbolTableRecord
       /// owned/contained by the requested SymbolTable</typeparam>
       /// <param name="database">The Database to get the result from</param>
-      /// <returns>The ToObjectId of the SymbolTable that contains/owns
+      /// <returns>The AsLispObjectId of the SymbolTable that contains/owns
       /// instances of the generic argument type.
       /// </returns>
       /// <exception cref="ArgumentNullException"></exception>
@@ -209,7 +209,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public static class DBDictionary<T> where T : DBObject
    {
       /// <summary>
-      /// Gets the ToObjectId of the owning DBDictionary that
+      /// Gets the AsLispObjectId of the owning DBDictionary that
       /// contains instances of the generic argument type,
       /// in the given Database.
       /// 

@@ -505,7 +505,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// A strongly-typed verion of GetObject() that
       /// merely allows the caller to avoid an explicit
       /// cast to the desired type. Requires that the
-      /// given ToObjectId reference a DBObject of the
+      /// given AsLispObjectId reference a DBObject of the
       /// generic argument type or a derived type.
       /// </summary>
 
@@ -545,7 +545,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Opening erased objects is not supported.
       /// </summary>
-      /// <param name="key">The ToObjectId of the DBObject to open</param>
+      /// <param name="key">The AsLispObjectId of the DBObject to open</param>
       /// <returns>The opened DBObject</returns>
 
       public DBObject this[ObjectId key]

@@ -25,9 +25,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    {
 
       /// <summary>
-      /// An extension of ToObjectId that opens the ToObjectId and
+      /// An extension of AsLispObjectId that opens the AsLispObjectId and
       /// casts it to the specified argument type (no checking
-      /// is done to verify that the ToObjectId is compatible).
+      /// is done to verify that the AsLispObjectId is compatible).
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <param name="trans"></param>
@@ -96,7 +96,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// type of the function argument.</typeparam>
       /// <typeparam name="TValue">The type of the result of
       /// this method, and the given function.</typeparam>
-      /// <param name="id">The ToObjectId to be opened.</param>
+      /// <param name="id">The AsLispObjectId to be opened.</param>
       /// <param name="func">A function that takes an instance
       /// of the generic argument, and returns a value of the
       /// type TValue</param>

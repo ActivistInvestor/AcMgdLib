@@ -8,7 +8,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
-using System.DirectoryServices;
 using System.Linq;
 using System.Text;
 using System.Utility;
@@ -18,6 +17,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Extensions;
+using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.Runtime.LispInterop
 {
@@ -33,6 +33,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
    public static class ListBuilder
    {
+
       /// <summary>
       /// Converts a sequence of managed objects to an array 
       /// of TypedValues that is the LISP representation of 
@@ -47,11 +48,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// is no limit to the depth of nested calls to this
       /// method, or to the complexity of the resulting list.
       /// 
-      /// The value returned by a call to this method can be
-      /// cast to a ResultBuffer that can be returned as the 
-      /// result of a method having the LispFunction attribute 
-      /// applied to it, to return the result to LISP.
-      /// 
       /// The result of List() is a type that can act as an
       /// IEnumerable<TypedValue> and also implicitly convert 
       /// itself to a ResultBuffer. Hence, the result can be 
@@ -62,21 +58,29 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// The result of List() can also be used as an argument 
       /// in another call to List(), and various other methods 
       /// of this class, such as Append(), Insert(), and Cons().
+      /// 
+      /// Revisions (AcMgdLib 0.13):
+      /// 
+      /// Removed automatic conversion of collections of ObjectId 
+      /// to selection sets. If a caller desires that conversion, 
+      /// they only need to call the ToLispSelectionSet() method,
+      /// pass it the collection of ObjectIds, and pass the result
+      /// to List() or another method that accepts managed types.
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static LazyResultBuffer List(params object[] args)
+      public static LispResult List(params object[] args)
       {
-         return new Iterator(ToListWorker(args)).AsResultBuffer();
+         return new Iterator(ToListWorker(args)).ToLispResult();
       }
 
       /// <summary>
       /// The analog of the LISP (cons) function.
       /// 
       /// This method will create dotted pairs, or add 
-      /// its first argument to the front of a list of 
-      /// list given as the second argument.
+      /// its first argument to the front of the list 
+      /// given as the second argument.
       /// 
       /// Note that this is not a functionally-complete 
       /// emulation of LISP's (cons) and may have some 
@@ -92,15 +96,15 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// first argument as the new first element/car.
       /// </returns>
       
-      public static LazyResultBuffer Cons(object car, object cdr)
+      public static LispResult Cons(object car, object cdr)
       {
-         if(cdr is IEnumerable items && !(items is string))
+         if(cdr is IEnumerable items && !(cdr is string))
          {
             return List(car, Insert(items));
          }
          else
          {
-            return ToList(ListBegin, ToList(car), cdr, DotEnd).AsResultBuffer();
+            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToLispResult();
          }
       }
 
@@ -110,9 +114,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// the result nested in a list.
       /// </summary>
       
-      public static LazyResultBuffer ToList(params object[] args)
+      public static LispResult ToList(params object[] args)
       {
-         return ToListWorker(args, false).AsResultBuffer();
+         return ToListWorker(args).ToLispResult();
       }
 
       /// <summary>
@@ -132,25 +136,26 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// to the List() method, if a collection is included as an
       /// argument, the collection becomes a nested list within the
       /// containing list. If the same collection is instead passed 
-      /// to this method, its elements will become elements of the 
-      /// containing list.
+      /// to this method, its elements are promoted to elements of 
+      /// the containing list.
       ///
       /// This method is only meaningful when its result is
       /// passed as an argument to the List() method. In any
       /// other context, the result is undefined.
       /// 
-      /// There is no LISP analog to this method.
+      /// There is no built-in LISP analog to this method.
       /// </summary>
-      /// <param name="arg"></param>
-      /// <returns></returns>
-      /// <exception cref="ArgumentException"></exception>
+      /// <param name="arg">The collection whose elements
+      /// are to be inserted into a containng list.</param>
+      /// <returns>The collection in a form that will cause
+      /// them to be inserted into another containing list</returns>
 
-      public static LazyResultBuffer Insert(IEnumerable arg)
+      public static LispResult Insert(IEnumerable arg)
       {
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
             throw new ArgumentException("Invalid IEnumerable (no strings)");
-         return new Iterator(ToListWorker(arg), IteratorType.Explode).AsResultBuffer();
+         return new Iterator(ToListWorker(arg), IteratorType.Explode).ToLispResult();
       }
 
       /// <summary>
@@ -161,15 +166,13 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static LazyResultBuffer Append(params IEnumerable[] args)
+      public static LispResult Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert).AsResultBuffer();
+         return args.OfType<IEnumerable>().SelectMany(Insert).ToLispResult();
       }
 
       /// <summary>
-      /// Performs the work for the List() method. This method is not
-      /// public, and implements the core functionality for converting
-      /// managed objects to their LISP representations.
+      /// Performs the work for the List() method.
       /// </summary>
       /// <param name="args">An IEnumerable to be transformed</param>
       /// <param name="convertIds">A value indicating if collections
@@ -179,10 +182,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// to LISP in a ResultBuffer.</returns>
       /// <exception cref="ArgumentException"></exception>
 
-      static IEnumerable<TypedValue> ToListWorker(
-         this IEnumerable args,
-         bool convertIds = false,
-         int depth = 0)
+      static IEnumerable<TypedValue> ToListWorker(IEnumerable args, int depth = 0)
       {
          int level = 0;
          int startDepth = depth;
@@ -198,6 +198,65 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return Nil;
                continue;
             }
+            if(arg is double || arg is float)
+            {
+               yield return ToLisp((double)arg);
+               continue;
+            }
+            if(arg is string s)
+            {
+               yield return ToLisp(s);
+               continue;
+            }
+            if(arg is Point3d p3d)
+            {
+               yield return ToLisp(p3d);
+               continue;
+            }
+            if(arg is ObjectId id)
+            {
+               yield return ToLisp(id);
+               continue;
+            }
+            if(arg is SelectionSet ss)
+            {
+               yield return ToLisp(ss);
+               continue;
+            }
+            if(arg is Int32 i)
+            {
+               yield return ToLisp(i);
+               continue;
+            }
+            if(arg is Int16 || arg is byte || arg is char)
+            {
+               yield return ToLisp((short)arg);
+               continue;
+            }
+            if(arg is Point2d p2d)
+            {
+               yield return ToLisp(p2d);
+               continue;
+            }
+            if(arg is StringBuilder sb)
+            {
+               yield return ToLisp(sb.ToString());
+               continue;
+            }
+            if(arg is bool bVal)  // bool converts to T or NIL.
+            {
+               yield return bVal ? True : Nil;
+               continue;
+            }
+
+            var converter = TypedValueConverter.GetConverter(arg.GetType());
+            if(converter != null)
+            {
+               object converted = converter.ToTypedValues(arg);
+               if(converted != null)
+                  arg = converted;
+            }
+
             if(arg is TypedValue tv)
             {
                if(IsListBegin(tv))
@@ -207,89 +266,47 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return tv;
                continue;
             }
-            if(arg is string s)
-            {
-               yield return ToText(s);
-               continue;
-            }
-            if(arg is StringBuilder sb)
-            {
-               yield return ToText(sb.ToString());
-               continue;
-            }
-            if(arg is double || arg is float)
-            {
-               yield return ToDouble((double)arg);
-               continue;
-            }
-            if(arg is Int32 i)
-            {
-               yield return ToInt32(i);
-               continue;
-            }
-            if(arg is Int16 || arg is byte || arg is char)
-            {
-               yield return ToInt16((short)arg);
-               continue;
-            }
-            if(arg is Point3d p3d)
-            {
-               yield return ToPoint3d(p3d);
-               continue;
-            }
-            if(arg is Point2d p2d)
-            {
-               yield return ToPoint2d(p2d);
-               continue;
-            }
-            if(arg is ObjectId id)
-            {
-               yield return ToObjectId(id);
-               continue;
-            }
-            if(arg is SelectionSet ss)
-            {
-               yield return ToSelectionSet(ss);
-               continue;
-            }
-            if(arg is bool bVal)  // bool converts to T or NIL.
-            {
-               yield return bVal ? True : Nil;
-               continue;
-            }
-            if(convertIds) // Convert sequences of ObjectId to a SelectionSet
-            {
-               if(arg is ObjectIdCollection ids2 && ids2.IsAllEntities())
-               {
-                  yield return ToSelectionSet(ids2);
-                  continue;
-               }
-               else if(arg is IEnumerable<ObjectId> ents && ents.IsAllEntities())
-               {
-                  yield return ToSelectionSet(ents);
-                  continue;
-               }
-            }
+
             if(arg is ResultBuffer rb)
                arg = rb.Cast<TypedValue>();
 
-            /// The result of nested calls to List() are
-            /// processed here. If special behavior is needed,
-            /// the runtime type of the IEnumerable<TypedValue>
-            /// can be tested and acted on accordingly.
+            /// The result of nested calls to List() and any
+            /// conversions to multiple TypedValues is handled 
+            /// here. If the IEnumerable<TypedValue> has no 
+            /// elements, Nil is returned.
 
             if(arg is IEnumerable<TypedValue> values)
             {
-               foreach(var item in values)
-                  yield return item;
-               continue;
+               if(values is ICollection coll && coll.Count == 0)
+               {
+                  yield return Nil;
+                  continue;
+               }
+               if(values is ICollection<TypedValue> tvc && tvc.Count == 0)
+               {
+                  yield return Nil;
+                  continue;
+               }
+               using(var en = values.GetEnumerator())
+               {
+                  if(!en.MoveNext())
+                  {
+                     yield return Nil;
+                     continue;
+                  }
+                  yield return en.Current;
+                  while(en.MoveNext())
+                     yield return en.Current;
+                  continue;
+               }
             }
 
-            /// Optimized paths for ObjectIdCollection/IEnumerable<ToObjectId>
-            /// and Point3dCollection/IEnumerable<ToPoint3d>:
+            /// Optimized paths for ObjectIdCollection/IEnumerable<ObjectId>
+            /// and Point3dCollection/IEnumerable<Point3d>:
 
             if(arg is Point3dCollection pc)
                arg = pc.Cast<Point3d>();
+            
             if(arg is IEnumerable<Point3d> points)
             {
                foreach(var item in points.ToList(LispDataType.Point3d))
@@ -307,7 +324,8 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                continue;
             }
 
-            /// Fallback for all IEnumerables not handled above.
+            /// Fallback for all IEnumerables not handled above,
+            /// such as object[]. 
             /// IEnumerables handled here will be elaborated as 
             /// nested lists:
 
@@ -319,7 +337,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                   continue;
                }
                yield return ListBegin;
-               foreach(var item in ToListWorker(enumerable, convertIds, depth + 1))
+               foreach(var item in ToListWorker(enumerable, depth + 1))
                   yield return item;
                yield return ListEnd;
                continue;
@@ -349,18 +367,10 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return obj is IEnumerable && !(obj is string);
       }
 
-      /// <summary>
-      /// Need to avoid superfluous calls to MoveNext():
-      /// </summary>
-      /// <param name="enumerable"></param>
-      /// <returns></returns>
-
       static bool IsEmpty(IEnumerable enumerable)
       {
          if(enumerable is ICollection collection)
             return collection.Count == 0;
-         if(enumerable is Array array)
-            return array.Length == 0;
          var enumerator = enumerable.GetEnumerator();
          try
          {
@@ -372,54 +382,74 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      static TypedValue ToInt32(int value)
+      /// <summary>
+      /// ToLisp() and ToLispXxxxx() extension methods.
+      /// 
+      /// Produces a TypedValue having a LispDataType 
+      /// for the given type of the argument, and the
+      /// argument as the value.
+      /// </summary>
+
+      public static TypedValue ToLisp(this int value)
       {
          return new TypedValue((short)LispDataType.Int32, value);
       }
 
-      static TypedValue ToInt16(short value)
+      public static TypedValue ToLisp(this short value)
       {
          return new TypedValue((short)LispDataType.Int16, value);
       }
 
-      static TypedValue ToDouble(double value)
+      public static TypedValue ToLisp(this double value)
       {
          return new TypedValue((short)LispDataType.Double, value);
       }
 
-      static TypedValue ToAngle(double value)
+      public static TypedValue ToLispAngle(this double value)
       {
          return new TypedValue((short)LispDataType.Angle, value);
       }
 
-      static TypedValue ToOrientation(object value)
+      public static TypedValue ToLispOrientation(this double value)
       {
          return new TypedValue((short)LispDataType.Orientation, value);
       }
 
-      public static TypedValue ToObjectId(ObjectId value)
+      public static TypedValue ToLisp(this ObjectId value)
       {
          return new TypedValue((short)LispDataType.ObjectId, value);
       }
 
-      public static TypedValue ToSelectionSet(IEnumerable<ObjectId> ids)
+      public static SelectionSet ToSelectionSet(this IEnumerable<ObjectId> ids, bool validate = false)
       {
-         return ToSelectionSet(SelectionSet.FromObjectIds(ids.AsArray()));
+         AcRx.ErrorStatus.NotAnEntity.ThrowIf(validate && !ids.IsAllEntities());
+         return SelectionSet.FromObjectIds(ids.AsArray());
       }
 
-      public static TypedValue ToSelectionSet(ObjectIdCollection ids)
+      public static SelectionSet ToSelectionSet(this ObjectIdCollection ids, bool validate = true)
       {
+         AcRx.ErrorStatus.NotAnEntity.ThrowIf(validate && !ids.IsAllEntities());
          ObjectId[] idarray = new ObjectId[ids.Count];
          ids.CopyTo(idarray, 0);
-         return ToSelectionSet(SelectionSet.FromObjectIds(idarray));
+         return SelectionSet.FromObjectIds(idarray);
       }
 
-      public static TypedValue ToSelectionSet(SelectionSet value)
+      public static TypedValue ToLispSelectionSet(this IEnumerable<ObjectId> ids, bool validate = true)
+      {
+         return ToLisp(ToSelectionSet(ids, validate));
+      }
+
+      public static TypedValue ToLispSelectionSet(this ObjectIdCollection ids, bool validate = true)
+      {
+         return ToLisp(ToSelectionSet(ids, validate));
+      }
+
+      public static TypedValue ToLisp(this SelectionSet value)
       {
          return new TypedValue((short)LispDataType.SelectionSet, value);
       }
 
-      public static TypedValue ToPoint3d(Point3d value)
+      public static TypedValue ToLisp(this Point3d value)
       {
          return new TypedValue((short)LispDataType.Point3d, value);
       }
@@ -429,7 +459,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.Point3d, new Point3d(x, y, z));
       }
 
-      public static TypedValue ToPoint2d(Point2d value)
+      public static TypedValue ToLisp(this Point2d value)
       {
          return new TypedValue((short)LispDataType.Point2d, value);
       }
@@ -439,9 +469,32 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.Point2d, new Point2d(x, y));
       }
 
-      static TypedValue ToText(string value)
+      public static TypedValue ToLisp(this string value)
       {
          return new TypedValue((short)LispDataType.Text, value);
+      }
+
+      /// <summary>
+      /// Returns an 'entsel' list containing the entity name
+      /// and the point used to pick it.
+      /// </summary>
+      /// <param name="per"></param>
+      /// <returns></returns>
+      
+      public static IEnumerable<TypedValue> ToLisp(this PromptEntityResult per)
+      {
+         Assert.IsNotNull(per, nameof(per));
+         return ToLisp(per.ObjectId, per.PickedPoint);
+      }
+
+      public static IEnumerable<TypedValue> ToLisp(this ObjectId id, Point3d pickPoint)
+      {
+         return new TypedValue[] {
+            ListBegin,
+            ToLisp(id),
+            ToLisp(pickPoint),
+            ListEnd
+         };
       }
 
       public static readonly TypedValue ListBegin =
@@ -480,8 +533,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
       {
-         /// Refactored to avoid calling Enumerable.Any():
+         /// Refactored to avoid call to Enumerable.Any():
          Assert.IsNotNull(source, nameof(source));
+         if(source is ICollection collection && collection.Count == 0)
+         {
+            yield return Nil;
+            yield break;
+         }
+         if(source is ICollection<T> coll2 && coll2.Count == 0)
+         {
+            yield return Nil;
+            yield break ;
+         }
          using(var e = source.GetEnumerator())
          {
             if(!e.MoveNext())
@@ -500,9 +563,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      static LazyResultBuffer AsResultBuffer(this IEnumerable<TypedValue> arg)
+      static LispResult ToLispResult(this IEnumerable<TypedValue> arg)
       {
-         return arg as LazyResultBuffer ?? new LazyResultBuffer(arg);
+         return arg as LispResult ?? new LispResult(arg);
       }
 
       /// <summary>
@@ -515,7 +578,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static IEnumerable<TypedValue> ToLispList(this IEnumerable arg)
       {
-         return ToListWorker(arg, false);
+         return ToListWorker(arg);
       }
 
       /// <summary>
@@ -527,13 +590,19 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
-         return ToLispList(args).AsResultBuffer();
+         return ToLispList(args).ToLispResult();
       }
+
+      static ListBuilder()
+      {
+         TypedValueConverterAttribute.Initialize();
+      }
+
 
       [Flags]
       enum IteratorType
       {
-         Default = 0,         // Enumerate all elements as-is.
+         Default = 0,         // Enumerate elements as-is.
          List = 1,            // Enclose all elements in a ListBegin/End sequence.
          Explode = 2,         // Explode top-most nested lists
          DeepExplode = 4      // Explode nested lists at any depth.
@@ -603,6 +672,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
 
       }
+
 
    }
 

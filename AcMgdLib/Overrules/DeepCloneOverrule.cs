@@ -48,8 +48,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// If objects that are not of the generic argument type are 
       /// also cloned, this method is not called for those objects.
       /// </param>
-      /// <param name="ownerId">The ToObjectId of the owner which the
-      /// clones are to belong to. If this argument is ToObjectId.Null,
+      /// <param name="ownerId">The AsLispObjectId of the owner which the
+      /// clones are to belong to. If this argument is AsLispObjectId.Null,
       /// there is no filtering by owner.</param>
 
       public DeepCloneOverrule(Action<T, T> action)
@@ -64,7 +64,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// what the Action does. Instances of this type must
       /// supply an Action argument.
       /// </summary>
-      /// <param name="ownerId">The ToObjectId of the new
+      /// <param name="ownerId">The AsLispObjectId of the new
       /// owner of the cloned objects. This is the same
       /// value that is supplied to the DeepCloneObjects()
       /// method's owner argument. 
@@ -73,7 +73,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// the Action delegate are called only if the cloned 
       /// object is owned by the specified owner.
       /// 
-      /// If this value is not provided or is ToObjectId.Null, 
+      /// If this value is not provided or is AsLispObjectId.Null, 
       /// there is no filtering by ownership.</param>
       /// <param name="action">An Action that must accept
       /// two arguments of the generic argument type T.

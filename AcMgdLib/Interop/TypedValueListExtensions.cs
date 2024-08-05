@@ -181,13 +181,13 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       ///  
       ///    var list = new List<TypedValue>();
       ///    
-      ///    list.AddRange(DxfCode.ToText, "Moe", "Larry", "Curly");
+      ///    list.AddRange(DxfCode.AsLispText, "Moe", "Larry", "Curly");
       ///    
       /// Which is equivlaent to
       /// 
-      ///    list.Add(new TypedValue((short) DxfCode.ToText, "Moe")));
-      ///    list.Add(new TypedValue((short) DxfCode.ToText, "Larry")));
-      ///    list.Add(new TypedValue((short) DxfCode.ToText, "Curly")));
+      ///    list.Add(new TypedValue((short) DxfCode.AsLispText, "Moe")));
+      ///    list.Add(new TypedValue((short) DxfCode.AsLispText, "Larry")));
+      ///    list.Add(new TypedValue((short) DxfCode.AsLispText, "Curly")));
       ///    
       /// </code>
       /// 
@@ -249,7 +249,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// <code>
       ///           
       ///    IList<TypedValue> list = new List<TypedValue>();
-      ///    list.AddRange(DxfCode.ToText, "Moe", "Larry", "Curly");
+      ///    list.AddRange(DxfCode.AsLispText, "Moe", "Larry", "Curly");
       ///    ITypedValueList source = list.GetValueList();
       ///    
       ///    /// The value of each element can be
@@ -844,7 +844,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       }
 
       /// <summary>
-      /// Slower version that takes an IEnumerable<ToObjectId>,
+      /// Slower version that takes an IEnumerable<AsLispObjectId>,
       /// and uses helper methods from this class.
       /// </summary>
       /// <param name="ids">The ObjectIds to store in the Xrecord</param>

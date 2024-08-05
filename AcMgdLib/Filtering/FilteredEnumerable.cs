@@ -77,7 +77,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// with the specified filter criteria.
       /// 
       /// Overloads are provided for BlockTableRecord,
-      /// ObjectIdCollection, and IEnumerable<ToObjectId>
+      /// ObjectIdCollection, and IEnumerable<AsLispObjectId>
       /// 
       /// (Complete documentation to come)
       /// </summary>

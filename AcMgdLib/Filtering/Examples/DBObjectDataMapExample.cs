@@ -63,7 +63,7 @@ namespace AutoCAD.AcDbLinq.Examples
    public class EffectiveColorMap : DBObjectDataMap<Entity, LayerTableRecord, Color>
    {
       /// <summary>
-      /// Optionally pass the ToObjectId of a model space viewport
+      /// Optionally pass the AsLispObjectId of a model space viewport
       /// that should be used to calculate the effective color of
       /// entities used with the instance.
       /// </summary>
@@ -80,9 +80,9 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// The keySelector delegate passed to the constructor
-      /// will return the entity's LayerId, or ToObjectId.Null
+      /// will return the entity's LayerId, or AsLispObjectId.Null
       /// if the entity's color is not BYLAYER. If the result
-      /// is ToObjectId.Null, this method is called and returns
+      /// is AsLispObjectId.Null, this method is called and returns
       /// the value of the entity's Color property.
       /// </summary>
 
@@ -154,7 +154,7 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// The viewport that's used to compute the effective
-      /// color, is the viewport whose ToObjectId is provided,
+      /// color, is the viewport whose AsLispObjectId is provided,
       /// or the viewport that's active at the point when this 
       /// method is called without a viewport argument.
       /// </summary>

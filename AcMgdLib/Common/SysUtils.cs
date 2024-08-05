@@ -1,4 +1,10 @@
-﻿using System;
+﻿/// SysUtils.cs
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;

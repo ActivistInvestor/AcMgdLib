@@ -219,7 +219,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// definition, use Entity as the generic argument.
       /// 
       /// Testing of each element's type is done against the
-      /// runtime class of each source ToObjectId to avoid the
+      /// runtime class of each source AsLispObjectId to avoid the
       /// needless creation of managed wrappers for elements
       /// that are not enumerated.
       /// </summary>
@@ -282,12 +282,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// IEnumerable<ToObjectId>:
+      /// IEnumerable<AsLispObjectId>:
       /// 
-      /// A version of GetObjects() targeting IEnumerable<ToObjectId>
+      /// A version of GetObjects() targeting IEnumerable<AsLispObjectId>
       /// that enumerates the DBObjects represented by the ObjectIds
       /// in the source sequence represeting instances of the generic 
-      /// argument. This method applies to arrays of ToObjectId as well.
+      /// argument. This method applies to arrays of AsLispObjectId as well.
       /// </summary>
       /// <parm name="ids">The sequence of ObjectIds representing
       /// the entities that are to be opened and returned</parm>

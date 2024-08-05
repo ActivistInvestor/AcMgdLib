@@ -9,6 +9,8 @@ using System.Linq;
 using System.Reflection;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.EditorInput.Extensions;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Extensions;
@@ -76,7 +78,7 @@ namespace AcMgdLib.Interop.Examples
 
          /// Create a list and return it back to LISP:
 
-         return List("Hello", "List",
+         return List("Hello", "List()",
             12.0,
             List("Item1", 2, "Item3", 44.0),
             99,
@@ -97,59 +99,62 @@ namespace AcMgdLib.Interop.Examples
             /// this is far more confusing than simply using the 
             /// List() method:
 
-            ListBegin,                      // Begin a sublist
-               "First Element",             // sublist element
-               "Second Element",            // sublist element
-               "Third Element",             // sublist element
-            ListEnd,                        // End sublist
+            ListBegin,                            /// Begin a sublist
+               "First Element",                   /// sublist element
+               "Second Element",                  /// sublist element
+               "Third Element",                   /// sublist element
+            ListEnd,                              /// End sublist
 
-            // What the above 5 lines do is precisely
-            // equivalent to doing this:
+                                                  /// What the above 5 lines do is precisely
+                                                  /// equivalent to doing this:
 
             List("First Element", "Second Element", "Third Element"),
 
-            // Error checking is performed on list nesting.
-            // Uncommenting either of the following two
-            // lines triggers a malformed list exception:
+            /// Error checking is performed on list nesting.
+            /// Uncommenting either of the following two
+            /// lines triggers a malformed list exception:
 
-            // ListEnd,
-            // ListBegin,
+            /// ListEnd,
+            /// ListBegin,
 
-            // An IEnumerable is converted to a nested list:
+            /// An IEnumerable is converted to a nested list.
+            /// Note that any IEnumerbale may contain the results
+            /// of calls to List():
 
-            new object[] { "Object1", 2.0, "Object3", 44 },
+            new object[] { "Object1", 2.0, List(100, 200, 300), "Object2", 44 },
 
-            objectIds,               // Adds a sublist containing the
-                                     // elements in the ObjectIdCollection
+            objectIds,                     /// Adds a sublist containing the
+                                           /// elements in the ObjectIdCollection
 
-            new object[0],           // Converts to nil
+            new object[0],                 /// Converts to nil
 
-            points,                  // Adds a sublist containing the
-                                     // elements in the Point3dCollection
+            points,                        /// Adds a sublist containing the
+                                           /// elements in the Point3dCollection
 
-            doc.Database.LayerZero,  // Add a single ObjectId
+            doc.Database.LayerZero,        /// Add a single ObjectId
 
-            null,                    // Converts to nil
+            null,                          /// Converts to nil
 
-            Insert(objectIds),       // Inserts the collection elements into
-                                     // the list without nesting them within 
-                                     // a sublist. See the (mgd-insert-test)
-                                     // LispFunction included below.
+            Insert(objectIds),             /// Inserts the collection elements into
+                                           /// the list without nesting them within 
+                                           /// a sublist. See the (mgd-insert-test)
+                                           /// LispFunction included below.
 
-            // In case it isn't obvious, this
-            // adds a nested association list:
+
+            /// In case it isn't obvious, this
+            /// adds a nested association list:
 
             List(
-               Cons("key1", "Value1"),  // Association lists can
-               Cons("key2", "Value2"),  // be created using the
-               Cons("Key3", "Value3")   // Cons() method.
+               Cons("key1", "Value1"),        /// Association lists can
+               Cons("key2", "Value2"),        /// be created using the
+               Cons("Key3", "Value3")         /// Cons() method.
             ),
             200,
 
-            // Because the result of a call to List() can be
-            // passed as an argument in another call to that
-            // method, calls can be nested to any depth, just
-            // like the LISP counterpart:
+            /// Because the result of a call to List() can be
+            /// passed as an argument in another call to that
+            /// method, calls can be nested to any depth, just
+            /// like the LISP counterpart:
 
             List(300, List("1", 2, List("31", "32", 33), 44.0), 400),
 
@@ -157,39 +162,46 @@ namespace AcMgdLib.Interop.Examples
          );
       }
 
-      // The above code should return a list having
-      // the following structure back to LISP:
+      /// The above call to List() should return a list 
+      /// having the following structure:
 
-      // (  "Hello" 
-      //    "List"
-      //    12.0
-      //    ("Item1" 2 "Item3" 44.0)
-      //    99
-      //    ("A" (10 20 30 40) "C" "D")
-      //    (20.0 40.0 60.0)
-      //    ("First Element" "Second Element" "Third Element")
-      //    ("First Element" "Second Element" "Third Element")
-      //    ("Object1" 2.0 "Object3" 44)
-      //    (<Entity name: 15cc9953100> <Entity name: 15cc9953020>
-      //       <Entity name: 15cc9953010> <Entity name: 15cc99530d0>
-      //    )
-      //    nil
-      //    ((2.0 2.0 0.0) (12.0 5.0 0.0) (22.0 7.0 9.0) (14.0 6.0 0.0))
-      //    <Entity name: 15cc9953100>
-      //    nil
-      //    <Entity name: 15cc9953100>
-      //    <Entity name: 15cc9953020>
-      //    <Entity name: 15cc9953010>
-      //    <Entity name: 15cc99530d0>
-      //    (("key1" . "Value1") ("key2" . "Value2") ("Key3" . "Value3"))
-      //    200
-      //    (300 ("1" 2 ("31" "32" 33) 44.0) 400)
-      //    500
-      // )
+      /// (  "Hello" 
+      ///    "List()"
+      ///    12.0
+      ///    ("Item1" 2 "Item3" 44.0)
+      ///    99
+      ///    ("A" (10 20 30 40) "C" "D")
+      ///    (20.0 40.0 60.0)
+      ///    ("First Element" "Second Element" "Third Element")
+      ///    ("First Element" "Second Element" "Third Element")
+      ///    ("Object1" 2.0 (1 2 3) "Object2" 44)
+      ///    (<Entity name: 23295d92100> <Entity name: 23295d92020> 
+      ///       <Entity name: 23295d92010> <Entity name: 23295d920d0>
+      ///    )
+      ///    nil
+      ///    ((2.0 2.0 0.0) (12.0 5.0 0.0) (22.0 7.0 9.0) (14.0 6.0 0.0))
+      ///    <Entity name: 23295d92100>
+      ///    nil
+      ///    <Entity name: 23295d92100>
+      ///    <Entity name: 23295d92020>
+      ///    <Entity name: 23295d92010>
+      ///    <Entity name: 23295d920d0>
+      ///    ( ("key1" . "Value1") 
+      ///      ("key2" . "Value2") 
+      ///      ("Key3" . "Value3")
+      ///    )
+      ///    200
+      ///    (300 ("1" 2 ("31" "32" 33) 44.0) 400)
+      ///    500
+      /// )
+
 
       /// <summary>
       /// Calls the above (mgd-list) function and dumps
-      /// the returned ResultBuffer to the console:
+      /// the returned ResultBuffer to the console. 
+      /// 
+      /// The various Dump() extension methods included
+      /// herein are primarily for diagnostic purposes.
       /// </summary>
 
       [LispFunction("mgd-list-dump")]
@@ -230,7 +242,7 @@ namespace AcMgdLib.Interop.Examples
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
-      
+
       [LispFunction("mgd-alist-from-dict")]
       public static ResultBuffer MgdDictToAList(ResultBuffer args)
       {
@@ -249,20 +261,20 @@ namespace AcMgdLib.Interop.Examples
       {
          var items = new object[] { "One", 2, 33.0 };
 
-         // Add a new first element to a list:
+         /// Add a new first element to a list:
          var result = Cons("car value", items);
-         // Expecting: '("car value" "One" 2 33.0)
+         /// Expecting: '("car value" "One" 2 33.0)
          result.Dump("Cons(<atom>, <list>):\n");
 
-         // Create a dotted pair:
+         /// Create a dotted pair:
          result = Cons("car value", "cdr value");
-         // Expecting: '("car value" . "cdr value")
+         /// Expecting: '("car value" . "cdr value")
          result.Dump("Cons(<atom>, <atom>):\n");
 
-         // Add a list as new first element of a list:
-         object[] list2 = new object[]{ "car 1", 2, "car 3", 4 };
+         /// Add a list as new first element of a list:
+         object[] list2 = new object[] { "car 1", 2, "car 3", 4 };
          var result2 = Cons(list2, items);
-         // Expecting: '(("car 1" 2 "car 3" 4) "One" 2 33.0)
+         /// Expecting: '(("car 1" 2 "car 3" 4) "One" 2 33.0)
          result2.Dump("Cons(<list>, <list>):\n");
          return result2;
       }
@@ -369,7 +381,55 @@ namespace AcMgdLib.Interop.Examples
             LispDataType.Text, LispDataType.Int32);
       }
 
-      static Cached<string[]> lispFuncs = new(() => 
+      /// <summary>
+      /// Tests the AsLispSelectionSet() method that converts
+      /// a collection of ObjectIds to a SelectionSet and
+      /// returns it back to LISP:
+      /// </summary>
+
+      [LispFunction("mgd-ids-to-ss")]
+      public static ResultBuffer TestIdsToSelectionSet(ResultBuffer args)
+      {
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         Editor ed = doc.Editor;
+         var psr = ed.GetSelection();
+         if(psr.IsFailed())
+            return null;
+         var ids = psr.Value.GetObjectIds();
+         return List("One", ids.ToLispSelectionSet(), "Three");
+      }
+
+      /// <summary>
+      /// Tests support for using a PromptEntityResult as an argument 
+      /// to the List() method. The result returned back to LISP is an
+      /// entsel-style list containing the entity name and the point 
+      /// used to select the entity.
+      /// 
+      /// The support for passing a PromptEntityResult to the List() 
+      /// function is provided by the PromptEntityResultConverter 
+      /// example class, that demonstrates how to add support for any 
+      /// managed type to ListBuilder methods.
+      /// 
+      /// See the PromptEntityResultConverter and TypedValueConverter
+      /// base type for details.
+      /// </summary>
+
+      [LispFunction("mgd-to-entsel-list")]
+      public static ResultBuffer TestEntSelList(ResultBuffer args)
+      {
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         Editor ed = doc.Editor;
+         var per = ed.GetEntity("\nPick an entity: ");
+         if(per.IsFailed())
+            return null;
+
+         // The PromptEntityResult can be passed
+         // as an argument to the List() method:
+
+         return List("One", per, "Two"); 
+      }
+
+      static Cached<string[]> lispFuncs = new(() =>
          typeof(LispInteropTests).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(mi => mi.IsDefined(typeof(LispFunctionAttribute), false))
             .Select(mi => mi.GetCustomAttribute<LispFunctionAttribute>().GlobalName)
