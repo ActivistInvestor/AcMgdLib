@@ -188,8 +188,8 @@ namespace AcMgdLib.Overrules.Examples
       /// 
       /// All of the required operations outlined above are done by 
       /// a single delegate with three lines of code, and without the 
-      /// need to iterate over and open the originally-selected objects 
-      /// or the resulting clones.
+      /// need to iterate over and open the originally-selected 
+      /// objects or the resulting clones.
       /// </summary>
       
       [CommandMethod("ADDTOBLOCK2", CommandFlags.NoBlockEditor | CommandFlags.UsePickSet)]
@@ -236,7 +236,7 @@ namespace AcMgdLib.Overrules.Examples
 
                var transform = blkref.BlockTransform.Inverse();
 
-               /// This method is called by the DeepCloneOverrule once 
+               /// This function is called by the DeepCloneOverrule once 
                /// for each primary object that's cloned. It's passed 
                /// the source object and its clone. It erases the source 
                /// object and transforms the clone, all in one swell foop.
@@ -250,10 +250,8 @@ namespace AcMgdLib.Overrules.Examples
 
                /// The CopyTo() extension method acts as a wrapper for 
                /// the Database's DeepCloneObjects() method, that also
-               /// manages a DeepCloneOverrule that will call the above
-               /// OnCloned() method, allowing the programmer to avoid 
-               /// having to deal directly with the DeepCloneOverrule 
-               /// class. 
+               /// manages the DeepCloneOverrule that will call the above
+               /// OnCloned() function.
                /// 
                /// Although the CopyTo() method returns the IdMapping 
                /// representing the result of the deep clone operation, 

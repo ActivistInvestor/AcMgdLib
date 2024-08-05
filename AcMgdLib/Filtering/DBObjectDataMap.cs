@@ -57,7 +57,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// through objects that reference them.
    /// 
    /// The <typeparamref name="TFiltered"/>> object is used to
-   /// obtain an AsLispObjectId that is used as the key to store the
+   /// obtain an ObjectId that is used as the key to store the
    /// cached data. The <typeparamref name="TCriteria"/>> is
    /// used to produce the cached data. In a typical use case,
    /// the <typeparamref name="TFiltered"/> is an Entity, and
@@ -89,19 +89,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// cached data come from, so it requires two delegates that do
    /// those things. In the above constructor call, the first delegate
    /// takes an Entity and returns the value of its LayerId property,
-   /// which is an AsLispObjectId. That AsLispObjectId is used as the key to store
-   /// the cached data. The cache takes the AsLispObjectId and looks for data
-   /// in the cache using that AsLispObjectId as a key. 
+   /// which is an ObjectId. That ObjectId is used as the key to store
+   /// the cached data. The cache takes the ObjectId and looks for data
+   /// in the cache using that ObjectId as a key. 
    /// 
-   /// If data for the AsLispObjectId is found in the cache, it is returned. 
+   /// If data for the ObjectId is found in the cache, it is returned. 
    /// Otherwise, the DBObjectDataMap opens the DBObject referenced by 
-   /// the AsLispObjectId and passes the opened DBObject to the second delegate 
+   /// the ObjectId and passes the opened DBObject to the second delegate 
    /// (which takes a LayerTableRecord as its argument) which returns the 
-   /// data that is to be cached, keyed to the AsLispObjectId returned by the 
+   /// data that is to be cached, keyed to the ObjectId returned by the 
    /// first delegate. It then adds the resulting data to the cache and 
    /// returns it. 
    /// 
-   /// On subsequent requests for data for that same AsLispObjectId/key, it is 
+   /// On subsequent requests for data for that same ObjectId/key, it is 
    /// retrieved from the cache very quickly, and without having to open 
    /// the referenced LayerTableRecord again.
    /// 
@@ -138,15 +138,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// Generic characteristics:
    /// 
-   /// 1. An AsLispObjectId that references a TCriteria must be 
+   /// 1. An ObjectId that references a TCriteria must be 
    ///    reachable using an instance of a TFiltered.
    ///    
    /// 2. A TValue must be reachable using an instance of a 
    ///    TCriteria.
    /// 
-   /// 3. The AsLispObjectId obtained from a TFiltered is a key that is
+   /// 3. The ObjectId obtained from a TFiltered is a key that is
    ///    permanently associated with the TValue obtained from the
-   ///    TCriteria referenced by the AsLispObjectId key.
+   ///    TCriteria referenced by the ObjectId key.
    /// 
    /// </summary>
    /// <typeparam name="TFiltered">The type of DBObject that is
@@ -311,12 +311,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// If the keySelector returns AsLispObjectId.Null, this
+      /// If the keySelector returns ObjectId.Null, this
       /// will be called to provide a value (or throw an
       /// exception, if appropriate).
       /// 
       /// In the EffectiveColorMap, the keySelector returns
-      /// AsLispObjectId.Null to signal that the entity argument's
+      /// ObjectId.Null to signal that the entity argument's
       /// color is not 'BYLAYER', causing the entity's color
       /// to be returned by an override of this method.
       /// </summary>
@@ -341,11 +341,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// transactions and opens the DBObject directly.
       /// 
       /// </summary>
-      /// <param name="id">The AsLispObjectId of a TCriteria object</param>
+      /// <param name="id">The ObjectId of a TCriteria object</param>
       /// <param name="keySource">The TFiltered instance from which the 
       /// <paramref name="id"/> argument was obtained.</param>
       /// <returns>The result of invoking the valueSelector delegate
-      /// on an instance of a TCriteria having the given AsLispObjectId</returns>
+      /// on an instance of a TCriteria having the given ObjectId</returns>
 
       protected virtual TValue GetValueForKey(ObjectId id, TKeySource keySource)
       {
@@ -416,18 +416,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Indicates if the cache contains data associated with 
-      /// the TCriteria instance having the given AsLispObjectId.
+      /// the TCriteria instance having the given ObjectId.
       /// </summary>
-      /// <param name="id">The AsLispObjectId of a TCriteria instance</param>
+      /// <param name="id">The ObjectId of a TCriteria instance</param>
       /// <returns>A value indicating if the cache contains data
       /// associated with the TCriteria instance having the 
-      /// given AsLispObjectId</returns>
+      /// given ObjectId</returns>
 
       public bool ContainsKey(ObjectId id) => map.ContainsKey(id);
 
       /// <summary>
       /// Attempts to get an existing entry from the 
-      /// cache given its AsLispObjectId key.
+      /// cache given its ObjectId key.
       /// </summary>
 
       public bool TryGetValue(ObjectId key, out TValue result)
@@ -439,7 +439,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Invalidates the cache entry having the
       /// specified key.
       /// </summary>
-      /// <param name="id">The AsLispObjectId key of a <typeparamref name="TValueSource"/>
+      /// <param name="id">The ObjectId key of a <typeparamref name="TValueSource"/>
       /// instance whose associated cache entry is to be invalidated</param>
 
       public override void Invalidate(ObjectId id)

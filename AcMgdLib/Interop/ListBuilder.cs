@@ -72,7 +72,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static LispResult List(params object[] args)
       {
-         return new Iterator(ToListWorker(args)).ToLispResult();
+         return GetIterator(ToListWorker(args)).ToResult();
       }
 
       /// <summary>
@@ -104,7 +104,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
          else
          {
-            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToLispResult();
+            return ToList(ListBegin, ToList(car), cdr, DotEnd).ToResult();
          }
       }
 
@@ -116,7 +116,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       
       public static LispResult ToList(params object[] args)
       {
-         return ToListWorker(args).ToLispResult();
+         return ToListWorker(args).ToResult();
       }
 
       /// <summary>
@@ -155,7 +155,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
             throw new ArgumentException("Invalid IEnumerable (no strings)");
-         return new Iterator(ToListWorker(arg), IteratorType.Explode).ToLispResult();
+         return GetIterator(ToListWorker(arg), IteratorType.Explode).ToResult();
       }
 
       /// <summary>
@@ -168,7 +168,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static LispResult Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert).ToLispResult();
+         return args.OfType<IEnumerable>().SelectMany(Insert).ToResult();
       }
 
       /// <summary>
@@ -218,11 +218,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return ToLisp(id);
                continue;
             }
-            if(arg is SelectionSet ss)
-            {
-               yield return ToLisp(ss);
-               continue;
-            }
             if(arg is Int32 i)
             {
                yield return ToLisp(i);
@@ -231,6 +226,11 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             if(arg is Int16 || arg is byte || arg is char)
             {
                yield return ToLisp((short)arg);
+               continue;
+            }
+            if(arg is SelectionSet ss)
+            {
+               yield return ToLisp(ss);
                continue;
             }
             if(arg is Point2d p2d)
@@ -352,14 +352,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             throw new ArgumentException($"Malformed list: (+{level}");
       }
 
+      const short tcListBegin = (short)LispDataType.ListBegin;
+      const short tcListEnd = (short)LispDataType.ListEnd;
+      const short tcDotEnd = (short)LispDataType.DottedPair;
+
       static bool IsListBegin(TypedValue tv)
       {
-         return tv.IsEqualTo(ListBegin);
+         return tv.TypeCode == tcListBegin;
       }
 
       static bool IsListEnd(TypedValue tv)
       {
-         return tv.IsEqualTo(ListEnd) || tv.IsEqualTo(DotEnd);
+         return tv.TypeCode == tcListEnd || tv.TypeCode == tcDotEnd;
       }
 
       static bool IsEnumerable(object obj)
@@ -367,8 +371,23 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return obj is IEnumerable && !(obj is string);
       }
 
+      static bool IsEnumerable(object obj, out IEnumerable enumerable)
+      {
+         if(obj is IEnumerable e && !(obj is string))
+         {
+            enumerable = e;
+            return true;
+         }
+         else
+         {
+            enumerable = default(IEnumerable);
+            return false;
+         }
+      }
+
       static bool IsEmpty(IEnumerable enumerable)
       {
+         Assert.IsNotNull(enumerable, nameof(enumerable));  
          if(enumerable is ICollection collection)
             return collection.Count == 0;
          var enumerator = enumerable.GetEnumerator();
@@ -420,6 +439,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.ObjectId, value);
       }
 
+      /// <summary>
+      /// The validate argument indicates if the collection of
+      /// ObjectIds should be checked to ensure that all elements
+      /// reference an entity or a derived type.
+      /// 
+      /// If the caller is sure that all elements reference entities,
+      /// they should pass false for this argument.
+      /// </summary>
+      /// <param name="ids"></param>
+      /// <param name="validate"></param>
+      /// <returns></returns>
+      
       public static SelectionSet ToSelectionSet(this IEnumerable<ObjectId> ids, bool validate = false)
       {
          AcRx.ErrorStatus.NotAnEntity.ThrowIf(validate && !ids.IsAllEntities());
@@ -563,7 +594,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      static LispResult ToLispResult(this IEnumerable<TypedValue> arg)
+      public static LispResult ToResult(this IEnumerable<TypedValue> arg)
       {
          return arg as LispResult ?? new LispResult(arg);
       }
@@ -590,7 +621,15 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static ResultBuffer ToResultBuffer(this IEnumerable args)
       {
-         return ToLispList(args).ToLispResult();
+         return ToLispList(args).ToResult();
+      }
+
+      static IEnumerable<TypedValue> GetIterator(IEnumerable<TypedValue> source, IteratorType type = IteratorType.List)
+      {
+         if(type == IteratorType.Default)
+            return source;
+         else
+            return new Iterator(source, type);
       }
 
       static ListBuilder()
@@ -608,6 +647,10 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          DeepExplode = 4      // Explode nested lists at any depth.
       }
 
+      /// <summary>
+      /// Facilitates exploding and/or nesting of lists
+      /// </summary>
+      
       class Iterator : IEnumerable<TypedValue>
       {
          IEnumerable<TypedValue> source;

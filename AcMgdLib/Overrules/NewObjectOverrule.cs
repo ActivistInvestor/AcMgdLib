@@ -51,7 +51,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Only called when the object that is about to be
-      /// closed is a new object. The AsLispObjectId of the new
+      /// closed is a new object. The ObjectId of the new
       /// object is not available from this override.
       /// </summary>
 
@@ -61,7 +61,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Only called when the object that was closed is
-      /// a new object. The AsLispObjectId of the new object is 
+      /// a new object. The ObjectId of the new object is 
       /// available from this override.
       /// </summary>
 

@@ -368,7 +368,7 @@ namespace AutoCAD.AcDbLinq.Examples
          /// layers having names that start with "FURNITURE". 
          /// 
          /// The first delegate argument is passed a BlockReference, 
-         /// and must return the AsLispObjectId of the object to which the
+         /// and must return the ObjectId of the object to which the
          /// second predicate argument is applied to, to determine if
          /// the BlockReference satisfies the filter criteria.
 
@@ -440,7 +440,7 @@ namespace AutoCAD.AcDbLinq.Examples
          /// that start with "FURNITURE". 
          /// 
          /// The first delegate argument is passed a BlockReference, 
-         /// and must return the AsLispObjectId of the object to which the
+         /// and must return the ObjectId of the object to which the
          /// second predicate argument is applied to. The generic
          /// argument type specifies the type of the argument to the
          /// second predicate, and is the type of the object used to 

@@ -4,6 +4,7 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
+using System.Collections;
 using System.Extensions;
 using System.Linq;
 using System.Reflection;
@@ -280,8 +281,8 @@ namespace AcMgdLib.Interop.Examples
       }
 
       /// <summary>
-      /// Compares the behavior of the List(), Insert(), and
-      /// Append() methods when combining lists.
+      /// Compares the behavior of the List(), Insert(), 
+      /// and Append() methods when combining lists.
       /// 
       /// The only difference between the following three
       /// LispFunctions is that one uses List(), the second
@@ -297,14 +298,20 @@ namespace AcMgdLib.Interop.Examples
       /// 
       /// The results of the three methods with the same input:
       /// 
-      ///    Command: (mgd-list-test)
-      ///    (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
+      ///    (mgd-list-test)
       ///    
-      ///    Command: (mgd-insert-test) 
-      ///    (("One" "Two" "Three") 100 200 300 (1.0 2.0 3.0))
+      ///      return List(list1, list2, list3);
+      ///         => (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
       ///    
-      ///    Command: (mgd-append-test)
-      ///    ("One" "Two" "Three" 100 200 300 1.0 2.0 3.0)
+      ///    (mgd-insert-test):
+      ///    
+      ///      return List(list1, Insert(list2), list3);
+      ///         => (("One" "Two" "Three") 100 200 300 (1.0 2.0 3.0))
+      ///    
+      ///    (mgd-append-test):
+      ///    
+      ///      return Append(list1, list2, list3);
+      ///         => ("One" "Two" "Three" 100 200 300 1.0 2.0 3.0)
       ///
       /// </summary>
 
@@ -382,7 +389,7 @@ namespace AcMgdLib.Interop.Examples
       }
 
       /// <summary>
-      /// Tests the AsLispSelectionSet() method that converts
+      /// Tests the ToLispSelectionSet() method that converts
       /// a collection of ObjectIds to a SelectionSet and
       /// returns it back to LISP:
       /// </summary>

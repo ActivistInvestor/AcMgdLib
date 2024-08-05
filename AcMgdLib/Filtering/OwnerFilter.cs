@@ -20,7 +20,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// To include only entities that are owned by a specific
    /// BlockTableRecord or set of BlockTableRecords, pass the 
-   /// AsLispObjectId(s) of the BlockTableRecord(s) to the constructor.
+   /// ObjectId(s) of the BlockTableRecord(s) to the constructor.
    /// 
    /// This class was built for use with the GetBlockReferences() 
    /// method, which returns BlockReferences owned by any block. 

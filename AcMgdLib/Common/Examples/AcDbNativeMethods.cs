@@ -70,7 +70,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    ///    have the same signature as the equivalent method 
    ///    having the [DllImport] attribute applied to it:
    ///    
-   ///       delegate ErrorStatus acdbGetAdsNameFunc(out AdsName ename, AsLispObjectId id);
+   ///       delegate ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ObjectId id);
    ///    
    /// 2. Declare a static variable of the defined delegate 
    ///    type. In the example below, this is 'acdbGetAdsName':
@@ -105,7 +105,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
    /// can be used to invoke it:
    /// 
    ///    
-   ///      AsLispObjectId id = ...
+   ///      ObjectId id = ...
    ///      AdsName ename;
    ///      ErrorStatus es;
    ///      es = acdbGetAdsName(out ename, id);

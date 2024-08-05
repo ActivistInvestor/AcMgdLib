@@ -50,9 +50,9 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// be a DxfCode, a short, an int, or a LispDataType:
       /// 
       ///   new TypedValueList(
-      ///      (DxfCode.AsLispText, "Moe"),
-      ///      (DxfCode.AsLispText, "Larry"),
-      ///      (DxfCode.AsLispText, "Curly"));
+      ///      (DxfCode.Text, "Moe"),
+      ///      (DxfCode.Text, "Larry"),
+      ///      (DxfCode.Text, "Curly"));
       ///      
       /// or: 
       /// 
@@ -62,8 +62,8 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       ///  
       ///   new TypedValueList(
       ///      (LispDataType.ListBegin, null),
-      ///      (LispDataType.AsLispObjectId, someObjectId),
-      ///      (LispDataType.AsLispPoint3d, new AsLispPoint3d(0, 0, 0)),
+      ///      (LispDataType.ObjectId, someObjectId),
+      ///      (LispDataType.Point3d, new Point3d(0, 0, 0)),
       ///      (LispDataType.ListEnd, null)
       ///   );
       /// 

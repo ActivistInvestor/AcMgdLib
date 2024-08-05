@@ -41,7 +41,7 @@ namespace AcMgdLib.Interop.Examples
    /// for a managed type are:
    /// 
    /// 1. Derive a class from the TypedValueConverter
-   ///    class, and override/implement its abstract
+   ///    class, and override/implement its absract
    ///    methods. In the ToTypedValues() method, add
    ///    code that takes the argument (which will be
    ///    an instance of the type that is specified in

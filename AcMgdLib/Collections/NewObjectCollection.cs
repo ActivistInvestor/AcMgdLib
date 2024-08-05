@@ -136,7 +136,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public bool Contains(ObjectId item) => items.Contains(item);
 
       /// <summary>
-      /// This value is not validated. If AsLispObjectId.Null
+      /// This value is not validated. If ObjectId.Null
       /// is passed in, there is no owner filtering.
       /// </summary>
 
@@ -158,7 +158,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Returns the last element in the collection or 
-      /// AsLispObjectId.Null if the collection is empty.
+      /// ObjectId.Null if the collection is empty.
       /// </summary>
 
       public ObjectId Last
@@ -171,7 +171,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Returns the last element of the specified type, or 
-      /// AsLispObjectId.Null if the collection is empty or does not
+      /// ObjectId.Null if the collection is empty or does not
       /// contain any elements of the specified type.
       /// </summary>
       /// <typeparam name="TType">The type of the item to 
@@ -182,7 +182,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// search. If the TType argument type is abstract, this
       /// value is ignored, and is effectively false</param>
       /// <returns>The last element of the specified type, or 
-      /// AsLispObjectId.Null if no matching element exists</returns>
+      /// ObjectId.Null if no matching element exists</returns>
 
       public ObjectId LastOfType<TType>(bool exact = false) where TType : T
       {
