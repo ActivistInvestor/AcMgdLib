@@ -10,14 +10,14 @@ using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Reflection;
 
-/// Documentation to come
+/// Documentation incomplete.
 
 namespace System.Reflection.Extensions
 {
    public static partial class ReflectionExtensions
    {
 
-      public static IEnumerable<Type> GetTypes(Assembly asm, Func<Type, bool> predicate)
+      public static IEnumerable<Type> GetTypes(this Assembly asm, Func<Type, bool> predicate)
       {
          bool all = predicate == null;
          foreach(Type type in asm.GetExportedTypes())
@@ -27,30 +27,48 @@ namespace System.Reflection.Extensions
          }
       }
 
-      public static IEnumerable<Type> GetTypes(Func<Type, bool> predicate = null)
+      public static IEnumerable<Type> GetTypes(this AppDomain domain, Func<Type, bool> predicate = null)
       {
-         foreach(Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
+         foreach(Assembly asm in domain.GetAssemblies())
          {
             foreach(Type type in GetTypes(asm, predicate))
                yield return type;
          }
       }
 
-      public static IEnumerable<(T attrib, Type type)> GetTypeAttributes<T>(Assembly asm = null) where T : Attribute
+      public static IEnumerable<TypeAttributeInfo<T>> GetTypeAttributes<T>(this AppDomain domain) where T : Attribute
       {
-         if(asm == null)
-         {
-            return GetTypes(type => type.IsDefined(typeof(T), false))
-              .Select(type => (type.GetCustomAttribute<T>(), type));
-         }
-         else
-         {
-            return GetTypes(asm, type => type.IsDefined(typeof(T), false))
-               .Select(type => (type.GetCustomAttribute<T>(), type));
-         }
+         return domain.GetTypes(type => type.IsDefined(typeof(T)))
+            .Select(type => new TypeAttributeInfo<T>(type));
+         
+      }
+
+      public static IEnumerable<TypeAttributeInfo<T>> GetTypeAttributes<T>(this Assembly asm) where T : Attribute
+      {
+         return asm.GetTypes(type => type.IsDefined(typeof(T), false))
+            .Select(type => new TypeAttributeInfo<T>(type));
       }
    }
 
+   /// <summary>
+   /// A type that enumerates every Type attribute of the 
+   /// specified generic argument type in every loaded assembly, 
+   /// and in all subsequently-loaded assemblies.
+   /// 
+   /// This class only targets Attributes that are applied to
+   /// Types.
+   /// 
+   /// The OnAttributeFound() virtual method is called for each
+   /// attribute found.
+   /// 
+   /// Instead of deriving a type from this type and overriding
+   /// OnAttributeFound(), an instance of this type can be used
+   /// and passed a delegate that accepts the same arguments as 
+   /// the OnAttributeFound() method, and that delegate will be
+   /// called for each attribute found.
+   /// </summary>
+   /// <typeparam name="T"></typeparam>
+   
    public class TypeAttributeHandler<T> where T : System.Attribute
    {
       static Type attributeType = typeof(T);
@@ -59,20 +77,25 @@ namespace System.Reflection.Extensions
 
       public TypeAttributeHandler(Action<T, Type> handler = null)
       {
-         Assert.IsNotNull(handler, nameof(handler));
          this.handler = handler;
-         var atts = ReflectionExtensions.GetTypeAttributes<T>();
-         foreach(var rec in atts)
-            OnAttributeFound(rec.attrib, rec.type);
+         foreach(var info in AppDomain.CurrentDomain.GetTypeAttributes<T>())
+            OnAttributeFound(info.Attribute, info.Type);
          AppDomain.CurrentDomain.AssemblyLoad += assemblyLoad;
       }
 
       private void assemblyLoad(object sender, AssemblyLoadEventArgs args)
       {
-         var atts = ReflectionExtensions.GetTypeAttributes<T>(args.LoadedAssembly);
-         foreach(var rec in atts)
-            OnAttributeFound(rec.attrib, rec.type);
+         foreach(var info in args.LoadedAssembly.GetTypeAttributes<T>())
+            OnAttributeFound(info.Attribute, info.Type);
       }
+
+      /// <summary>
+      /// Called for every instance of the 
+      /// targeted Attribute that is found.
+      /// </summary>
+      /// <param name="attribute">The targeted attribute instance</param>
+      /// <param name="appliedType">The type which the targeted
+      /// attribute instance is applied to.</param>
 
       protected virtual void OnAttributeFound(T attribute, Type appliedType)
       {
@@ -80,6 +103,17 @@ namespace System.Reflection.Extensions
       }
    }
 
+   public struct TypeAttributeInfo<T> where T: System.Attribute
+   {
+      public TypeAttributeInfo(Type type)
+      {
+         this.Attribute = type.GetCustomAttribute<T>(false);
+         this.Type = type;
+      }
+
+      public T Attribute { get; private set; }
+      public Type Type { get; private set; }
+   }
 }
 
 
