@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Utility;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -17,6 +18,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Extensions;
+using static System.Net.Mime.MediaTypeNames;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.Runtime.LispInterop
@@ -198,44 +200,23 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return Nil;
                continue;
             }
-            if(arg is double || arg is float)
+            LispDataType result = arg.GetType().ToLispDataType();
+            if(result != LispDataType.None)
             {
-               yield return ToLisp((double)arg);
+               yield return new TypedValue((short) result, arg);
                continue;
             }
-            if(arg is string s)
-            {
-               yield return ToLisp(s);
-               continue;
-            }
-            if(arg is Point3d p3d)
-            {
-               yield return ToLisp(p3d);
-               continue;
-            }
-            if(arg is ObjectId id)
-            {
-               yield return ToLisp(id);
-               continue;
-            }
-            if(arg is Int32 i)
-            {
-               yield return ToLisp(i);
-               continue;
-            }
-            if(arg is Int16 || arg is byte || arg is char)
-            {
-               yield return ToLisp((short)arg);
-               continue;
-            }
+            AcConsole.Write($"Not Found: {arg.GetType().CSharpName()}");
+
+            /// This is required because SelectionSet
+            /// is abstract and the concrete types derived 
+            /// from it have no map entry (adding them to 
+            /// the map would create a version-dependence 
+            /// as some of them were recently-added).
+            
             if(arg is SelectionSet ss)
             {
                yield return ToLisp(ss);
-               continue;
-            }
-            if(arg is Point2d p2d)
-            {
-               yield return ToLisp(p2d);
                continue;
             }
             if(arg is StringBuilder sb)
@@ -250,7 +231,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             }
 
             var converter = TypedValueConverter.GetConverter(arg.GetType());
-            if(converter != null)
+            if(converter != null && converter.CanConvert(true))
             {
                object converted = converter.ToTypedValues(arg);
                if(converted != null)
@@ -277,11 +258,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
             if(arg is IEnumerable<TypedValue> values)
             {
-               if(values is ICollection coll && coll.Count == 0)
-               {
-                  yield return Nil;
-                  continue;
-               }
                if(values is ICollection<TypedValue> tvc && tvc.Count == 0)
                {
                   yield return Nil;
@@ -566,11 +542,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       {
          /// Refactored to avoid call to Enumerable.Any():
          Assert.IsNotNull(source, nameof(source));
-         if(source is ICollection collection && collection.Count == 0)
-         {
-            yield return Nil;
-            yield break;
-         }
          if(source is ICollection<T> coll2 && coll2.Count == 0)
          {
             yield return Nil;
@@ -594,8 +565,148 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
+      // Depreciated in favor of a Dictionary<LispDataType, Type>
+      //public static Type ToType(this LispDataType type)
+      //{
+      //   switch(type)
+      //   {
+      //      case LispDataType.Double:
+      //         return typeof(double);
+      //      case LispDataType.Point2d:
+      //         return typeof(Point2d);
+      //      case LispDataType.Int16:
+      //         return typeof(short);
+      //      case LispDataType.Angle:
+      //         return typeof(double);
+      //      case LispDataType.Text:
+      //         return typeof(string);
+      //      case LispDataType.ObjectId:
+      //         return typeof(ObjectId);
+      //      case LispDataType.SelectionSet:
+      //         return typeof(SelectionSet);
+      //      case LispDataType.Orientation:
+      //         return typeof(double);
+      //      case LispDataType.Angle:
+      //         return typeof(double);
+      //      case LispDataType.Point3d:
+      //         return typeof(Point3d);
+      //      case LispDataType.Int32:
+      //         return typeof(int);
+      //      case LispDataType.Void:
+      //         return typeof(void);
+      //      case LispDataType.ListBegin:
+      //         return typeof(ListBeginClass);
+      //      case LispDataType.ListEnd:
+      //         return typeof(ListEndClass);
+      //      case LispDataType.DottedPair:
+      //         return typeof(DottedPairClass);
+      //      case LispDataType.Nil:
+      //         return typeof(NilClass);
+      //      case LispDataType.T_atom:
+      //         return typeof(bool);
+      //      case LispDataType.None:
+      //         return null;
+      //      default:
+      //         return null;
+      //   }
+      //}
+
+
+      public static Type ToType(this LispDataType type)
+      {
+         Type result = null;
+         lispDataTypeToTypeMap.TryGetValue(type, out result);
+         return result;
+      }
+
+      /// <summary>
+      /// If there is no LispDataType that maps to a type,
+      /// the result is LispDataType.None.
+      /// </summary>
+      /// <param name="type"></param>
+      /// <returns></returns>
+
+      public static LispDataType ToLispDataType(this Type type)
+      {
+         if(typeToLispDataTypeMap.TryGetValue(type, out LispDataType result))
+            return result;
+         return LispDataType.None;
+      }
+
+      static readonly Dictionary<LispDataType, Type> lispDataTypeToTypeMap = new()
+      {
+         { LispDataType.None, null },
+         { LispDataType.Double, typeof(double)},
+         { LispDataType.Orientation, typeof(double)},
+         { LispDataType.Angle, typeof(double)},
+         { LispDataType.Point2d, typeof(Point2d) },
+         { LispDataType.Int16, typeof(short) },
+         { LispDataType.Text, typeof(string) },
+         { LispDataType.ObjectId, typeof(ObjectId) },
+         { LispDataType.SelectionSet, typeof(SelectionSet) },
+         { LispDataType.Point3d, typeof(Point3d) },
+         { LispDataType.Int32, typeof(int) },
+         { LispDataType.Void, typeof(void) },
+         { LispDataType.ListBegin, typeof(ListBeginClass) },
+         { LispDataType.ListEnd, typeof(ListEndClass) },
+         { LispDataType.DottedPair, typeof(DottedPairClass) },
+         { LispDataType.Nil, typeof(NilClass) },
+         { LispDataType.T_atom, typeof(bool) }
+      };
+
+      /// <summary>
+      /// Also supports bool, float, byte, and char
+      /// </summary>
+      
+      static readonly Dictionary<Type, LispDataType> typeToLispDataTypeMap = new()
+      {
+         { typeof(DBNull), LispDataType.None },
+         { typeof(double), LispDataType.Double }, 
+         { typeof(float), LispDataType.Double },
+         { typeof(Point2d), LispDataType.Point2d },
+         { typeof(short), LispDataType.Int16 },
+         { typeof(byte), LispDataType.Int16 },
+         { typeof(char), LispDataType.Int16 },
+         { typeof(string), LispDataType.Text },
+         { typeof(ObjectId), LispDataType.ObjectId },
+         { typeof(SelectionSet), LispDataType.SelectionSet },
+         { typeof(Point3d), LispDataType.Point3d },
+         { typeof(int), LispDataType.Int32 },
+         { typeof(void), LispDataType.Void },
+         { typeof(ListBeginClass), LispDataType.ListBegin },
+         { typeof(ListEndClass), LispDataType.ListEnd },
+         { typeof(DottedPairClass), LispDataType.DottedPair },
+         { typeof(NilClass), LispDataType.Nil },
+         { typeof(bool), LispDataType.T_atom }
+      };
+
+      /// <summary>
+      /// LispDataType.ToType() must return a type.
+      /// These proxy types are used for List delimiter types:
+      /// </summary>
+      
+      public class ListBeginClass { }
+      public class ListEndClass { }
+      public class DottedPairClass { }
+      public class NilClass { }
+
+      /// <summary>
+      /// ListBegin, ListEnd, and DotEnd are already used as
+      /// public members for TypedValue fields. These fields
+      /// are intended for use with the LispDataType.ToType()
+      /// and Type.ToLispDataType() extension methods.
+      /// </summary>
+      
+      public static readonly ListBeginClass ListBeginType = new ListBeginClass();
+      public static readonly ListEndClass ListEndType = new ListEndClass();
+      public static readonly DottedPairClass DottedPairType = new DottedPairClass();
+      public static readonly NilClass NilType = new NilClass();
+
       public static LispResult ToResult(this IEnumerable<TypedValue> arg)
       {
+         // Need to avoid allowing a LispResult
+         // to wrap another LispResult:
+         
          return arg as LispResult ?? new LispResult(arg);
       }
 

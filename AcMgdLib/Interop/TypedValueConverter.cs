@@ -55,6 +55,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          converterTypes.TryAdd(targetType, converterType);
       }
 
+      public abstract bool CanConvert(bool toTypedValues);
       public abstract object ToTypedValues(object value, Context context = Context.Lisp);
       public abstract object FromTypedValues(object value, Context context = Context.Lisp);
 
