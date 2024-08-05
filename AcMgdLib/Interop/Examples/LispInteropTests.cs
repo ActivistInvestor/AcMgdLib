@@ -236,7 +236,7 @@ namespace AcMgdLib.Interop.Examples
 
       /// <summary>
       /// While the included ToDictionary() extension method 
-      /// can be used to convert a Dictionary of keys and array
+      /// can be used to convert a Dictionary of keys and values
       /// to a LISP association list, that can also be done with 
       /// a bit of Linq and the Cons() method:
       /// </summary>
