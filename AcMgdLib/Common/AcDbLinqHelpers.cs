@@ -10,10 +10,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
-using System.Extensions;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
 using Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -77,8 +75,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
 
       /// <summary>
-      /// Disposes all the elements in the source sequence,
-      /// and the source if it is an IDisposable. Useful with
+      /// Disposes all the elements in the List sequence,
+      /// and the List if it is an IDisposable. Useful with
       /// DBObjectCollection to ensure that all of the list
       /// retreived from it are disposed.
       /// </summary>
@@ -206,35 +204,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return Reformat(StripNamespaces(res), pad);
       }
 
-      public static string ToIdentity(this object obj)
+      /// <summary>
+      /// Displays the argument's type and hashcode:
+      /// </summary>
+      /// <param name="obj"></param>
+      
+      public static string ToIdString(this object obj)
       {
          if(obj == null)
             return "(null)";
          return StripNamespaces(obj.GetType().CSharpName()) +
             $" (0x{obj.GetHashCode().ToString("x")})";
-      }
-
-      public static string CSharpName(this Type type)
-      {
-         return type.IsGenericType ? csharpNames[type] : type.Name;
-      }
-
-      static Cache<Type, string> csharpNames = 
-         new Cache<Type, string>(getCSharpName);
-
-      static string getCSharpName(Type type)
-      {
-         var name = type.Name;
-         if(!type.IsGenericType)
-            return name;
-         var sb = new StringBuilder();
-         sb.Append(name.Substring(0, name.IndexOf('`')));
-         sb.Append("<");
-         sb.Append(string.Join(", ",
-            type.GetGenericArguments()
-              .Select(getCSharpName)));
-         sb.Append(">");
-         return sb.ToString();
       }
 
       static string Reformat(string s, string pad = "   ")
@@ -257,7 +237,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static string ToShortString(this Type type)
       {
-         return CSharpName(type);
+         return type.CSharpName();
       }
 
    }

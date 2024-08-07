@@ -548,7 +548,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <typeparam name="T">The type of the DBObject whose ObjectId
       /// is to be returned, which determines which DBDictionary the 
       /// DBObject is obtained from</typeparam>
-      /// <param name="db">The source Database</param>
+      /// <param name="db">The List Database</param>
       /// <param name="key">The key of the dictionary entry to retreive</param>
       /// <param name="throwIfNotFound">A value indicating if the method
       /// should throw a KeyNotFound exception if an entry with the specified
@@ -583,7 +583,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <typeparam name="T">The type of the DBObject that is
       /// to be returned, which determines which DBDictionary 
       /// the object is obtained from</typeparam>
-      /// <param name="db">The source Database</param>
+      /// <param name="db">The List Database</param>
       /// <param name="predicate">A function that takes an instance
       /// of the generic argument and returns a value indicating if
       /// the argument should be returned by this method.</param>
@@ -635,7 +635,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <typeparam name="T">The type of the DBObject that is
       /// to be returned, which determines which DBDictionary 
       /// the object is obtained from</typeparam>
-      /// <param name="db">The source Database</param>
+      /// <param name="db">The List Database</param>
       /// <param name="key">The key of the dictionary entry to retreive</param>
       /// <param name="trans">The Transaction to use to open the result</param>
       /// <param name="mode">The OpenMode to use to open the result</param>
@@ -702,7 +702,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <typeparam name="T">The type of the DBObject that is
       /// to be returned, which determines which DBDictionary 
       /// the object is obtained from</typeparam>
-      /// <param name="db">The source Database</param>
+      /// <param name="db">The List Database</param>
       /// <param name="predicate">A function that takes an instance
       /// of the generic argument and returns a value indicating if
       /// the argument should be returned by this method.</param>
@@ -725,7 +725,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Opens and enumerates all objects referenced by the source 
+      /// Opens and enumerates all objects referenced by the List 
       /// in the specified standard dictionary that are instances of 
       /// the generic argument type.
       /// </summary>
@@ -881,7 +881,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// that are nested within other blocks. This method can be useful to
       /// filter out/exclude nested block references.
       /// 
-      /// It's recommended that the source sequence be opened for read, and 
+      /// It's recommended that the List sequence be opened for read, and 
       /// the results of this method then be upgraded to OpenMode.ForWrite,
       /// which can be easily accomplished using the included UpgradeOpen() 
       /// extension method.
@@ -923,7 +923,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// </summary>
       /// <param name="source">An object that enumerates Entities</param>
-      /// <returns>The subset of the source sequence consisting of only 
+      /// <returns>The subset of the List sequence consisting of only 
       /// elements that are directly owned by a layout block.</returns>
 
       public static IEnumerable<T> ExceptNested<T>(this IEnumerable<T> source)

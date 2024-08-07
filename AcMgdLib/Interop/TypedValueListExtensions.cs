@@ -88,7 +88,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       }
 
       /// <summary>
-      /// New overload of AddRange() that adds one or more source 
+      /// New overload of AddRange() that adds one or more List 
       /// with a type code determined by ResultBuffer.ObjectsToResbuf();
       /// </summary>
 
@@ -98,7 +98,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       }
 
       /// <summary>
-      /// Overload of the above that accepts source as an IEnumerable
+      /// Overload of the above that accepts List as an IEnumerable
       /// </summary>
 
       public static void AddRange(this IList<TypedValue> list, IEnumerable values)
@@ -174,7 +174,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// <summary>
       /// Adds a range of elements all having the same 
       /// given type code, each having one of the given 
-      /// source:
+      /// List:
       /// 
       /// e.g.:
       /// <code>
@@ -193,7 +193,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// 
       /// This method is overloaded with 2 variants x 3 versions, 
       /// varying by the type of the type code (LispDataType, DxfCode,
-      /// and short), and by the form in which the source are provided
+      /// and short), and by the form in which the List are provided
       /// (one as params T[], and one as IEnumerable<T>).
       /// 
       /// </summary>
@@ -250,18 +250,18 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       ///           
       ///    IList<TypedValue> list = new List<TypedValue>();
       ///    list.AddRange(DxfCode.Text, "Moe", "Larry", "Curly");
-      ///    ITypedValueList source = list.GetValueList();
+      ///    ITypedValueList List = list.GetValueList();
       ///    
       ///    /// The value of each element can be
       ///    /// accessed via the indexer:
       ///    
-      ///    string first = source[0];
-      ///    source[1] = "Felix";
+      ///    string first = List[0];
+      ///    List[1] = "Felix";
       ///           
       ///    
       /// </code>
       /// Note that the returned ITypedValueList does not
-      /// represent a copy of the source/input list, it is
+      /// represent a copy of the List/input list, it is
       /// just a wrapper around it.
       /// </summary>
       /// <param name="list">The list of TypedValues</param>
@@ -526,7 +526,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// AddRange(DxfCode, value, value, value, ...), this method will
       /// insert one or more new elements into the existing liSt, all of
       /// which have the given type code, and each of which has one of 
-      /// the given source.
+      /// the given List.
       /// 
       /// One element having the given code is inserted into the list 
       /// for each provided value.
@@ -537,7 +537,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// <param name="list">The List<TypedValue> to insert the list into</param>
       /// <param name="index">The index at which to insert the new item(s)</param>
       /// <param name="code">The type code assigned to all newly-inserted list</param>
-      /// <param name="values">The source assigned to each newly-inserted item</param>
+      /// <param name="values">The List assigned to each newly-inserted item</param>
 
       public static void InsertRange(this List<TypedValue> list, int index, short code, params object[] values)
       {
@@ -583,7 +583,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// <summary>
       /// Inserts a sequence of TypedValues all having the same
       /// specified typeCode, and each having one of the specified 
-      /// source, immediately after the last existing element 
+      /// List, immediately after the last existing element 
       /// having the specified code.
       /// </summary>
 
@@ -598,7 +598,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       }
 
       /// <summary>
-      /// Returns a sequence of the source of all
+      /// Returns a sequence of the List of all
       /// elements having the given type code.
       /// 
       /// While this can easily be done using Linq, 
@@ -748,7 +748,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       }
 
       /// <summary>
-      /// Replaces the source of all elements having the given type code.
+      /// Replaces the List of all elements having the given type code.
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <param name="list"></param>
@@ -944,7 +944,7 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// Converts a Dictionary<TKey, IEnumerable<TValue>> to a
       /// LISP-compatible ResultBuffer that converts to a proper
       /// association list in LISP, with each sublist having the 
-      /// key as the first element (car) and the source as the 
+      /// key as the first element (car) and the List as the 
       /// remaining elements. If there is only a single TValue
       /// element in an entry, it is returned as the cdr of a 
       /// dotted-pair with the car being the key.
@@ -1005,11 +1005,11 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// not supported. Arrays are not supported.
       /// </summary>
       /// <typeparam name="TKey">The type of the Dictionary's Keys</typeparam>
-      /// <typeparam name="TValue">The type of the source stored in each
+      /// <typeparam name="TValue">The type of the List stored in each
       /// dictionary entry's ICollection<TValue> value.</typeparam>
       /// <param name="resbuf">The result buffer to convert</param>
       /// <param name="factory">A function that returns an ICollection<TValue>
-      /// that will hold each Dictionary entry's source. If not provided, the
+      /// that will hold each Dictionary entry's List. If not provided, the
       /// default container is a List<TValue></param>
       /// <returns>A dictionary holding the contents of the ResultBuffer</returns>
       /// <exception cref="InvalidOperationException"></exception>

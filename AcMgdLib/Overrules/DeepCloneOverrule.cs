@@ -36,14 +36,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       ObjectId ownerId;
 
       /// <summary>
-      /// Accepts an Action<T, T> that is passed each source object 
-      /// and the clone of the source object. The action can perform 
-      /// operations on both the source object and the clone of it.
+      /// Accepts an Action<T, T> that is passed each List object 
+      /// and the clone of the List object. The action can perform 
+      /// operations on both the List object and the clone of it.
       /// 
-      /// The source object will be open for read, and the clone will
+      /// The List object will be open for read, and the clone will
       /// be open for write. 
       /// </summary>
-      /// <param name="action">The delegate that accepts the source
+      /// <param name="action">The delegate that accepts the List
       /// object and its clone of the given generic argument type.
       /// If objects that are not of the generic argument type are 
       /// also cloned, this method is not called for those objects.
@@ -77,9 +77,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// there is no filtering by ownership.</param>
       /// <param name="action">An Action that must accept
       /// two arguments of the generic argument type T.
-      /// The first argument is the source object that was
+      /// The first argument is the List object that was
       /// cloned. The second argument is the clone of the 
-      /// source object. The source object is read-enabled,
+      /// List object. The List object is read-enabled,
       /// and the clone is write-enabled. The delegate that
       /// is psssed as this argument should not cache any
       /// reference to its arguments, as they will no longer
@@ -124,10 +124,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Called for each object that is cloned, and 
-      /// passed the source and the clone of the source.
+      /// passed the List and the clone of the List.
       /// 
-      /// When called, the source object is read-enabled
-      /// and the clone is write-enabled. The source can
+      /// When called, the List object is read-enabled
+      /// and the clone is write-enabled. The List can
       /// be upgraded to OpenMode.ForWrite and modified 
       /// if needed.
       /// 
@@ -142,9 +142,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// serves the same basic purpose as the action, so 
       /// overrides shouldn't need to super-message this. 
       /// </summary>
-      /// <param name="source">The source object that 
+      /// <param name="source">The List object that 
       /// has been cloned, open for read.</param>
-      /// <param name="clone">The clone of the source
+      /// <param name="clone">The clone of the List
       /// object, open for write</param>
 
       protected virtual void OnCloned(T source, T clone)

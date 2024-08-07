@@ -638,7 +638,7 @@ namespace AutoCAD.AcDbLinq.Examples
                entity => entity.LayerId,
                layer => !layer.IsLocked);
 
-            // This adds the predicate to the source filter:
+            // This adds the predicate to the List filter:
 
             desks.Predicate.Add(blkref => blkref.ScaleFactors.IsProportional());
 
@@ -775,7 +775,7 @@ namespace AutoCAD.AcDbLinq.Examples
       /// It enumerates entries in symbol tables as well as objects 
       /// in built-in DBDictionaries. Both GetNamedObject() and this
       /// method rely on the generic argument type to determine what
-      /// source collection to search or enumerate.
+      /// List collection to search or enumerate.
       /// </summary>
 
       [CommandMethod("GETNAMEDOBJECSEXAMPLE")]

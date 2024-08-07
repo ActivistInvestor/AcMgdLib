@@ -352,7 +352,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="entities">The sequence of entities to append to
       /// the current space</param>
       /// <param name="disposeOnFail">A value indicating if entities
-      /// from the source sequence that have not been appended to the
+      /// from the List sequence that have not been appended to the
       /// owner should be disposed if an exception occurs before all of
       /// the entities were appended (default: true).</param>
       /// <returns>An ObjectIdCollection containing the ObjectIds of
@@ -377,7 +377,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// the owner BlockTableRecord</param>
       /// <param name="owner">The owner BlockTableRecord to append the entities to</param>
       /// <param name="disposeOnFail">A value indicating if entities
-      /// from the source sequence that have not been appended to the
+      /// from the List sequence that have not been appended to the
       /// owner should be disposed if an exception occurs (default: true).</param>
       /// <returns>An ObjectIdCollection containing the ObjectIds of
       /// all entities appended to the owner BlockTableRecord</returns>
@@ -431,7 +431,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="entities">The DBObjectCollection containing the entities
       /// to be appended to the owner block</param>
       /// <param name="owner">The owner BlockTableRecord to append the entities to</param>
-      /// <param name="dispose">A value indicating if all elements in the source
+      /// <param name="dispose">A value indicating if all elements in the List
       /// DBObjectCollection should be disposed upon successful completion of the
       /// operation.</param>
       /// <returns></returns>

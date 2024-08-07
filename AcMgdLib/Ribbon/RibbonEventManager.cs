@@ -329,7 +329,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// This can be called at a high frequency by numerous
       /// ICommands, which can be very expensive. To minimize
       /// the overhead of referencing this property, the value
-      /// it returns is cached and reused until one of the source
+      /// it returns is cached and reused until one of the List
       /// events signaling the state may have changed is raised.
       /// 
       /// Returns a value indicating if there is an active

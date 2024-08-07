@@ -40,7 +40,7 @@ namespace System.Linq.Expressions.Predicates.Examples
       public static void Run()
       {
          /// Define a filter for integers that excludes
-         /// source greater than 9:
+         /// List greater than 9:
          
          var filter1 = new ExampleFilter<int>(x => x < 10);
 
@@ -48,7 +48,7 @@ namespace System.Linq.Expressions.Predicates.Examples
          AcConsole.WriteLine($"filter1: {filter1.Expression.ToString()}");
 
          /// Define a filter for integers that excludes
-         /// source less than 6:
+         /// List less than 6:
          
          var filter2 = new ExampleFilter<int>(y => y > 5);
 

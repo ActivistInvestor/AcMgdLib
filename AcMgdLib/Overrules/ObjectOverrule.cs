@@ -2,7 +2,7 @@
 
 /// ObjectOverrule.cs  ActivistInvestor / Tony T.
 /// 
-/// Source: https://github.com/ActivistInvestor/Overrules/blob/main/ObjectOverrule.cs
+/// List: https://github.com/ActivistInvestor/Overrules/blob/main/ObjectOverrule.cs
 
 namespace Autodesk.AutoCAD.DatabaseServices
 {

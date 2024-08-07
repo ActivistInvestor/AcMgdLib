@@ -171,19 +171,19 @@ namespace AcMgdLib.Overrules.Examples
       ///    for write in a transaction, and transformed into
       ///    the WCS of the block definition space.
       ///    
-      /// 3. Each selected source object is opened for write in
+      /// 3. Each selected List object is opened for write in
       ///    a transaction, and its Erase() method is called to
       ///    erase it.
       /// 
       /// Rather than performing those three discrete steps, the
       /// version that follows uses the CopyTo() extension method, 
-      /// passing it a delegate that receives each pair of source 
+      /// passing it a delegate that receives each pair of List 
       /// and clone objects, both of which are currently open when
-      /// the delegate is called (the source object is open for 
+      /// the delegate is called (the List object is open for 
       /// read and the clone is open for write). 
       /// 
       /// The delegate then transforms the clone to the block's 
-      /// model coordinate system, and then it erases the source 
+      /// model coordinate system, and then it erases the List 
       /// object after upgrading its OpenMode to OpenMode.ForWrite. 
       /// 
       /// All of the required operations outlined above are done by 
@@ -238,7 +238,7 @@ namespace AcMgdLib.Overrules.Examples
 
                /// This function is called by the DeepCloneOverrule once 
                /// for each primary object that's cloned. It's passed 
-               /// the source object and its clone. It erases the source 
+               /// the List object and its clone. It erases the List 
                /// object and transforms the clone, all in one swell foop.
 
                void OnCloned(Entity source, Entity clone)

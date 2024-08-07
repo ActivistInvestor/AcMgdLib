@@ -4,7 +4,7 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
-using System.Collections;
+using System.Collections.Generic.Extensions;
 using System.Extensions;
 using System.Linq;
 using System.Reflection;
@@ -79,7 +79,7 @@ namespace AcMgdLib.Interop.Examples
 
          /// Create a list and return it back to LISP:
 
-         return List("Hello", "List()",
+         return List("Hello List()",
             12.0,
             List("Item1", 2, "Item3", 44.0),
             99,
@@ -89,8 +89,13 @@ namespace AcMgdLib.Interop.Examples
 
             List("A", List(10, 20, 30, 40), "C", "D"),
 
-            /// Point3d elements are supported and are
-            /// converted to their LISP representation:
+            (byte) 255,  // byte
+            "Hello"[0],  // char
+            5230.5f,     // float
+            true,        // A bool that produces the symbol T
+            false,       // A bool that produces nil
+
+            /// Point3d that produces a list of 3 doubles:
 
             new Point3d(20.0, 40.0, 60.0),
 
@@ -106,8 +111,8 @@ namespace AcMgdLib.Interop.Examples
                "Third Element",                   /// sublist element
             ListEnd,                              /// End sublist
 
-                                                  /// What the above 5 lines do is precisely
-                                                  /// equivalent to doing this:
+            /// What the above 5 lines of code do is 
+            /// precisely equivalent to doing this:
 
             List("First Element", "Second Element", "Third Element"),
 
@@ -119,22 +124,22 @@ namespace AcMgdLib.Interop.Examples
             /// ListBegin,
 
             /// An IEnumerable is converted to a nested list.
-            /// Note that any IEnumerbale may contain the results
-            /// of calls to List():
+            /// Note that an IEnumerable can contain the results
+            /// of one or more calls to List():
 
             new object[] { "Object1", 2.0, List(100, 200, 300), "Object2", 44 },
 
-            objectIds,                     /// Adds a sublist containing the
+            objectIds,                     /// Produces a sublist containing the
                                            /// elements in the ObjectIdCollection
 
-            new object[0],                 /// Converts to nil
+            new object[0],                 /// Produces nil
 
-            points,                        /// Adds a sublist containing the
+            points,                        /// Produces a sublist containing the
                                            /// elements in the Point3dCollection
 
-            doc.Database.LayerZero,        /// Add a single ObjectId
+            doc.Database.LayerZero,        /// Adds a single ObjectId
 
-            null,                          /// Converts to nil
+            null,                          /// Produces nil
 
             Insert(objectIds),             /// Inserts the collection elements into
                                            /// the list without nesting them within 
@@ -143,13 +148,14 @@ namespace AcMgdLib.Interop.Examples
 
 
             /// In case it isn't obvious, this
-            /// adds a nested association list:
+            /// produces a nested association list:
 
             List(
                Cons("key1", "Value1"),        /// Association lists can
                Cons("key2", "Value2"),        /// be created using the
                Cons("Key3", "Value3")         /// Cons() method.
             ),
+
             200,
 
             /// Because the result of a call to List() can be
@@ -164,38 +170,43 @@ namespace AcMgdLib.Interop.Examples
       }
 
       /// The above call to List() should return a list 
-      /// having the following structure:
+      /// that looks like this:
 
-      /// (  "Hello" 
-      ///    "List()"
-      ///    12.0
-      ///    ("Item1" 2 "Item3" 44.0)
-      ///    99
-      ///    ("A" (10 20 30 40) "C" "D")
-      ///    (20.0 40.0 60.0)
-      ///    ("First Element" "Second Element" "Third Element")
-      ///    ("First Element" "Second Element" "Third Element")
-      ///    ("Object1" 2.0 (1 2 3) "Object2" 44)
-      ///    (<Entity name: 23295d92100> <Entity name: 23295d92020> 
-      ///       <Entity name: 23295d92010> <Entity name: 23295d920d0>
-      ///    )
-      ///    nil
-      ///    ((2.0 2.0 0.0) (12.0 5.0 0.0) (22.0 7.0 9.0) (14.0 6.0 0.0))
-      ///    <Entity name: 23295d92100>
-      ///    nil
-      ///    <Entity name: 23295d92100>
-      ///    <Entity name: 23295d92020>
-      ///    <Entity name: 23295d92010>
-      ///    <Entity name: 23295d920d0>
-      ///    ( ("key1" . "Value1") 
-      ///      ("key2" . "Value2") 
-      ///      ("Key3" . "Value3")
-      ///    )
-      ///    200
-      ///    (300 ("1" 2 ("31" "32" 33) 44.0) 400)
-      ///    500
-      /// )
-
+      /*
+          (  "Hello List()" 
+             12.0
+             ("Item1" 2 "Item3" 44.0)
+             99
+             ("A" (10 20 30 40) "C" "D")
+             255
+             72
+             5230.5
+             T
+             nil
+             (20.0 40.0 60.0)
+             ("First Element" "Second Element" "Third Element")
+             ("First Element" "Second Element" "Third Element")
+             ("Object1" 2.0 (1 2 3) "Object2" 44)
+             (<Entity name: 23295d92100> <Entity name: 23295d92020> 
+                <Entity name: 23295d92010> <Entity name: 23295d920d0>
+             )
+             nil
+             ((2.0 2.0 0.0) (12.0 5.0 0.0) (22.0 7.0 9.0) (14.0 6.0 0.0))
+             <Entity name: 23295d92100>
+             nil
+             <Entity name: 23295d92100>
+             <Entity name: 23295d92020>
+             <Entity name: 23295d92010>
+             <Entity name: 23295d920d0>
+             ( ("key1" . "Value1") 
+               ("key2" . "Value2") 
+               ("Key3" . "Value3")
+             )
+             200
+             (300 ("1" 2 ("31" "32" 33) 44.0) 400)
+             500
+          )
+      */
 
       /// <summary>
       /// Calls the above (mgd-list) function and dumps
@@ -284,34 +295,57 @@ namespace AcMgdLib.Interop.Examples
       /// Compares the behavior of the List(), Insert(), 
       /// and Append() methods when combining lists.
       /// 
-      /// The only difference between the following three
+      /// The only difference between the following four
       /// LispFunctions is that one uses List(), the second
-      /// uses Insert() to add the second element, and the
-      /// third uses Append() to concatenate the three lists.
+      /// uses Insert() to add the second element, the third 
+      /// uses Append() to concatenate the three lists, and
+      /// the last uses Insert() multiple times.
       /// 
-      /// All three methods use the same input but transform
+      /// The Insert() method has no LISP analog. It can be 
+      /// thought of as a selective form of Append(), where
+      /// only the argument to Insert() is appended to the
+      /// result list. The use of Insert() is only meaningful
+      /// when its result is passed as an argument to List().
+      /// 
+      /// For example, the following two expressions produce 
+      /// identical results:
+      /// 
+      ///    Append(list1, list2, list3)
+      ///    
+      ///    List(Insert(list1), Insert(list2), Insert(list3))
+      ///    
+      /// All four methods use this input but transform
       /// it in different ways:
       /// 
       ///   var list1 = List("One", "Two", "Three");
       ///   var list2 = List(100, 200, 300);
       ///   var list3 = List(1.0, 2.0, 3.0);
       /// 
-      /// The results of the three methods with the same input:
+      /// The results of the four methods with the same input:
       /// 
-      ///    (mgd-list-test)
+      ///    (mgd-list-test):
       ///    
       ///      return List(list1, list2, list3);
-      ///         => (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
+      ///      
+      ///        => (("One" "Two" "Three") (100 200 300) (1.0 2.0 3.0))
       ///    
       ///    (mgd-insert-test):
       ///    
       ///      return List(list1, Insert(list2), list3);
-      ///         => (("One" "Two" "Three") 100 200 300 (1.0 2.0 3.0))
+      ///      
+      ///        => (("One" "Two" "Three") 100 200 300 (1.0 2.0 3.0))
       ///    
       ///    (mgd-append-test):
       ///    
       ///      return Append(list1, list2, list3);
-      ///         => ("One" "Two" "Three" 100 200 300 1.0 2.0 3.0)
+      ///      
+      ///        => ("One" "Two" "Three" 100 200 300 1.0 2.0 3.0)
+      ///         
+      ///    (mgd-insert-test2):
+      ///    
+      ///      return List(Insert(list1), list2, Insert(list3));
+      ///      
+      ///        => ("One" "Two" "Three" (100 200 300) 1.0 2.0 3.0)
       ///
       /// </summary>
 
@@ -349,6 +383,16 @@ namespace AcMgdLib.Interop.Examples
          return Append(list1, list2, list3);
       }
 
+      [LispFunction("mgd-insert-test2")]
+      public static ResultBuffer MgdInsertTest2(ResultBuffer args)
+      {
+         var list1 = List("One", "Two", "Three");
+         var list2 = List(100, 200, 300);
+         var list3 = List(1.0, 2.0, 3.0);
+
+         return List(Insert(list1), list2, Insert(list3));
+      }
+
       /// <summary>
       /// Dumps the ResultBuffer argument passed from LISP
       /// </summary>
@@ -361,14 +405,41 @@ namespace AcMgdLib.Interop.Examples
 
       /// <summary>
       /// Tests the IEnumerable caching that is 
-      /// done by the ListBuilder class.
+      /// done by the ListBuilder class. In this
+      /// code, the list assigned to list1 will
+      /// be enumerated only once, and the result
+      /// will be cached and reused each time the
+      /// variable subsequently appears in a call
+      /// to List().
+      /// 
       /// </summary>
 
+      [LispFunction("mgd-cache-test")]
       public static ResultBuffer MgdCacheTest(ResultBuffer args)
       {
          var list1 = List("One", "Two", "Three");
 
-         return List(list1, list1, list1);
+         var list2 = List(list1, list1, list1);
+
+         // The result is comprised of 5 occurrences of list1,
+         // but the arguments will be enumerated and converted
+         // to TypedValues only once:
+
+         return List(list1, list2, list1);
+      }
+
+      /// <summary>
+      /// Issue this command to enable diagnostic messages
+      /// displayed by the CachedEnumerable class:
+      /// </summary>
+      /// <param name="args"></param>
+      
+      [LispFunction("C:CACHEDENUMTRACE")]
+      public static void TraceCache(ResultBuffer args)
+      {
+         var enabled = CachedEnumerable.TraceEnabled ^= true;
+         var what = enabled ? "enabled" : "disabled";
+         AcConsole.Write($"CachedEnumerable diagnostics messages {what}.");
       }
 
 
@@ -426,14 +497,14 @@ namespace AcMgdLib.Interop.Examples
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Editor ed = doc.Editor;
-         var per = ed.GetEntity("\nPick an entity: ");
-         if(per.IsFailed())
+         var result = ed.GetEntity("\nPick an entity: ");
+         if(result.IsFailed())
             return null;
 
          // The PromptEntityResult can be passed
          // as an argument to the List() method:
 
-         return List("One", per, "Two"); 
+         return List("One", result, "Two"); 
       }
 
       static Cached<string[]> lispFuncs = new(() =>

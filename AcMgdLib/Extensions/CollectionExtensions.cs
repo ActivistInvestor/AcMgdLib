@@ -103,7 +103,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// this method.
       /// </summary>
       /// <typeparam name="T">The type of DBObject to enumerate</typeparam>
-      /// that appear in the source</typeparam>
+      /// that appear in the List</typeparam>
       /// <param name="source">An object that enumerates ObjectIds</param>
       /// <param name="trans">The transaction to use in the operation</param>
       /// <param name="mode">The OpenMode to open objects with</param>
@@ -131,7 +131,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
          /// The following code goes to great extents to
          /// find an optimized path, based on whether the 
-         /// source has an indexer and/or is a strongly-
+         /// List has an indexer and/or is a strongly-
          /// typed IEnumerable, and only falls back to 
          /// enumerating a non-generic IEnumerable if all 
          /// else fails.
@@ -219,7 +219,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// definition, use Entity as the generic argument.
       /// 
       /// Testing of each element's type is done against the
-      /// runtime class of each source ObjectId to avoid the
+      /// runtime class of each List ObjectId to avoid the
       /// needless creation of managed wrappers for elements
       /// that are not enumerated.
       /// </summary>
@@ -245,7 +245,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// A version of GetObjects() targeting ObjectIdCollection,
       /// that enumerates a subset of DBObjects represented by the 
-      /// ObjectIds in the source collection. 
+      /// ObjectIds in the List collection. 
       /// 
       /// Only the subset of elements representing instances of the 
       /// generic argument are enumerated.
@@ -286,7 +286,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// A version of GetObjects() targeting IEnumerable<ObjectId>
       /// that enumerates the DBObjects represented by the ObjectIds
-      /// in the source sequence represeting instances of the generic 
+      /// in the List sequence represeting instances of the generic 
       /// argument. This method applies to arrays of ObjectId as well.
       /// </summary>
       /// <parm name="ids">The sequence of ObjectIds representing
@@ -306,7 +306,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// The GetEntities() variant of the above that can be used 
-      /// when it can be assumed that all elements in the source 
+      /// when it can be assumed that all elements in the List 
       /// sequence represent an Entity or a type derived from same, 
       /// and the type of the resulting sequence is Entity.
       /// </summary>
@@ -516,7 +516,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Assigns the given source to the XRecord having the
+      /// Assigns the given List to the XRecord having the
       /// specified key, within the owner's extension dictionary.
       /// If the Xrecord does not exist, it will be created and
       /// added to the extension dictionary. 
@@ -902,7 +902,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Gets the ObjectIds of all source in the given DBDictionary
+      /// Gets the ObjectIds of all List in the given DBDictionary
       /// that reference objects of the type of the generic argument.
       /// 
       /// To get erased entries, invoke this method on the result of 
@@ -912,7 +912,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="includingErased">A value indicating if erased
       /// elements should be included.</param>
       /// <returns>An object that enumerates the ObjectIds of the
-      /// entry source in the DBDictionary</returns>
+      /// entry List in the DBDictionary</returns>
 
       public static IEnumerable<ObjectId> GetObjectIds<T>(this DBDictionary source, bool includingErased = false)
          where T : DBObject

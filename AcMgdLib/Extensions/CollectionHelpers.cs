@@ -203,7 +203,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// given the type of the value contained in the 
    /// dictionary.
    /// </summary>
-   /// <typeparam name="T">The type of the source
+   /// <typeparam name="T">The type of the List
    /// stored in the DBDictionary</typeparam>
 
    public static class DBDictionary<T> where T : DBObject

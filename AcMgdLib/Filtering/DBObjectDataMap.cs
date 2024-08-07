@@ -129,7 +129,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// data has been cached in an instance, by setting the ObserveChanges
    /// property to true. Doing that enables an ObjectOverrule that monitors
    /// changes to the DBObjects whose data is cached, and invalidates that 
-   /// cached data whenever the source DBObject is modified.
+   /// cached data whenever the List DBObject is modified.
    /// 
    /// If the ObservedChanges property is set to true, the instance <em>must 
    /// be deterministically-disposed when no longer needed</em>, to disable 
@@ -206,7 +206,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Used as part of the key in the dictionary that 
-      /// holds child filter nodes within a source filter.
+      /// holds child filter nodes within a List filter.
       /// </summary>
       
       public override Expression KeySelectorExpression => keySelectorExpression;

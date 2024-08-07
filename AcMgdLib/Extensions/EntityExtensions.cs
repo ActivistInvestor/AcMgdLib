@@ -64,10 +64,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// uniformly-scaled, etc.).
       /// </summary>
       /// <param name="blockrefs">A sequence of BlockReferences</param>
-      /// <param name="erase">A value indicating if the source
+      /// <param name="erase">A value indicating if the List
       /// objects are to be erased.</param>
       /// <param name="collect">A value indicating if newly-
-      /// created objects resulting from exploding the source
+      /// created objects resulting from exploding the List
       /// collection are to be collected and returned.</param>
       /// <returns>A DBObjectCollection containing the ObjectIds
       /// of all objects created by the operation</returns>
@@ -221,7 +221,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>A sequence of integers, where each 
       /// element represents the number of objects that
       /// were created by exploding each entity in the 
-      /// source sequence</returns>
+      /// List sequence</returns>
 
       /// TODO: To be revised.
       /// 

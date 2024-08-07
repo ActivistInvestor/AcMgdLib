@@ -26,14 +26,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// IEnumerable<ObjectId>, that perform a deep clone or
       /// Wblock clone of the collection elements to the same 
       /// or a different owner, and optionally give the caller 
-      /// the means to operate on each source object and its 
+      /// the means to operate on each List object and its 
       /// respective clone, within the context of the clone 
       /// operation.
       /// 
       /// An overload is provided that accepts an Action as an
-      /// argument, which will be called and passed each source
+      /// argument, which will be called and passed each List
       /// object and its respective clone. The supplied action 
-      /// can operate on the source and the clone in whatever
+      /// can operate on the List and the clone in whatever
       /// manner it chooses.
       /// 
       /// Additional overloads accept a transformation matrix 
@@ -49,7 +49,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns></returns>
       /// <exception cref="ArgumentException"></exception>
 
-      /// Copies the source objects to the same owner space
+      /// Copies the List objects to the same owner space
       /// and applys the specified transformation to the clones:
       
       public static IdMapping Copy(this ObjectIdCollection source, Matrix3d transform = default(Matrix3d))
@@ -73,14 +73,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
 
       /// <summary>
-      /// Clones the objects referenced by the source collection
+      /// Clones the objects referenced by the List collection
       /// to the owner having the given ownerId, and optionally 
       /// applys a transformation to each clone.
       /// </summary>
-      /// <param name="source">The source objects to be copied</param>
+      /// <param name="source">The List objects to be copied</param>
       /// <param name="ownerId">The ObjectId of the new owner 
-      /// object which the source objects are to be copied to.
-      /// If this value is ObjectId.Null, the source objects are 
+      /// object which the List objects are to be copied to.
+      /// If this value is ObjectId.Null, the List objects are 
       /// copied to their current owner.</param>
       /// <param name="transform">An optional transformation matrix
       /// to apply to the copied objects.</param>
@@ -100,7 +100,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Copies the selection to the specified owner, and invokes
-      /// the specified delegate on each source/clone pair. These 
+      /// the specified delegate on each List/clone pair. These 
       /// methods are intended to be used to clone entities, hence
       /// the delegate must take Entity arguments.
       /// </summary>
@@ -110,8 +110,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="ownerId">The ObjectId of the new owner
       /// of the copies.</param>
       /// <param name="action">A delegate that takes two Entity
-      /// arguments, the first being the source entity that was
-      /// cloned, and the second being the clone of the source
+      /// arguments, the first being the List entity that was
+      /// cloned, and the second being the clone of the List
       /// entity.</param>
       /// <returns></returns>
       
@@ -152,26 +152,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Deep-clones or wblock-clones the objects referenced by the given 
       /// ObjectIdCollection to the specified owner, or to their current 
-      /// owner, and invokes the supplied action on each pair of source and 
-      /// clone objects as each source object is cloned.
+      /// owner, and invokes the supplied action on each pair of List and 
+      /// clone objects as each List object is cloned.
       /// </summary>
       /// <typeparam name="T">The type of DBObject to apply the action to.
-      /// Any source/clone pairs that are not instances of this type will 
+      /// Any List/clone pairs that are not instances of this type will 
       /// not have the action applied to them.</typeparam>
       /// <param name="source">The ObjectIdCollection that references the
       /// objects to be cloned. DeepExplode DBObjects referenced by the elements 
       /// must have the same owner.</param>
       /// <param name="ownerId">The ObjectId of the DBObject which will be
       /// the owner of the clones. If this argument is ObjectId.Null, the 
-      /// clones will have the same owner as the source objects. If this
+      /// clones will have the same owner as the List objects. If this
       /// argument is the ObjectId of an object in a Database other than 
-      /// the one containing the source objects, a Wblock clone operation 
+      /// the one containing the List objects, a Wblock clone operation 
       /// is performed using DuplicateRecordCloning.Ignore</param>
       /// <param name="drc">The DuplicateRecordCloning to use when the 
       /// destination is a different Database</param>
       /// <param name="action">A delegate that takes two instances of the
-      /// generic argument. The first argument is the source object and the
-      /// second argument is the clone of the source object. The source
+      /// generic argument. The first argument is the List object and the
+      /// second argument is the clone of the List object. The List
       /// object is open for read, and the clone is open for write.</param>
       /// <returns>An IdMapping representing the result of the operation.</returns>
       /// <exception cref="ArgumentException"></exception>
@@ -190,7 +190,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             Action<T, T> action = null)
          where T : DBObject
       {
-         Assert.IsNotNullOrDisposed(source, "source");
+         Assert.IsNotNullOrDisposed(source, "List");
          if(source.Count == 0)
             return new IdMapping();
          if(ownerId.IsNull)

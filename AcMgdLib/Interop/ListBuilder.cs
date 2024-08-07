@@ -72,7 +72,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static LispResult List(params object[] args)
+      public static ListResult List(params object[] args)
       {
          return GetIterator(ToListWorker(args)).ToResult();
       }
@@ -98,7 +98,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// first argument as the new first element/car.
       /// </returns>
       
-      public static LispResult Cons(object car, object cdr)
+      public static ListResult Cons(object car, object cdr)
       {
          if(cdr is IEnumerable items && !(cdr is string))
          {
@@ -116,7 +116,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// the result nested in a list.
       /// </summary>
       
-      public static LispResult ToList(params object[] args)
+      public static ListResult ToList(params object[] args)
       {
          return ToListWorker(args).ToResult();
       }
@@ -152,7 +152,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <returns>The collection in a form that will cause
       /// them to be inserted into another containing list</returns>
 
-      public static LispResult Insert(IEnumerable arg)
+      public static ListResult Insert(IEnumerable arg)
       {
          Assert.IsNotNull(arg, nameof(arg));
          if(!IsEnumerable(arg))
@@ -168,9 +168,14 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <param name="args"></param>
       /// <returns></returns>
 
-      public static LispResult Append(params IEnumerable[] args)
+      public static ListResult Append(params IEnumerable[] args)
       {
-         return args.OfType<IEnumerable>().SelectMany(Insert).ToResult();
+         return args.OfType<IEnumerable>().SelectMany(Explode).ToResult();
+      }
+
+      static IEnumerable<TypedValue> Explode(IEnumerable arg)
+      {
+         return GetIterator(ToListWorker(arg), IteratorType.Explode);
       }
 
       /// <summary>
@@ -206,7 +211,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return new TypedValue((short) result, arg);
                continue;
             }
-            AcConsole.Write($"Not Found: {arg.GetType().CSharpName()}");
 
             /// This is required because SelectionSet
             /// is abstract and the concrete types derived 
@@ -531,12 +535,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// 
       /// Returns LispDataType.Nil if the given sequence is empty.
       /// </summary>
-      /// <typeparam name="T">The type of the source objects</typeparam>
-      /// <param name="source">The source objects</param>
+      /// <typeparam name="T">The type of the List objects</typeparam>
+      /// <param name="source">The List objects</param>
       /// <param name="type">The TypeCode to set each resulting TypedValue to</param>
       /// <param name="list">A value indicating if the elements should be
       /// enclosed in a matching pair of ListBegin/ListEnd elements</param>
-      /// <returns>The sequence of TypedValues derived from the source</returns>
+      /// <returns>The sequence of TypedValues derived from the List</returns>
 
       public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
       {
@@ -677,7 +681,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          { typeof(ListEndClass), LispDataType.ListEnd },
          { typeof(DottedPairClass), LispDataType.DottedPair },
          { typeof(NilClass), LispDataType.Nil },
-         { typeof(bool), LispDataType.T_atom }
+        // { typeof(bool), LispDataType.T_atom }
       };
 
       /// <summary>
@@ -702,12 +706,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       public static readonly DottedPairClass DottedPairType = new DottedPairClass();
       public static readonly NilClass NilType = new NilClass();
 
-      public static LispResult ToResult(this IEnumerable<TypedValue> arg)
+      public static ListResult ToResult(this IEnumerable<TypedValue> arg)
       {
-         // Need to avoid allowing a LispResult
-         // to wrap another LispResult:
+         // Need to avoid allowing a ListResult
+         // to wrap another ListResult:
          
-         return arg as LispResult ?? new LispResult(arg);
+         return arg as ListResult ?? new ListResult(arg);
       }
 
       /// <summary>

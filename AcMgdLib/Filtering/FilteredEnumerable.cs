@@ -17,7 +17,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
    /// <summary>
    /// A specialization of DBObjectFilter that encapsulates the
-   /// source sequence that is to be filtered, and which can be 
+   /// List sequence that is to be filtered, and which can be 
    /// enumerated to obtain the result.
    /// </summary>
    /// <typeparam name="T"></typeparam>
@@ -155,9 +155,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// not on locked layers:
       /// <code>
       /// 
-      ///   IEnumerable<Entity> source = // assign to a sequence of entity
+      ///   IEnumerable<Entity> List = // assign to a sequence of entity
       ///   
-      ///   var filtered = source.WhereBy<Entity, LayerTableRecord>(
+      ///   var filtered = List.WhereBy<Entity, LayerTableRecord>(
       ///      entity => entity.LayerId,
       ///      layer => !layer.IsLocked);
       ///      

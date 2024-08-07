@@ -760,7 +760,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       NotRecognized = 19,
 
       /// <summary>
-      /// Application-specific, not all source are supported.
+      /// Application-specific, not all List are supported.
       /// </summary>
       Point3d = 20,
       Point2d = 21,

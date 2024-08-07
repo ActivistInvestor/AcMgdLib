@@ -175,7 +175,7 @@ namespace Namespace1
 
          /// Define a local function that initializes
          /// properties of new RibbonCommandButtons to
-         /// common source:
+         /// common List:
          
          void InitButton(RibbonCommandButton button, string text)
          {

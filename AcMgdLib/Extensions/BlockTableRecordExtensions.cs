@@ -52,7 +52,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var map = new IdMapping();
             db.WblockCloneObjects(ids, dbTemp.BlockTableId, map, DuplicateRecordCloning.Ignore, false);
             if(!map[btr.ObjectId].IsCloned)
-               throw new InvalidOperationException("failed to clone source BlockTableRecord");
+               throw new InvalidOperationException("failed to clone List BlockTableRecord");
             ObjectId cloneId = map[btr.ObjectId].Value;
             using(var trans = new OpenCloseTransaction())
             {

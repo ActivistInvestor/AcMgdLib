@@ -42,7 +42,7 @@ namespace AcMgdLib.Interop.Examples
    /// 
    /// 1. Derive a class from the TypedValueConverter
    ///    class, and override/implement its absract
-   ///    methods. In the ToTypedValues() method, add
+   ///    methods. In the ToTypedValues() override, add
    ///    code that takes the argument (which will be
    ///    an instance of the type that is specified in
    ///    the TypedValueConverterAttribute) and returns
@@ -116,6 +116,22 @@ namespace AcMgdLib.Interop.Examples
       public override object FromTypedValues(object value, Context context = Context.Lisp)
       {
          return null; // Conversion from LISP is not implmented in this example.
+      }
+
+      /// <summary>
+      /// Allows this instance to indicate if it can convert
+      /// to or from TypedValue. If the argument is true, the
+      /// instance should indicate if it can convert from the 
+      /// target type to TypedValue. If the argument is false, 
+      /// the instance should indicate if it can convert from
+      /// one or more TypedValues to the target type.
+      /// </summary>
+      /// <param name="toTypedValues"></param>
+      /// <returns></returns>
+      
+      public override bool CanConvert(bool toTypedValues)
+      {
+         return toTypedValues;
       }
    }
 }

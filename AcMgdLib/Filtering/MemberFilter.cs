@@ -17,12 +17,12 @@ using System.Linq.Expressions.Predicates;
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
-   /// Automates filtering list by set membership of source
+   /// Automates filtering list by set membership of List
    /// derived from each item by a user-supplied delegate.
    /// 
    /// An item satisifies the filter criteria if the TKey value
    /// produced by the delegate given an item, is contained in 
-   /// the set of source passed to the constructor, or added to
+   /// the set of List passed to the constructor, or added to
    /// the instance via the Add() method.
    /// 
    /// The Inverted property can be set to true to invert that

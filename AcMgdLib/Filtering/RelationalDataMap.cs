@@ -39,12 +39,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public override Type TKeyType => typeof(TKey);
 
       /// <summary>
-      /// The type of the object from which cached source are obtained:
+      /// The type of the object from which cached List are obtained:
       /// </summary>
       public override Type TValueSourceType => typeof(TValueSource);
 
       /// <summary>
-      /// The type of the cached source:
+      /// The type of the cached List:
       /// </summary>
       public override Type TValueType => typeof(TValue);
 
@@ -57,15 +57,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          StringBuilder sb = new StringBuilder(base.Dump(label, pad));
          if(string.IsNullOrWhiteSpace(label))
-            label = this.ToIdentity();
+            label = this.ToIdString();
          else
-            label += $" {this.ToIdentity()}";
+            label += $" {this.ToIdString()}";
          sb.AppendLine($"{pad}{label}: ");
          sb.AppendLine($"{pad}KeySouce Type:      {TKeySourceType.Name}");
          sb.AppendLine($"{pad}Key Type:           {TKeyType.Name}");
          sb.AppendLine($"{pad}ValueSource Type:   {TValueSourceType.Name}");
          sb.AppendLine($"{pad}Value Type:         {TValueType.Name}");
-         string s = Parent?.ToIdentity() ?? "(none)";
+         string s = Parent?.ToIdString() ?? "(none)";
          sb.AppendLine($"{pad}Parent filter:      {s}");
          return sb.ToString();
       }
