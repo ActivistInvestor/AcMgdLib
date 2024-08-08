@@ -96,7 +96,7 @@ namespace AcMgdLib.Interop.Examples
             true,        // A bool that produces the symbol T
             false,       // A bool that produces nil
 
-            /// Point3d that produces a list of 3 doubles:
+            /// Point3d produces a list of 3 doubles:
 
             new Point3d(20.0, 40.0, 60.0),
 
@@ -158,13 +158,13 @@ namespace AcMgdLib.Interop.Examples
 
             /// This will produce an association list from the
             /// same ObjectIdCollection used above, where each
-            /// key/car has the positional index if the element, 
+            /// key/car has the positional index of the element, 
             /// and each value/cdr is one of the ObjectIds from 
             /// the collection:
             
-            List(ConsAll(objectIds.Cast<ObjectId>(), 
+           Cons(objectIds.Cast<ObjectId>(), 
                (id, i) => i, 
-               (id, i) => id)),
+               (id, i) => id),
 
             200,
 
@@ -283,7 +283,7 @@ namespace AcMgdLib.Interop.Examples
       {
          var dictionary = InteropTestHelpers.CreateDictionary();
 
-         return ConsAll(dictionary, p => p.Key, p => p.Value);
+         return Cons(dictionary, p => p.Key, p => p.Value);
       }
 
       /// <summary>
@@ -304,7 +304,7 @@ namespace AcMgdLib.Interop.Examples
 
          return List(
             "First", 
-            ConsAll(dictionary, p => p.Key, p => p.Value), 
+            Cons(dictionary, p => p.Key, p => p.Value), 
             "Third"
          );
       }

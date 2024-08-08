@@ -136,12 +136,16 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// sequence of T, using selector functions to extract 
       /// the key (car) and value (cdr) of each element.
       /// 
+      /// This method is similar to the Linq ToDictionary()
+      /// method, except that it produces a LISP association
+      /// list rather than a managed Dictionary.
+      /// 
       /// To convert a Dictionary<TKey, TValue> to an association
       /// list, use:
       /// 
       ///   Dictionary<TKey, TValue> dictionary = //.... assign to a value
       ///   
-      ///   var result = ConsAll(dictionary, p => p.Key, p => p.Value);
+      ///   var result = Cons(dictionary, p => p.Key, p => p.Value);
       ///   
       ///   The result can be returned by a LispFunction
       ///   
@@ -155,7 +159,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// <returns>A sequence that when returned to LISP
       /// produces an association list of keys and values</returns>
 
-      public static ListResult ConsAll<T>(IEnumerable<T> source,
+      public static ListResult Cons<T>(IEnumerable<T> source,
          Func<T, object> car,
          Func<T, object> cdr)
       {
@@ -163,18 +167,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       }
 
       /// <summary>
-      /// An overload of ConsAll() in which both selector 
-      /// functions are passed the zero-based positional
-      /// index of each element in addtion to the element.
+      /// An overload of Cons() in which both of the selector 
+      /// functions are passed the zero-based positional index 
+      /// of each element, in addtion to the element.
       /// </summary>
       /// <param name="car">A function that takes an element
       /// and its positional index within the sequence, and 
       /// returns the key or 'car'</param>
-      /// <param name="cdr">A function that takes 
-      /// an element and its positional index within the 
+      /// <param name="cdr">A function that takes an 
+      /// element and its positional index within the 
       /// sequence, and returns the value or 'cdr'</param>
       
-      public static ListResult ConsAll<T>(IEnumerable<T> source,
+      public static ListResult Cons<T>(IEnumerable<T> source,
          Func<T, int, object> car,
          Func<T, int, object> cdr)
       {
@@ -190,7 +194,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          bool explode = false)
       {
          IteratorType type = explode ? IteratorType.Explode : IteratorType.List;
-         return GetIterator(ToListWorker(source)).ToResult();
+         return GetIterator(ToListWorker(source), type).ToResult();
       }
       
       /// <summary>
@@ -460,9 +464,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.Int16, value);
       }
 
-      public static TypedValue ToLisp(this double value)
+      public static TypedValue ToLisp(this double value, LispDataType type = LispDataType.Double)
       {
-         return new TypedValue((short)LispDataType.Double, value);
+         return new TypedValue((short)type, value);
       }
 
       public static TypedValue ToLispAngle(this double value)
@@ -491,7 +495,8 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// reference an entity or a derived type.
       /// 
       /// If the caller is sure that all elements reference entities,
-      /// they should pass false for this argument.
+      /// they can pass false for this argument, and avoid the extra
+      /// overhead involved in checking each ObjectId.
       /// </summary>
       /// <param name="ids"></param>
       /// <param name="validate"></param>
