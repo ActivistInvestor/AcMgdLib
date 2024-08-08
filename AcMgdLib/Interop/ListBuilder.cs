@@ -132,6 +132,68 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       }
 
       /// <summary>
+      /// Returns an association list constructed from a 
+      /// sequence of T, using selector functions to extract 
+      /// the key (car) and value (cdr) of each element.
+      /// 
+      /// To convert a Dictionary<TKey, TValue> to an association
+      /// list, use:
+      /// 
+      ///   Dictionary<TKey, TValue> dictionary = //.... assign to a value
+      ///   
+      ///   var result = ConsAll(dictionary, p => p.Key, p => p.Value);
+      ///   
+      ///   The result can be returned by a LispFunction
+      ///   
+      /// </summary>
+      /// <typeparam name="T">The element type</typeparam>
+      /// <param name="source">The input sequence of elements</param>
+      /// <param name="car">A function that takes an
+      /// element and returns its key or 'car'</param>
+      /// <param name="cdr">A function that takes 
+      /// an element and returns its value or 'cdr'</param>
+      /// <returns>A sequence that when returned to LISP
+      /// produces an association list of keys and values</returns>
+
+      public static ListResult ConsAll<T>(IEnumerable<T> source,
+         Func<T, object> car,
+         Func<T, object> cdr)
+      {
+         return ToListResult(source.Select(item => Cons(car(item), cdr(item))));
+      }
+
+      /// <summary>
+      /// An overload of ConsAll() in which both selector 
+      /// functions are passed the zero-based positional
+      /// index of each element in addtion to the element.
+      /// </summary>
+      /// <param name="car">A function that takes an element
+      /// and its positional index within the sequence, and 
+      /// returns the key or 'car'</param>
+      /// <param name="cdr">A function that takes 
+      /// an element and its positional index within the 
+      /// sequence, and returns the value or 'cdr'</param>
+      
+      public static ListResult ConsAll<T>(IEnumerable<T> source,
+         Func<T, int, object> car,
+         Func<T, int, object> cdr)
+      {
+         return ToListResult(source.Select((item, i) => Cons(car(item, i), cdr(item, i))));
+      }
+
+      /// <summary>
+      /// Converts multiple sequences of TypedValues to a ListResult
+      /// </summary>
+
+      public static ListResult ToListResult(
+         IEnumerable<IEnumerable<TypedValue>> source,
+         bool explode = false)
+      {
+         IteratorType type = explode ? IteratorType.Explode : IteratorType.List;
+         return GetIterator(ToListWorker(source)).ToResult();
+      }
+      
+      /// <summary>
       /// Inserts the collection argument into the current list
       /// without nesting its elements in a sublist. Within a call
       /// to the List() method, if a collection is included as an
@@ -222,11 +284,11 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return ToLisp(ss);
                continue;
             }
-            if(arg is StringBuilder sb)
-            {
-               yield return ToLisp(sb.ToString());
-               continue;
-            }
+            //if(arg is StringBuilder sb)
+            //{
+            //   yield return ToLisp(sb.ToString());
+            //   continue;
+            //}
             if(arg is bool bVal)  // bool converts to T or NIL.
             {
                yield return bVal ? True : Nil;
@@ -418,6 +480,11 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return new TypedValue((short)LispDataType.ObjectId, value);
       }
 
+      public static TypedValue ToLisp(this bool value)
+      {
+         return value ? True : Nil;
+      }
+
       /// <summary>
       /// The validate argument indicates if the collection of
       /// ObjectIds should be checked to ensure that all elements
@@ -529,26 +596,33 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          new TypedValue((short)LispDataType.None);
 
       /// <summary>
-      /// Converts a homogenous sequence of T to a sequence of
-      /// TypedValues, optionally nested in ListBegin/End delimters.
+      /// Produces a sequence of TypedValue from a homogenous 
+      /// sequence of T, optionally nested in List delimters.
+      /// 
+      /// NOTE: bool is not a supported generic argument type,
+      /// because its values map to two different LispDataTypes.
       /// 
       /// Returns LispDataType.Nil if the given sequence is empty.
       /// </summary>
       /// <typeparam name="T">The type of the List objects</typeparam>
       /// <param name="source">The List objects</param>
-      /// <param name="type">The TypeCode to set each resulting TypedValue to</param>
+      /// <param name="type">The LispDataType to set each resulting 
+      /// TypedValue to. If this value is LispDataType.None, this API
+      /// will attempt to deduce the value from the generic argument.</param>
       /// <param name="list">A value indicating if the elements should be
       /// enclosed in a matching pair of ListBegin/ListEnd elements</param>
       /// <returns>The sequence of TypedValues derived from the List</returns>
 
-      public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type, bool list = true)
+      public static IEnumerable<TypedValue> ToList<T>(this IEnumerable<T> source, LispDataType type = LispDataType.None, bool list = true)
       {
          /// Refactored to avoid call to Enumerable.Any():
          Assert.IsNotNull(source, nameof(source));
+         if(typeof(T) == typeof(bool))
+            throw new ArgumentException("ToList(): bool not supported.");
          if(source is ICollection<T> coll2 && coll2.Count == 0)
          {
             yield return Nil;
-            yield break ;
+            yield break;
          }
          using(var e = source.GetEnumerator())
          {
@@ -557,6 +631,8 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                yield return Nil;
                yield break;
             }
+            if(type == LispDataType.None)
+               type = typeof(T).ToLispDataType(true);
             var code = (short)type;
             if(list)
                yield return ListBegin;
@@ -568,77 +644,53 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          }
       }
 
-      // Depreciated in favor of a Dictionary<LispDataType, Type>
-      //public static Type ToType(this LispDataType type)
-      //{
-      //   switch(type)
-      //   {
-      //      case LispDataType.Double:
-      //         return typeof(double);
-      //      case LispDataType.Point2d:
-      //         return typeof(Point2d);
-      //      case LispDataType.Int16:
-      //         return typeof(short);
-      //      case LispDataType.Angle:
-      //         return typeof(double);
-      //      case LispDataType.Text:
-      //         return typeof(string);
-      //      case LispDataType.ObjectId:
-      //         return typeof(ObjectId);
-      //      case LispDataType.SelectionSet:
-      //         return typeof(SelectionSet);
-      //      case LispDataType.Orientation:
-      //         return typeof(double);
-      //      case LispDataType.Angle:
-      //         return typeof(double);
-      //      case LispDataType.Point3d:
-      //         return typeof(Point3d);
-      //      case LispDataType.Int32:
-      //         return typeof(int);
-      //      case LispDataType.Void:
-      //         return typeof(void);
-      //      case LispDataType.ListBegin:
-      //         return typeof(ListBeginClass);
-      //      case LispDataType.ListEnd:
-      //         return typeof(ListEndClass);
-      //      case LispDataType.DottedPair:
-      //         return typeof(DottedPairClass);
-      //      case LispDataType.Nil:
-      //         return typeof(NilClass);
-      //      case LispDataType.T_atom:
-      //         return typeof(bool);
-      //      case LispDataType.None:
-      //         return null;
-      //      default:
-      //         return null;
-      //   }
-      //}
-
-
-      public static Type ToType(this LispDataType type)
+      public static Type ToType(this LispDataType type, bool throwIfNotFound = false)
       {
          Type result = null;
-         lispDataTypeToTypeMap.TryGetValue(type, out result);
+         if(lispDataTypeToTypeMap.TryGetValue(type, out result))
+            return result;
+         if(throwIfNotFound)
+            throw new ArgumentException($"Unsupported LispDataType: {type}");
          return result;
       }
-
+     
       /// <summary>
-      /// If there is no LispDataType that maps to a type,
-      /// the result is LispDataType.None.
+      /// Cannot map a bool because its two values
+      /// map to two different LispDataTypes. Hence,
+      /// mapping to LispDataType requires a value.
       /// </summary>
-      /// <param name="type"></param>
-      /// <returns></returns>
 
-      public static LispDataType ToLispDataType(this Type type)
+      public static LispDataType ToLispDataType(this Type type, bool throwIfNotFound = false)
       {
+         if(typeof(SelectionSet).IsAssignableFrom(type))
+            return LispDataType.SelectionSet;
          if(typeToLispDataTypeMap.TryGetValue(type, out LispDataType result))
             return result;
+         if(throwIfNotFound)
+            throw new ArgumentException($"Unsupported type {type.CSharpName()}");
          return LispDataType.None;
+      }
+
+      public static TypedValue ToTypedValue(object arg, LispDataType type = LispDataType.None, bool throwIfNotFound = false)
+      {
+         if(arg == null)
+            return new TypedValue((int)LispDataType.Nil);
+         if(arg is bool b)
+            return ToLisp(b);
+         if(arg is SelectionSet ss)
+            return ToLisp(ss);
+         if(type == LispDataType.None)
+            type = arg.GetType().ToLispDataType(throwIfNotFound);
+         if(type != LispDataType.None)
+            return new TypedValue((short)type, arg);
+         if(throwIfNotFound)
+            throw new ArgumentException($"Unsupported Type {arg.GetType()}");
+         return None;
       }
 
       static readonly Dictionary<LispDataType, Type> lispDataTypeToTypeMap = new()
       {
-         { LispDataType.None, null },
+         { LispDataType.None, null},
          { LispDataType.Double, typeof(double)},
          { LispDataType.Orientation, typeof(double)},
          { LispDataType.Angle, typeof(double)},
@@ -658,36 +710,34 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       };
 
       /// <summary>
-      /// Also supports bool, float, byte, and char
+      /// Only maps value types, class types like
+      /// SelectionSet (which is abstract) must be
+      /// tested using the 'is' operator. bool maps
+      /// to two different LispDataTypes, so it must
+      /// be handled differently as well.
       /// </summary>
-      
+
       static readonly Dictionary<Type, LispDataType> typeToLispDataTypeMap = new()
       {
-         { typeof(DBNull), LispDataType.None },
-         { typeof(double), LispDataType.Double }, 
+         { typeof(double), LispDataType.Double },
          { typeof(float), LispDataType.Double },
          { typeof(Point2d), LispDataType.Point2d },
          { typeof(short), LispDataType.Int16 },
+         { typeof(sbyte), LispDataType.Int16 },
          { typeof(byte), LispDataType.Int16 },
          { typeof(char), LispDataType.Int16 },
          { typeof(string), LispDataType.Text },
          { typeof(ObjectId), LispDataType.ObjectId },
-         { typeof(SelectionSet), LispDataType.SelectionSet },
+         { typeof(SelectionSet), LispDataType.SelectionSet }, // requires is test (abstract)
          { typeof(Point3d), LispDataType.Point3d },
          { typeof(int), LispDataType.Int32 },
-         { typeof(void), LispDataType.Void },
-         { typeof(ListBeginClass), LispDataType.ListBegin },
-         { typeof(ListEndClass), LispDataType.ListEnd },
-         { typeof(DottedPairClass), LispDataType.DottedPair },
-         { typeof(NilClass), LispDataType.Nil },
-        // { typeof(bool), LispDataType.T_atom }
       };
 
       /// <summary>
       /// LispDataType.ToType() must return a type.
       /// These proxy types are used for List delimiter types:
       /// </summary>
-      
+
       public class ListBeginClass { }
       public class ListEndClass { }
       public class DottedPairClass { }
@@ -704,14 +754,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       public static readonly ListEndClass ListEndType = new ListEndClass();
       public static readonly DottedPairClass DottedPairType = new DottedPairClass();
       public static readonly NilClass NilType = new NilClass();
-
-      public static ListResult ToResult(this IEnumerable<TypedValue> arg)
-      {
-         // Need to avoid allowing a ListResult
-         // to wrap another ListResult:
-         
-         return arg as ListResult ?? new ListResult(arg);
-      }
 
       /// <summary>
       /// An extension method that can be used with Linq
@@ -740,7 +782,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       static IEnumerable<TypedValue> GetIterator(IEnumerable<TypedValue> source, IteratorType type = IteratorType.List)
       {
-         if(type == IteratorType.Default)
+         if(type == IteratorType.Default || source is Iterator)
             return source;
          else
             return new Iterator(source, type);
@@ -753,7 +795,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
 
       [Flags]
-      enum IteratorType
+      public enum IteratorType
       {
          Default = 0,         // Enumerate elements as-is.
          List = 1,            // Enclose all elements in a ListBegin/End sequence.
@@ -762,13 +804,28 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       }
 
       /// <summary>
-      /// Facilitates exploding and/or nesting of lists
+      /// A type that wraps an instance of this can alter its
+      /// behavior after creation, by setting the IteratorType
+      /// property.
       /// </summary>
       
-      class Iterator : IEnumerable<TypedValue>
+      public interface IListIterator : IEnumerable<TypedValue>
+      {
+         public IteratorType IteratorType { get; set; }
+      }
+
+      /// <summary>
+      /// Facilitates exploding and/or nesting of lists
+      /// 
+      /// The default behavior is to enclose the source
+      /// sequence in a ListBegin/End sequence.
+      /// </summary>
+      
+      class Iterator : IListIterator
       {
          IEnumerable<TypedValue> source;
          IteratorType type = IteratorType.Default;
+         bool enumerated = false;
 
          public Iterator(IEnumerable<TypedValue> source, IteratorType type = IteratorType.List)
          {
@@ -776,9 +833,24 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
             this.type = type;
          }
 
+         public IteratorType IteratorType
+         {
+            get => type;
+            set
+            {
+               if(enumerated)
+                  throw new InvalidOperationException(
+                     "Property cannot be asssigned to after enumeration has started.");
+               this.type = value;
+            }
+         }
+
          public IEnumerator<TypedValue> GetEnumerator()
          {
-            return GetValues().GetEnumerator();
+            if(type == IteratorType.Default)
+               return source.GetEnumerator();
+            else
+               return GetValues().GetEnumerator();
          }
 
          IEnumerator IEnumerable.GetEnumerator()
@@ -788,6 +860,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
          IEnumerable<TypedValue> GetValues()
          {
+            enumerated = true;
             if(type.HasFlag(IteratorType.List))
                yield return ListBegin;
 

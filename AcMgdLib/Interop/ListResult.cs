@@ -65,15 +65,34 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
    /// AcMgdLib v0.12: refactored this class to use 
    /// the CachedEnumerable<T> base type.
+   ///
+   /// AcMgdLib v0.14: Work started on refactoring this
+   /// class to alter the behavior of the enumeration 
+   /// when a ResultBuffer is created. 
+   /// 
+   /// That behavior may differ from the 'default' 
+   /// behavior of the IEnumerator<TypedValue> that
+   /// is returned by an instance.
+   /// 
+   /// The purpose of the planned work is to allow
+   /// different behavior of the enumeration when the
+   /// result is being returned by a LispFunction,
+   /// in contrast to being used as an argument to a
+   /// ListBuilder method.
 
    public class ListResult : CachedEnumerable<TypedValue>
    {
       ResultBuffer result;
 
-      public ListResult(IEnumerable<TypedValue> source, CachePolicy policy = CachePolicy.Eager)
+      ListResult(IEnumerable<TypedValue> source, CachePolicy policy = CachePolicy.Eager)
          : base(source, policy)
       {
          Assert.IsNotNull(source, nameof(source));
+      }
+
+      internal static ListResult Create(IEnumerable<TypedValue> source, CachePolicy policy = CachePolicy.Eager)
+      {
+         return source as ListResult ?? new ListResult(source, policy);
       }
 
       public ResultBuffer Result =>
@@ -84,6 +103,18 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          Assert.IsNotNull(operand, nameof(operand));
          return operand.Result;
       }
+   }
+
+   public static class ListResultExtensions
+   {
+      public static ListResult ToResult(this IEnumerable<TypedValue> arg, CachePolicy policy = CachePolicy.Eager)
+      {
+         // Need to avoid allowing a ListResult
+         // to wrap another ListResult:
+         
+         return ListResult.Create(arg, policy);
+      }
+
    }
 
 

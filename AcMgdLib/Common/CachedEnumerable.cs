@@ -6,6 +6,7 @@
 
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
+using System.Diagnostics.Extensions;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Utility;
@@ -31,7 +32,7 @@ namespace System.Collections.Generic.Extensions
    /// on the instance, although doing that should not be
    /// necessary in most useage scenarios, because in all
    /// other ways, the instance behaves exactly like the 
-   /// List that it wraps.
+   /// IEnumerable that it wraps.
    /// </summary>
    /// <typeparam name="T">The element type</typeparam>
 
@@ -41,10 +42,13 @@ namespace System.Collections.Generic.Extensions
       T[] items = null;
       int hits = 0;
 
-      public CachedEnumerable(IEnumerable<T> source, CachePolicy cachePolicy = CachePolicy.Lazy)
+      public CachedEnumerable(IEnumerable<T> source, CachePolicy cachePolicy = CachePolicy.Eager)
          : base(GetCachePolicy(source, cachePolicy))
       {
          this.source = source;
+         /// If the source is an array, just wrap it 
+         /// and return the array's Enumerator, and 
+         /// there is no caching at all:
          if(source is T[] array)
             this.items = array;
       }
@@ -79,24 +83,50 @@ namespace System.Collections.Generic.Extensions
       {
          get
          {
-            return items ?? (items = source.AsArray());
+            return items ?? (items = GetArrayFromSource());
+         }
+      }
+
+      protected virtual T[] GetArrayFromSource()
+      {
+         if(source is T[] array)
+            return array;
+         return new Wrapper(GetSourceEnumerator()).ToArray();
+      }
+
+      class Wrapper : IEnumerable<T> 
+      {
+         IEnumerator<T> enumerator;
+         public Wrapper(IEnumerator<T> enumerator)
+         {
+            this.enumerator = enumerator;
+         }
+
+         public IEnumerator<T> GetEnumerator()
+         {
+            return enumerator;
+         }
+
+         IEnumerator IEnumerable.GetEnumerator()
+         {
+            return enumerator;
          }
       }
 
       public IEnumerator<T> GetEnumerator()
       {
          if(CachePolicy == CachePolicy.None)
-            return source.GetEnumerator();
+            return GetSourceEnumerator();
          if(items == null)
          {
             if(source is IList<T> list)
             {
-               Trace("Using source list");
+               Trace("Using source IList<T>");
                items = list.ToArray();
                return ((IEnumerable<T>)items).GetEnumerator();
             }
             Trace($"No Cache for {source.ToIdString()}");
-            return GetEnumeratorForCachePolicy();
+            return CreateEnumerator();
          }
          else
          {
@@ -106,12 +136,24 @@ namespace System.Collections.Generic.Extensions
          }
       }
 
-      IEnumerator<T> GetEnumeratorForCachePolicy()
+      IEnumerator<T> CreateEnumerator()
       {
          return CachePolicy == CachePolicy.Lazy ? new LazyEnumerator(this) : new Enumerator(this);
       }
 
       IEnumerator<T> GetSourceEnumerator()
+      {
+         Assert.IsNotNull(this.source, nameof(source));
+         return GetSourceEnumerator(this.source);
+      }
+
+      /// <summary>
+      /// Allow a derived type to return a different enumerator
+      /// that will be used to enumerate the source sequence.
+      /// </summary>
+      /// <param name="source"></param>
+
+      protected virtual IEnumerator<T> GetSourceEnumerator(IEnumerable<T> source)
       {
          return source.GetEnumerator();
       }
@@ -254,6 +296,7 @@ namespace System.Collections.Generic.Extensions
    {
       /// <summary>
       /// Wraps an IEnumerable<T> in a CachedEnumerable<T>
+      /// if the IEnumerable<T> is not a CachedEnumerable<T>
       /// </summary>
 
       public static CachedEnumerable<T> AsCached<T>(this IEnumerable<T> source, 

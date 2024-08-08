@@ -11,6 +11,9 @@ using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Autodesk.AutoCAD.Runtime
 {
+   /// <summary>
+   /// Performs a 'deep' comparison of two TypedValue instances.
+   /// </summary>
    public class TypedValueComparer : IEqualityComparer<TypedValue>
    {
       public bool Equals(TypedValue x, TypedValue y)
