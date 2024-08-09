@@ -77,29 +77,6 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       {
          if(args == null || args.Length == 0)
             throw new ArgumentException("Requires at least one argument");
-         return List((IEnumerable)args);
-      }
-
-      /// <summary>
-      /// Works like List() except that it requires all 
-      /// arguments in the form of a single IEnumerable. 
-      /// </summary>
-      /// <param name="args">An IEnumerable containing
-      /// the objects to be transformed.</param>
-      /// <returns>A value representing the transformed input</returns>
-
-      public static ListResult List(IEnumerable args)
-      {
-         Assert.IsNotNull(args, nameof(args));
-
-         /// Converting a string to a list of chars is
-         /// not supported here. So, because a string
-         /// is an IEnumerable, it must be wrapped in
-         /// an array to achieve the same behavior as
-         /// a single argument of any other value type:
-
-         if(args is string s)
-            args = new object[] { s };
          return GetIterator(ToListWorker(args)).ToResult();
       }
 
