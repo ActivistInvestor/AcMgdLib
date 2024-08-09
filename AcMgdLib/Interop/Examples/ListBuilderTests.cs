@@ -29,7 +29,7 @@ namespace AcMgdLib.Interop.Examples
    {
 
       /// <summary>
-      /// ListBuilder.List()
+      /// ListBuilder Class
       /// 
       /// The ListBuilder's List() method is the functional
       /// analog of the LISP (list) function. It returns its
@@ -56,11 +56,11 @@ namespace AcMgdLib.Interop.Examples
       /// 
       /// Collection support: 
       /// 
-      /// What makes the List() method interesting is that it
+      /// What makes the List() method powerful is that it
       /// not only transforms simple types and lists of same
       /// to LISP lists, it can also transform complex managed
       /// types and collections to LISP lists containing the
-      /// corresponding LISP types.
+      /// LISP representation of the collection elements.
       /// 
       /// For example, one can pass an ObjectIdCollection to
       /// the Lisp() method, and it will produce a LISP list
@@ -128,7 +128,7 @@ namespace AcMgdLib.Interop.Examples
 
          /// Build a list and return it back to LISP:
 
-         return List("Hello List()",
+         return List("Hello World",
             12.0,
             List("Item1", 2, "Item3", 44.0),
             99,
@@ -231,7 +231,7 @@ namespace AcMgdLib.Interop.Examples
       /// that looks like this:
 
       /*
-          (  "Hello List()" 
+          (  "Hello World" 
              12.0
              ("Item1" 2 "Item3" 44.0)
              99
