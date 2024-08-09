@@ -1,4 +1,4 @@
-﻿/// RibbonEventManagerExample.cs
+﻿/// MinimalRibbonEventManagerExample.cs
 /// 
 /// ActivistInvestor / Tony T
 /// 
