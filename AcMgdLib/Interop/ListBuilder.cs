@@ -590,7 +590,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          new TypedValue((short)LispDataType.Nil);
 
       public static readonly TypedValue True =
-         new TypedValue((short)LispDataType.T_atom);
+         new TypedValue((short)LispDataType.T_atom, true);
 
       public static readonly TypedValue Void =
          new TypedValue((short)LispDataType.Void);
@@ -768,19 +768,61 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static IEnumerable<TypedValue> ToLispList(this IEnumerable arg)
       {
-         return ToListWorker(arg);
+         return ToListWorker(arg).ToResult();
       }
 
       /// <summary>
       /// Converts a sequence of objects to a ResultBuffer
-      /// representing a LISP list:
+      /// representing a LISP list, using AutoCAD internal
+      /// APIs.
+      /// 
+      /// Caveat Emptor:
+      /// 
+      /// This method does not pre-process its arguments to
+      /// expand collections, arrays, or enumerable objects
+      /// into nested lists, as the List() method does.
+      /// 
+      /// Hence, all arguments must be directly-convertable 
+      /// to a corresponding LISP data type. That effectively 
+      /// means arguments must be limited to strings, numbers, 
+      /// ObjectIds, SelectionSets, and points (e.g., Point2d 
+      /// or Point3d). 
+      /// 
+      /// A boolean value of true can be included, which will 
+      /// be transformed to the lisp symbol 'T', but boolean 
+      /// false cannot be included. If it is, an exception is
+      /// thrown.
+      /// 
+      /// This method uses the same internal APIs used by the 
+      /// Editor's Command() method to transform the arguments
+      /// passed to that method to their native equivalents. If
+      /// multiple arguments are provided, none of them can be
+      /// an IEnumerable. If a single argument is provided, it
+      /// can be an IEnumerable.
       /// </summary>
-      /// <param name="args"></param>
-      /// <returns></returns>
+      /// <param name="args">A single IEnumerable, or one
+      /// or more objects</param>
+      /// <returns>A ResultBuffer representing the managed
+      /// objects</returns>
 
-      public static ResultBuffer ToResultBuffer(this IEnumerable args)
+      public static ResultBuffer RawToResultBuffer(params object[] args)
       {
-         return ToLispList(args).ToResult();
+         if(args.Length == 1 && args[0] is IEnumerable e)
+            return RawToResultBuffer(e);
+         else
+            return RawToResultBuffer((IEnumerable)args);
+      }
+
+      public static ResultBuffer RawToResultBuffer(this IEnumerable items)
+      {
+         Assert.IsNotNull(items, nameof(items));
+         object[] array = items.AsArray();
+         if(array?.Length == 0)
+            return new ResultBuffer();
+         var ptr = Marshaler.ObjectsToResbuf(array);
+         if(ptr == IntPtr.Zero)
+            throw new InvalidOperationException($"failed to convert {nameof(items)} to resbuf");
+         return (ResultBuffer)DisposableWrapper.Create(typeof(ResultBuffer), ptr, true);
       }
 
       static IEnumerable<TypedValue> GetIterator(IEnumerable<TypedValue> source, IteratorType type = IteratorType.List)
@@ -882,9 +924,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                   if(tv.IsListBegin())
                   {
                      ++depth;
-                     if(depth > 1 && deepExplode)
-                        continue;
-                     if(depth == 1 && explode)
+                     if(deepExplode || (depth == 1 && explode))
                         continue;
                   }
                   else if(tv.IsListEnd())
@@ -892,9 +932,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
                      --depth;
                      if(depth < 0)
                         throw new InvalidOperationException("Malformed List");
-                     if(depth > 0 && deepExplode)
-                        continue;
-                     if(depth == 0 && explode)
+                     if(deepExplode || depth == 0 && explode)
                         continue;
                   }
                   yield return tv;

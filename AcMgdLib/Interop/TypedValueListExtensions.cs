@@ -17,6 +17,7 @@ using System.Text;
 using System.Utility;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime.Extensions;
+using Autodesk.AutoCAD.Runtime.LispInterop;
 
 namespace Autodesk.AutoCAD.Runtime.Extensions
 {
@@ -864,12 +865,6 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          return xrecord;
       }
 
-      public static ResultBuffer ToResultBuffer(this IEnumerable<TypedValue> items)
-      {
-         Assert.IsNotNull(items);
-         return new ResultBuffer(items.AsArray());
-      }
-
       /// <summary>
       /// Extensions targeting ValueTuple(short/DxfCode.LispDataType, object)
       /// that convert those types to one or more TypedValues.
@@ -951,6 +946,9 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// 
       /// The counterpart to this method is ToLispDictionary(),
       /// which performs the reverse conversion.
+      /// 
+      /// NOTE: This method is being depreciated in favor of
+      /// performing the operation using the ListBuilder class.
       /// 
       /// </summary>
       /// <typeparam name="TKey"></typeparam>
@@ -1085,8 +1083,6 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          return result;
       }
 
-
-
       /// <summary>
       /// Converts a sequence of TypedValues that use LISP list 
       /// semantics (LispDataType.ListBegin/End) to an equivalent
@@ -1097,42 +1093,145 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
       /// conversion.
       /// </summary>
 
-      public static IEnumerable<TypedValue> ConvertToDxfList(this IEnumerable<TypedValue> items)
+      //public static IEnumerable<TypedValue> ConvertToDxfList(this IEnumerable<TypedValue> items)
+      //{
+      //   foreach(TypedValue item in items)
+      //   {
+      //      switch(item.TypeCode)
+      //      {
+      //         case 5016:
+      //            yield return dxfListBegin;
+      //            break;
+      //         case 5017:
+      //            yield return dxfListEnd;
+      //            break;
+      //         default:
+      //            yield return item;
+      //            break;
+      //      }
+      //   }
+      //}
+
+      public static ListResult ToDxfList(this IEnumerable<TypedValue> items)
       {
-         foreach(TypedValue item in items)
+         return Enumerate(items).ToResult();
+
+         static IEnumerable<TypedValue> Enumerate(IEnumerable<TypedValue> items)
          {
-            switch(item.TypeCode)
+            foreach(TypedValue item in items)
             {
-               case 5016:
-                  yield return dxfListBegin;
-                  break;
-               case 5017:
-                  yield return dxfListEnd;
-                  break;
-               default:
-                  yield return item;
-                  break;
+               switch(item.TypeCode)
+               {
+                  case 5016:
+                     yield return dxfListBegin;
+                     break;
+                  case 5017:
+                     yield return dxfListEnd;
+                     break;
+                  default:
+                     yield return item;
+                     break;
+               }
             }
          }
       }
 
       /// <summary>
-      /// Performs the inverse conversion done by ConvertToDxfList()
+      /// Explodes a complex list represented by a sequence 
+      /// of TypedValues that use LispDataType.Begin/End or
+      /// DxfCode.ControlString ({/}) as list delimiters.
+      /// 
+      /// The input can contain lists nested to any depth.
+      /// 
+      /// If the deep argument is false, only immediate nested
+      /// lists in the input list are exploded. If deep is true, 
+      /// all nested lists are recursively exploded regardless 
+      /// of how deeply-nested they are.
+      /// 
+      /// This method works on lists that are delimited by both
+      /// LispDataType.ListBegin/End and DxfCode.ControlString
+      /// with "{"/"}" as the begin/end values..
       /// </summary>
-
-      public static IEnumerable<TypedValue> ConvertToLispList(this IEnumerable<TypedValue> items)
+      /// <param name="source"></param>
+      /// <param name="deep"></param>
+      /// <returns></returns>
+      
+      public static IEnumerable<TypedValue> Explode(this IEnumerable<TypedValue> source, bool deep = false)
       {
-         foreach(TypedValue item in items)
+         return Enumerate(source, deep).ToResult();
+
+         static IEnumerable<TypedValue> Enumerate(IEnumerable<TypedValue> items, bool deep)
          {
-            if(item.IsEqualTo(dxfListBegin))
-               yield return lispListBegin;
-            else if(item.IsEqualTo(dxfListEnd))
-               yield return lispListEnd;
-            else
+            int depth = 0;
+            foreach(TypedValue item in items)
+            {
+               if(item.IsListBegin())
+               {
+                  ++depth;
+                  if(deep || depth < 2)
+                     continue;
+               }
+               else if(item.IsListEnd())
+               {
+                  --depth;
+                  if(deep || depth < 1)
+                     continue;
+               }
                yield return item;
+            }
          }
       }
 
+
+      /// <summary>
+      /// Performs the inverse conversion done by ConvertToDxfList()
+      /// </summary>
+
+      //public static IEnumerable<TypedValue> ConvertToLispList(this IEnumerable<TypedValue> items)
+      //{
+      //   foreach(TypedValue item in items)
+      //   {
+      //      if(item.IsEqualTo(dxfListBegin))
+      //         yield return lispListBegin;
+      //      else if(item.IsEqualTo(dxfListEnd))
+      //         yield return lispListEnd;
+      //      else
+      //         yield return item;
+      //   }
+      //}
+
+      public static IEnumerable<TypedValue> ToLispList(this IEnumerable<TypedValue> items)
+      {
+         return Enumerate(items).ToResult();
+
+         static IEnumerable<TypedValue> Enumerate(IEnumerable<TypedValue> items)
+         {
+            foreach(TypedValue item in items)
+            {
+               if(item.IsEqualTo(dxfListBegin))
+                  yield return lispListBegin;
+               else if(item.IsEqualTo(dxfListEnd))
+                  yield return lispListEnd;
+               else
+                  yield return item;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Allows for DxfLists having a starting
+      /// control string matching "{*", where the 
+      /// open brace can be followed by anything.
+      /// </summary>
+      /// <param name="tv"></param>
+      /// <returns></returns>
+      
+      static bool IsDxfListBegin(this TypedValue tv)
+      {
+         return tv.TypeCode == (int)DxfCode.ControlString
+            && tv.Value is string s
+            && s.StartsWith("{");
+      }
 
       static readonly TypedValue dxfListBegin = 
          new TypedValue((short) DxfCode.ControlString, "{");
@@ -1147,15 +1246,13 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
 
 
       public static bool IsListBegin(this TypedValue value) =>
-         value.TypeCode == 5016 || value.IsEqualTo(dxfListBegin);
+         value.TypeCode == 5016 || value.IsDxfListBegin();
 
       public static bool IsListEnd(this TypedValue value)
       {
          short code = value.TypeCode;
-         return code == 5017 || code == 5018 || value.IsEqualTo(dxfListEnd);
-      } 
-
-      /// A Fix for TypedValue.Equals()
+         return code == 5017 || code == 5018 || value == dxfListEnd;
+      }
 
       static TypedValueComparer valueComparer = TypedValueComparer.Instance;
 

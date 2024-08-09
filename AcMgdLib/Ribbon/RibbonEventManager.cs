@@ -165,7 +165,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       {
          stateView = EditorStateView.Instance;
          stateView.AddRef();
-         if(RibbonCreated)
+         if(RibbonExists)
             Initialize(RibbonState.Active);
          else
             RibbonServices.RibbonPaletteSetCreated += ribbonPaletteSetCreated;
@@ -276,7 +276,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       ///   4. The lock state of the active document changes.
       /// 
       /// To enable updating when one of the above events
-      /// occurs, one need do this:
+      /// occurs, one only needs to do this:
       /// 
       ///   RibbonEventManager.QueryCanExecute = true;
       ///    
@@ -312,15 +312,15 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             if(queryCanExecute ^ value)
             {
                if(value)
-                  stateView.PropertyChanged += IsQuiescentDocumentChanged;
+                  stateView.PropertyChanged += OnQuiescentStateChanged;
                else
-                  stateView.PropertyChanged -= IsQuiescentDocumentChanged;
+                  stateView.PropertyChanged -= OnQuiescentStateChanged;
                queryCanExecute = value;
             }
          }
       }
 
-      static void IsQuiescentDocumentChanged(object sender, PropertyChangedEventArgs e)
+      static void OnQuiescentStateChanged(object sender, PropertyChangedEventArgs e)
       {
          CommandManager.InvalidateRequerySuggested();
       }
@@ -329,8 +329,8 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       /// This can be called at a high frequency by numerous
       /// ICommands, which can be very expensive. To minimize
       /// the overhead of referencing this property, the value
-      /// it returns is cached and reused until one of the List
-      /// events signaling the state may have changed is raised.
+      /// it returns is cached and used until one of the events 
+      /// signaling the state may have changed is raised.
       /// 
       /// Returns a value indicating if there is an active
       /// document, and it is in a quiescent state. If there
@@ -340,7 +340,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       public static bool IsQuiescentDocument => 
          stateView.IsQuiescentDocument;
 
-      public static bool RibbonCreated => RibbonControl != null;
+      public static bool RibbonExists => RibbonControl != null;
 
       public static RibbonPaletteSet RibbonPaletteSet =>
          RibbonServices.RibbonPaletteSet;

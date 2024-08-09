@@ -158,7 +158,7 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
       /// that signals that the editor's quiescent state may have
       /// changed is raised, the cached value is invalidated and
       /// this method will be called the next time the property
-      /// value is accessed to recompute and cache the value.
+      /// value is accessed to recompute and cache the value again.
       /// 
       /// This caching scheme is called for due to the frequency 
       /// at which the above property can be referenced, and the 

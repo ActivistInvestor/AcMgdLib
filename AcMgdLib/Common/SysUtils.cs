@@ -5,6 +5,7 @@
 /// Distributed under the terms of the MIT license.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
 using System.Linq;
@@ -47,6 +48,11 @@ namespace System.Utility
          if(source == null)
             throw new ArgumentNullException(nameof(source));
          return source as T[] ?? source.ToArray();
+      }
+
+      public static object[] AsArray(this IEnumerable source)
+      {
+         return source as object[] ?? source.Cast<Object>().ToArray();
       }
 
 

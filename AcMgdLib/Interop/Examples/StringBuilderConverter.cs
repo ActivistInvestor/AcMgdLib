@@ -4,16 +4,18 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
+using System;
+using System.Text;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.LispInterop;
-using System.Text;
 
 namespace AcMgdLib.Interop.Examples
 {
    /// <summary>
    /// A second example demonstrating how to provide
-   /// extended type support for the ListBuilder class. 
+   /// extended type and implicit conversion support 
+   /// for the ListBuilder class. 
    /// 
    /// This class allows a StringBuilder to be passed 
    /// as an argument to various ListBuilder methods 
@@ -23,6 +25,7 @@ namespace AcMgdLib.Interop.Examples
    [TypedValueConverter(typeof(StringBuilder))]
    public class StringBuilderConverter : TypedValueConverter
    {
+
       public override bool CanConvert(bool toTypedValues)
       {
          return toTypedValues;
@@ -39,7 +42,7 @@ namespace AcMgdLib.Interop.Examples
 
       public override object FromTypedValues(object value, Context context = Context.Lisp)
       {
-         return null;
+         throw new NotSupportedException();
       }
    }
 }

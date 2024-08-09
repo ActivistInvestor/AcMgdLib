@@ -319,16 +319,16 @@ namespace AcMgdLib.Interop.Examples
       /// <param name="args"></param>
       /// <returns></returns>
 
-      [LispFunction("mgd-alist-from-dict")]
+      [LispFunction("mgd-dict-to-alist")]
       public static ResultBuffer MgdDictToAList(ResultBuffer args)
       {
          var dict = InteropTestHelpers.CreateDictionary();
 
-         return dict.Select(p => Cons(p.Key, p.Value)).ToResultBuffer();
+         return dict.Select(p => Cons(p.Key, p.Value)).ToLispList().ToResult();
       }
 
-      [LispFunction("mgd-alist-from-dict2")]
-      public static ResultBuffer MgdAlistFromDict2(ResultBuffer args)
+      [LispFunction("mgd-alist-from-cons")]
+      public static ResultBuffer MgdAlistFromCons(ResultBuffer args)
       {
          var dictionary = InteropTestHelpers.CreateDictionary();
 
@@ -337,7 +337,7 @@ namespace AcMgdLib.Interop.Examples
 
       /// <summary>
       /// Producees the same association list as the (mgd-alist-from-dict) 
-      /// lisp function above, using the ListBuilder's ConsAll() method to 
+      /// lisp function above, using the ListBuilder's Cons() overload to 
       /// simplify the operation and perform it more effieciently, which
       /// also allows the result to be used as an argument to another call
       /// to a ListBuilder method. 
@@ -346,7 +346,7 @@ namespace AcMgdLib.Interop.Examples
       /// list within another list.
       /// </summary>
 
-      [LispFunction("mgd-nested-alist-from-dict")]
+      [LispFunction("mgd-nested-alist-from-cons")]
       public static ResultBuffer MgdNestedAlistFromDict(ResultBuffer args)
       {
          var dictionary = InteropTestHelpers.CreateDictionary();
@@ -529,6 +529,12 @@ namespace AcMgdLib.Interop.Examples
       /// the custom StringBuilderConverter example class
       /// to allow instances of StringBuilder to be passed
       /// into calls to List() and other ListBuilder APIs.
+      /// 
+      /// The TypedValueConverter class was deisgned to make
+      /// it simpler for consumers of the ListBuilder class to
+      /// enable implicit conversions from managed types to
+      /// LISP data without having to deal with or alter the 
+      /// 'guts' of the ListBuilder class.
       /// </summary>
       /// <param name="args"></param>
       /// <returns></returns>
