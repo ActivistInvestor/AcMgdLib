@@ -29,7 +29,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
    /// 
    ///   using static Autodesk.AutoCAD.Runtime.LispInterop.ListBuilder;
    ///   
-   /// See the included LispInteropTests.cs for more detail.
+   /// See the included LispBuilderTests.cs for an 
+   /// example that shows how the above statement 
+   /// helps simplify the use of this class.
    /// </summary>
 
    public static class ListBuilder
@@ -73,6 +75,31 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
 
       public static ListResult List(params object[] args)
       {
+         if(args == null || args.Length == 0)
+            throw new ArgumentException("Requires at least one argument");
+         return List((IEnumerable)args);
+      }
+
+      /// <summary>
+      /// Works like List() except that it requires all 
+      /// arguments in the form of a single IEnumerable. 
+      /// </summary>
+      /// <param name="args">An IEnumerable containing
+      /// the objects to be transformed.</param>
+      /// <returns>A value representing the transformed input</returns>
+
+      public static ListResult List(IEnumerable args)
+      {
+         Assert.IsNotNull(args, nameof(args));
+
+         /// Converting a string to a list of chars is
+         /// not supported here. So, because a string
+         /// is an IEnumerable, it must be wrapped in
+         /// an array to achieve the same behavior as
+         /// a single argument of any other value type:
+
+         if(args is string s)
+            args = new object[] { s };
          return GetIterator(ToListWorker(args)).ToResult();
       }
 
@@ -90,8 +117,8 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       /// </summary>
       /// <param name="car">The element to add to the
       /// head/car of the result </param>
-      /// <param name="cdr">A list or atom that is to
-      /// be consed with the car.</param>
+      /// <param name="cdr">A list or atom that the car
+      /// is to be consed with.</param>
       /// <returns>A dotted pair if the second argument
       /// is not a list, or the second argument with the
       /// first argument as the new first element/car.
@@ -99,7 +126,7 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
       
       public static ListResult Cons(object car, object cdr)
       {
-         if(cdr is IEnumerable items && !(cdr is string))
+         if(IsEnumerable(cdr, out IEnumerable items))
          {
             return List(car, Insert(items));
          }
@@ -416,18 +443,12 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          return obj is IEnumerable && !(obj is string);
       }
 
-      static bool IsEnumerable(object obj, out IEnumerable enumerable)
+      static bool IsEnumerable(object obj, out IEnumerable result)
       {
-         if(obj is IEnumerable e && !(obj is string))
-         {
-            enumerable = e;
-            return true;
-         }
-         else
-         {
-            enumerable = default(IEnumerable);
-            return false;
-         }
+         result = null;
+         if(obj is IEnumerable enumerable && !(obj is string))
+            result = enumerable;
+         return result != null;
       }
 
       static bool IsEmpty(IEnumerable enumerable)

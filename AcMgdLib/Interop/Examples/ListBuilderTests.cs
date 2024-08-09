@@ -29,32 +29,80 @@ namespace AcMgdLib.Interop.Examples
    {
 
       /// <summary>
-      /// Uses the ListBuilder class to build and a return 
-      /// a list of arbitrary-complexity back to LISP. The
-      /// ListBuilder's List() method accepts an object[]
-      /// array, which it will transform into an array of
-      /// TypedValues that can be returned back to LISP as
-      /// a list.
+      /// ListBuilder.List()
+      /// 
+      /// The ListBuilder's List() method is the functional
+      /// analog of the LISP (list) function. It returns its
+      /// arguments in a list. However, in the case of this
+      /// managed analog, the arguments are managed objects,
+      /// and the result, when returned back to LISP by a 
+      /// LispFunction, is transformed to a LISP list. 
+      /// 
+      /// One of the key functional characteristics of the 
+      /// List() method is that it acts much like it's LISP 
+      /// analog, in that it is fully-recursive. The result
+      /// of any call to the List() method can be passed as
+      /// an argument in another call to the List() method, 
+      /// in the very same way that lists can be passed as 
+      /// arguments to the LISP analog, resulting in nested 
+      /// lists.
+      /// 
+      /// What distinguishes the managed List() method from
+      /// it's LISP analog, is that the List() method takes
+      /// managed objects as arguments and transforms them
+      /// into lists of LISP data that can then be returned 
+      /// to lisp by a method with the LispFunction attribute
+      /// applied to it.
       /// 
       /// Collection support: 
       /// 
-      /// The List() method supports collections, and will
-      /// convert them to lists containing their elements, 
-      /// as can be seen in this example, which includes both
-      /// a Point3dCollection and an ObjectIdCollection.
-      ///   
+      /// What makes the List() method interesting is that it
+      /// not only transforms simple types and lists of same
+      /// to LISP lists, it can also transform complex managed
+      /// types and collections to LISP lists containing the
+      /// corresponding LISP types.
+      /// 
+      /// For example, one can pass an ObjectIdCollection to
+      /// the Lisp() method, and it will produce a LISP list
+      /// containing the corresponding entity names. 
+      /// 
+      /// Ditto for Point3dCollection and for that matter, any 
+      /// managed type that implements the standard IEnumerable 
+      /// interface, such as arrays, lists, and so on.
+      /// 
+      /// The following test method uses the List() method to 
+      /// build and a return a list of arbitrary-complexity 
+      /// back to LISP. The List() method accepts a varying
+      /// number of objects as arguments, which it transforms 
+      /// into an array of TypedValues that can be returned 
+      /// back to LISP as a list. The result of the List()
+      /// method can be returned directly by a LispFunction,
+      /// or it can be passed as an argument in another call
+      /// to the List() method, and various other methods of
+      /// the ListBuilder() class that can transform managed
+      /// objects to Lisp data.
+      /// 
+      /// This example also demonstrates support for managed
+      /// collections as arguments to List(), by including a
+      /// variety of collection types as arguments.
+      /// 
       /// Simplified Syntax:
       /// 
-      /// Note that static members of ListBuilder can be used
+      /// Static members of ListBuilder class can be used
       /// directly without prequalifying them with the name
       /// of that class, which is made possible through the
       /// use of the 'using static' declaration:
       /// 
       ///   using static Autodesk.AutoCAD.Runtime.LispInterop.ListBuilder;
       ///   
+      /// This is also dmonstrated by the code in this file,
+      /// which doesn't use the ListBuilder prefix in any
+      /// reference to static methods and properties of that 
+      /// type.
+      /// 
       /// </summary>
 
-      [LispFunction("mgd-list")]
+      [LispFunction("mgd-hello-list")]
       public static ResultBuffer GetMgdList(ResultBuffer args)
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -224,14 +272,14 @@ namespace AcMgdLib.Interop.Examples
       */
 
       /// <summary>
-      /// Calls the above (mgd-list) function and dumps
-      /// the returned ResultBuffer to the console. 
+      /// Calls the above (mgd-hello-list) function and 
+      /// dumps the returned ResultBuffer to the console. 
       /// 
       /// The various Dump() extension methods included
       /// herein are primarily for diagnostic purposes.
       /// </summary>
 
-      [LispFunction("mgd-list-dump")]
+      [LispFunction("ui-mgd-list-dump")]
       public static ResultBuffer DumpGetMgdList(ResultBuffer args)
       {
          var result = GetMgdList(args);
@@ -246,7 +294,8 @@ namespace AcMgdLib.Interop.Examples
       /// is cons'd with a list rather than an atom. 
       /// 
       /// As is the case with the LISP analog, the second
-      /// argument to Cons() can be an atom or a list:
+      /// argument to Cons() can be an atom or a list
+      /// (collection)
       /// </summary>
 
       [LispFunction("mgd-alist")]
@@ -595,22 +644,6 @@ namespace AcMgdLib.Interop.Examples
       public static void Mgd2LispFunctionsList()
       {
          ((string[])lispFuncs).WriteLines();
-      }
-   }
-
-   public static class OffLineTests
-   {
-      [LispFunction("mgd-rnd")]
-      public static ResultBuffer MgdRnd(ResultBuffer args)
-      {
-         return new ResultBuffer(
-            new TypedValue[] {
-            new TypedValue((int)LispDataType.Int32, 0),
-            new TypedValue((int)LispDataType.Int32, 1),
-            new TypedValue((int) LispDataType.Point3d, new Point3d(2.0, 4.0, 6.0)),
-            new TypedValue((int)LispDataType.Int32, 2),
-
-         });
       }
    }
 

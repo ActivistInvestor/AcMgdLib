@@ -7,6 +7,7 @@
 using System.Collections.Generic;
 using System.Collections.Generic.Extensions;
 using System.Diagnostics.Extensions;
+using System.Linq;
 using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Autodesk.AutoCAD.Runtime.LispInterop
@@ -103,6 +104,9 @@ namespace Autodesk.AutoCAD.Runtime.LispInterop
          Assert.IsNotNull(operand, nameof(operand));
          return operand.Result;
       }
+
+      public static readonly ListResult Empty =
+         new ListResult(Enumerable.Empty<TypedValue>());
    }
 
    public static class ListResultExtensions
