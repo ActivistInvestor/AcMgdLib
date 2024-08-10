@@ -22,7 +22,7 @@ language version in a project that targets the .NET framework 4.x (e.g.
 targeting releases of AutoCAD prior to 2025).
 
 A project targeting .NET Framework 4.x can be set to use C# 10 by
-adding the <LangVersion>10</LangVersion> entry to .csproj file:
+adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
 
 ```
   <PropertyGroup>
