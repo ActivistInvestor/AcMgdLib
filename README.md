@@ -26,7 +26,7 @@ adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
 
 ```
   <PropertyGroup>
-    <TargetFramework>net4.7</TargetFramework>
-	  <LangVersion>10</LangVersion>
+     <TargetFramework>net4.7</TargetFramework>
+     <LangVersion>10</LangVersion>
   </PropertyGroup>
 ```
