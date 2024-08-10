@@ -14,3 +14,19 @@ AcDbLinq, and RibbonSupport into a single codebase, mainly because they
 are all dependent on common supporting code.
 
 Additional components will be added regulary as they are documented.
+
+Important Note:
+
+This library requires C# varsion 10.0. You can specify C# 10.0 as the
+language version in a project that targets the .NET framework 4.x (e.g.
+targeting releases of AutoCAD prior to 2025).
+
+A project targeting .NET Framework 4.x can be set to use C# 10 by
+adding the <LangVersion>10</LangVersion> entry to .csproj file:
+
+```
+  <PropertyGroup>
+    <TargetFramework>net4.7</TargetFramework>
+	  <LangVersion>10</LangVersion>
+  </PropertyGroup>
+```
