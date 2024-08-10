@@ -1,6 +1,9 @@
 # AcMgdLib
 Extension Library for managed AutoCAD.NET development
 
+*** Important Note: This library requires C# 10.0 or later, 
+see below for more ***
+
 UPDATE: Some classes from other repos have been moved/merged
 into AcMgdLib at https://github.com/ActivistInvestor/AcMgdLib.
 
