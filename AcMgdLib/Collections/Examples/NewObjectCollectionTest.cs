@@ -8,6 +8,7 @@ using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
+using System.Linq;
 
 namespace AcMgdLib.Overrules.Examples
 {
@@ -109,7 +110,7 @@ namespace AcMgdLib.Overrules.Examples
       /// After that you should see each of the 7 Line objects
       /// displayed along with the value of their IsErased property.
       /// 
-      /// The Undo subcommand issues during the LINE command
+      /// The Undo subcommand issued during the LINE command
       /// resulted in erasing two line segments that were
       /// already added to the database. The objective of this
       /// test is to verify that those erased objects are not
@@ -151,6 +152,47 @@ namespace AcMgdLib.Overrules.Examples
          }
       }
 
+      /// <summary>
+      /// An example that uses ObservableNewObjectCollection that
+      /// collects the ObjectIds of new layers added to the active 
+      /// document.
+      /// 
+      /// Note that in this example, the Owner is the LayerTable,
+      /// and the generic argument type is LayerTableRecord.
+      /// </summary>
+
+      static ObservableNewObjectCollection<LayerTableRecord> newLayerObserver = null;
+
+      [CommandMethod("TESTNEWLAYEROC")]
+      public static void TestNewLayerCollection()
+      {
+         string what = "enabled";
+         if(newLayerObserver == null)
+         {
+            var ownerId = HostApplicationServices.WorkingDatabase.LayerTableId;
+            newLayerObserver = new ObservableNewObjectCollection<LayerTableRecord>(ownerId);
+            newLayerObserver.ClearOnNotify = true;
+            newLayerObserver.NotifyOnQuiscence = true;
+            newLayerObserver.CollectionChanged += OnLayersAdded;
+         }
+         else
+         {
+            what = "disabled";
+            newLayerObserver.Dispose();
+            newLayerObserver = null;
+         }
+         AcConsole.Write($"NewLayerObserver {what}.");
+      }
+
+      static void OnLayersAdded(object sender, CollectionChangedEventArgs<LayerTableRecord> e)
+      {
+         using(var tr = new DocumentTransaction())
+         {
+            string names = string.Join(", ", e.GetNewObjects(tr).Select(ltr => ltr.Name));
+            AcConsole.Write($"\nAdded {e.AddedCount} layers: {names}");
+            tr.Commit();
+         }
+      }
    }
 }
 
