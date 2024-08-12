@@ -59,7 +59,7 @@ namespace AcMgdLib.Overrules.Examples
 
             /// Specify that notifications should be deferred 
             /// until the application is in a quiescent state.
-            /// If this property is not set to false, there will
+            /// If this property is set to false, there will
             /// be a notification on each Idle event, which can
             /// be raised while commands are active, when they
             /// prompt for input on the command line. 
