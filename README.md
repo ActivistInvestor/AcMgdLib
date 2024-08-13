@@ -39,3 +39,16 @@ recent framework versions (e.g., indexes and ranges), so it is safe
 to use C# 10.0 with earlier framework versions, as long as the code
 doesn't use features that are dependent on more-recent versions of
 the framework.
+
+The best strategy for consuming this library is to download it, add
+it to a new project that targets the framework version used by the
+AutoCAD releases that are targeted, with the language version set to
+C# 10.0, and build a DLL that can be referenced from whatever projects
+use the library. This will allow one to avoid the need to change the
+language version of projects that consume this library, since it is
+already compiled into a separate assembly that can be referenced into
+projects that need to use it, without having to change the language
+version is those projects. If you are also targeting AutoCAD 2025 or 
+later in addition to older releases, will need to build a separate 
+build of the library assembly for AutoCAD 2025 or later, which uses
+.NET 8.0.
