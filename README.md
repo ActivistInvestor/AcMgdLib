@@ -33,3 +33,9 @@ adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
      <LangVersion>10</LangVersion>
   </PropertyGroup>
 ```
+While this project is dependent on C# 10.0, it does not use any of
+the features of that langauge version that have a dependence on more-
+recent framework versions (e.g., indexes and ranges), so it is safe
+to use C# 10.0 with earlier framework versions, as long as the code
+doesn't use features that are dependent on more-recent versions of
+the framework.
