@@ -120,7 +120,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(addedCount > 0)
             {
                bool erased = IncludingErased;
-               for(int i = Count - addedCount; i < Count; i++)
+               int cnt = this.CountIncludingErased;
+               for(int i = cnt - addedCount; i < cnt; i++)
                {
                   if(erased || !this[i].IsErased)
                      yield return this[i];
@@ -153,7 +154,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(IncludingErased)
                return addedCount;
             int result = 0;
-            for(int i = Count - addedCount; i < Count; i++)
+            int cnt = CountIncludingErased;
+            for(int i = cnt - addedCount; i < cnt; i++)
             {
                if(!this[i].IsErased)
                   ++result;
@@ -261,16 +263,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public IEnumerable<ObjectId> NewObjectIds => sender.NewObjectIds;
       public IEnumerable<T> GetNewObjects(Transaction trans, OpenMode mode = OpenMode.ForRead)
          => sender.GetNewObjects(trans, mode);
-
-      /// <summary>
-      /// TODO: This will trip-up multiple handlers of the event,
-      /// so it must only set a flag in the owner that tells it
-      /// that after all handlers have been fired, the collection
-      /// should be cleared. ClearOnNotify already does this, so
-      /// it might be a matter of just setting that variable, or
-      /// an equivlaent temporary flag that is set/checked each
-      /// time 
-      /// </summary>
       public void Clear() => sender.Clear();
       public int NonErasedCount => sender.NonErasedCount;
       public int Count => sender.Count;

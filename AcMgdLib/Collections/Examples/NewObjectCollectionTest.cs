@@ -32,7 +32,7 @@ namespace AcMgdLib.Overrules.Examples
    /// is outlined below.
    /// </summary>
 
-   public static class NewObjectCollectionTest
+   public static class NewObjectCollectionTestS
    {
       static ObservableNewObjectCollection<Line> newLineObserver = null;
 
@@ -42,7 +42,7 @@ namespace AcMgdLib.Overrules.Examples
       /// subsequently erased within the scope of the instance.
       /// </summary>
 
-      [CommandMethod("TESTNEWOC")]
+      [CommandMethod("TESTNEWLINESOC")]
       public static void TestObservableNewObjectCollection()
       {
          string what = "enabled";
@@ -108,7 +108,7 @@ namespace AcMgdLib.Overrules.Examples
       /// line segments and issued Undo the specified number
       /// of times, you should see:
       /// 
-      ///   CollectionChanged: AddedCount: 7 Count: 9 NonErasedCount = 7
+      ///   CollectionChanged: AddedCount: 7 Count: 7 CountIncludingErased = 9
       ///   
       /// After that you should see each of the 7 Line objects
       /// displayed along with the value of their IsErased property.
@@ -147,7 +147,7 @@ namespace AcMgdLib.Overrules.Examples
       private static void OnLinesAdded(object sender, CollectionChangedEventArgs<Line> e)
       {
          AcConsole.Write($"\nCollectionChanged: AddedCount: {e.AddedCount}  "
-            + $"Count: {e.Count}  NonErasedCount: {e.NonErasedCount}");
+            + $"Count: {e.Count}  CountIncludingErased: {e.Sender.CountIncludingErased}");
 
          using(var trans = new DocumentTransaction())
          {
@@ -193,7 +193,7 @@ namespace AcMgdLib.Overrules.Examples
       }
 
       /// <summary>
-      /// Handler for the CollectionChanged event:
+      /// Handler for the newLayerObserver's CollectionChanged event:
       /// </summary>
 
       static void OnLayersAdded(object sender, CollectionChangedEventArgs<LayerTableRecord> e)
