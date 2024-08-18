@@ -22,7 +22,8 @@ Important Note:
 
 This library requires C# varsion 10.0. You can specify C# 10.0 as the
 language version in a project that targets the .NET framework 4.x (e.g.
-targeting releases of AutoCAD prior to 2025).
+targeting releases of AutoCAD prior to 2025). Note that not all code in
+the library requires C# 10.0, but there are no details on that.
 
 A project targeting .NET Framework 4.x can be set to use C# 10 by
 adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
@@ -31,7 +32,7 @@ adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
   <PropertyGroup>
      <TargetFramework>net4.7</TargetFramework>
      <LangVersion>10</LangVersion>
-	   <ImplicitUsings>disable</ImplicitUsings>
+     <ImplicitUsings>disable</ImplicitUsings>
      <Nullable>disable</Nullable>
   </PropertyGroup>
 ```
