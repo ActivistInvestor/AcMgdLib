@@ -31,6 +31,8 @@ adding the `<LangVersion>10</LangVersion>` entry to .csproj file:
   <PropertyGroup>
      <TargetFramework>net4.7</TargetFramework>
      <LangVersion>10</LangVersion>
+	   <ImplicitUsings>disable</ImplicitUsings>
+     <Nullable>disable</Nullable>
   </PropertyGroup>
 ```
 While this project is dependent on C# 10.0, it does not use any of
@@ -39,6 +41,16 @@ recent framework versions (e.g., indexes and ranges), so it is safe
 to use C# 10.0 with earlier framework versions, as long as the code
 doesn't use features that are dependent on more-recent versions of
 the framework.
+
+If using this library with later framework versions, note that it 
+requires <Nullable>disable</Nullable> which is because the code was
+ported from older language versions and has not undergone the heavy
+refactoring required to enable nullable support. Another reason is
+to allow the code to remain compatible with older language versions
+to the greatest extent possible. 
+
+The roadmap for this library includes support for nullable and 
+implicit usings at some point in the future.
 
 The best strategy for consuming this library is to download it, add
 it to a new project that targets the framework version used by the
