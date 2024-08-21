@@ -44,7 +44,7 @@ doesn't use features that are dependent on more-recent versions of
 the framework.
 
 If using this library with later framework versions, note that it 
-requires <Nullable>disable</Nullable> which is because the code was
+requires `<Nullable>disable</Nullable>` which is because the code was
 ported from older language versions and has not undergone the heavy
 refactoring required to enable nullable support. Another reason is
 to allow the code to remain compatible with older language versions
