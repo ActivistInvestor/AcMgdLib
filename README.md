@@ -62,6 +62,6 @@ language version of projects that consume this library, since it is
 already compiled into a separate assembly that can be referenced into
 projects that need to use it, without having to change the language
 version is those projects. If you are also targeting AutoCAD 2025 or 
-later in addition to older releases, will need to build a separate 
+later in addition to older releases, you'll need to build a separate 
 build of the library assembly for AutoCAD 2025 or later, which uses
 .NET 8.0.
