@@ -22,7 +22,7 @@ Target Audience:
 
 This library is primarily intended for use by skilled, moderately-
 experienced AutoCAD developers who are already somewhat familar 
-with programming language and the out-of-the-box managed API.
+with the programming language and the out-of-the-box managed API.
 
 It may not be suitable for inexperienced programmers who are 
 mainly interested in learning to use the out-of-the-box managed
