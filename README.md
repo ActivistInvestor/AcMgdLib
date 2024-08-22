@@ -37,12 +37,7 @@ are considering cherry-picking bits and pieces of this library
 for use alone, you will quickly find that AcMgdLib is for the 
 most part, an all-or-nothing proposition.  
 
-The easiest way to consume AcMgdLib is to download the entire
-repository and add it to a new C# project targeting whatever
-framework(s) that are used by the targeted AutoCAD releases;
-set the language version to 10.0; disable nullable, and build
-a separate assembly that can be referenced from projects that
-it is needed in.
+The easiest way to consume AcMgdLib is outlined below.
 
 Important Note:
 
@@ -82,8 +77,8 @@ implicit usings at some point in the future.
 The best strategy for consuming this library is to download it, add
 it to a new project that targets the framework version used by the
 AutoCAD releases that are targeted, with the language version set to
-C# 10.0, and build a DLL that can be referenced from whatever projects
-use the library. This will allow one to avoid the need to change the
+C# 10.0, with nullable disabled, and build a DLL that can be referenced 
+from whatever projects use the library. This will allow one to avoid the need to change the
 language version of projects that consume this library, since it is
 already compiled into a separate assembly that can be referenced into
 projects that need to use it, without having to change the language
