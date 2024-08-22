@@ -63,7 +63,7 @@ namespace AcMgdLib.Interop.Examples
       /// LISP representation of the collection elements.
       /// 
       /// For example, one can pass an ObjectIdCollection to
-      /// the Lisp() method, and it will produce a LISP list
+      /// the List() method, and it will produce a LISP list
       /// containing the corresponding entity names. 
       /// 
       /// Ditto for Point3dCollection and for that matter, any 
