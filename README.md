@@ -18,6 +18,32 @@ are all dependent on common supporting code.
 
 Additional components will be added regulary as they are documented.
 
+Target Audience:
+
+This library is primarily intended for use by skilled, moderately-
+experienced AutoCAD developers who are already somewhat familar 
+with programming language and the out-of-the-box managed API.
+
+It may not be suitable for inexperienced programmers who are 
+mainly interested in learning to use the out-of-the-box managed
+AutoCAD API, because it insulates the programmer from a great
+deal of that, to achieve the higher-level of productivity which
+the library enables.
+
+The individual code files comprising this library cannot be used
+alone, or without other files from the library, because of the
+high-level of interdependence which the code has. Hence, if you
+are considering cherry-picking bits and pieces of this library
+for use alone, you will quickly find that AcMgdLib is for the 
+most part, an all-or-nothing proposition.  
+
+The easiest way to consume AcMgdLib is to download the entire
+repository and add it to a new C# project targeting whatever
+framework(s) that are used by the targeted AutoCAD releases;
+set the language version to 10.0; disable nullable, and build
+a separate assembly that can be referenced from projects that
+it is needed in.
+
 Important Note:
 
 This library requires C# varsion 10.0. You can specify C# 10.0 as the
