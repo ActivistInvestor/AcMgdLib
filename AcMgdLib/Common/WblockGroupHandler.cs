@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -49,7 +50,8 @@ namespace AcMgdLib.Common.Examples
    public class WblockGroupHandler : WblockCloneHandler
    {
      
-      public WblockGroupHandler(Database db) : base(db, true)
+      public WblockGroupHandler(Database db, bool forceCopy = true) 
+         : base(db, forceCopy)
       {
       }
 
@@ -75,16 +77,15 @@ namespace AcMgdLib.Common.Examples
             {
                Database sourceDb = map.OriginalDatabase;
                Database destDb = map.DestinationDatabase;
-               ObjectId destGroupDictionaryId = destDb.GroupDictionaryId;
-               var groupDictionary = tr.GetObject<DBDictionary>(
-                  destGroupDictionaryId, OpenMode.ForWrite);
+               var groups = tr.GetObject<DBDictionary>(
+                  destDb.GroupDictionaryId, OpenMode.ForWrite);
                foreach(var srcGroup in sourceDb.GetGroups(tr))
                {
                   var cloneIds = GetCloneIds(srcGroup, map);
                   if(cloneIds != null)
                   {
                      Group group = new Group(srcGroup.Description, srcGroup.Selectable);
-                     groupDictionary.SetAt(srcGroup.Name, group);
+                     groups.SetAt(srcGroup.Name, group);
                      tr.AddNewlyCreatedDBObject(group, true);
                      group.Append(cloneIds);
                      DebugWrite($"Copied group {srcGroup.Name} ({cloneIds.Count} entities)");
@@ -106,18 +107,19 @@ namespace AcMgdLib.Common.Examples
       /// is not cloned.
       /// </summary>
 
-      public static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
+      public static ObjectIdCollection GetCloneIds(Group source, IdMapping idMap)
       {
+         var map = idMap.Cast<IdPair>()
+            .ToDictionary(p => p.Key, p => p.Value);
          var srcIds = source.GetAllEntityIds();
          if(srcIds == null || srcIds.Length == 0)
             return null;
          var cloneIds = new ObjectId[srcIds.Length];
          for(int i = 0; i < srcIds.Length; i++)
          {
-            var id = srcIds[i];
-            if(!map.Contains(id))
+            if(!map.TryGetValue(srcIds[i], out ObjectId value))
                return null;
-            cloneIds[i] = map[id].Value;
+            cloneIds[i] = value;
          }
          return new ObjectIdCollection(cloneIds);
       }
