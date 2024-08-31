@@ -34,11 +34,32 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       Database sourceDb;
       Database destDb = null;
       IdMapping idMap = null;
+      bool forceCopy = false;
 
-      public WblockCloneHandler(Database db) 
+      public WblockCloneHandler(Database db, bool forceCopy = false)
       { 
          this.sourceDb = db;
+         this.forceCopy = forceCopy;
          db.WblockNotice += wblockNotice;
+      }
+
+      /// <summary>
+      /// Required to intervene during a wblock of
+      /// the entire database. If this is false, there
+      /// is no copy of the database created and the
+      /// operation instead is more akin to a SaveAs() 
+      /// operation performed on the source Database,
+      /// and  that case, no overrides of this class'
+      /// virtual methods are called.
+      /// 
+      /// This option has no affect the wblock objects 
+      /// and block forms of WBLOCK.
+      /// </summary>
+      
+      public bool ForceDatabaseCopy
+      {
+         get => forceCopy;
+         set => forceCopy = value;
       }
 
       /// <summary>
@@ -89,6 +110,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void wblockNotice(object sender, WblockNoticeEventArgs e)
       {
          Report();
+         if(forceCopy)
+            sourceDb.ForceWblockDatabaseCopy();
+         DebugWrite($"Forced Copy = {forceCopy}");
          Database.DatabaseConstructed += databaseConstructed;
          // Added again in DeepCloneEnded/Aborted, to avoid reentry:
          sourceDb.WblockNotice -= wblockNotice;

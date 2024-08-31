@@ -49,7 +49,8 @@ namespace AcMgdLib.Common.Examples
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
-      public WblockGroupHandler(Database db) : base(db)
+     
+      public WblockGroupHandler(Database db) : base(db, true)
       {
       }
 
