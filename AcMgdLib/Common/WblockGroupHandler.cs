@@ -13,7 +13,7 @@ using Autodesk.AutoCAD.Runtime;
 /// intervene in a wblock clone operation. 
 /// 
 /// This example causes groups to be included in a WBLOCK or a
-/// COPYCLIP operation when alll of their member entities are 
+/// COPYCLIP operation when all of their member entities are 
 /// included in the operation. 
 /// 
 /// To enable the functionality provided by this example, one 
@@ -33,12 +33,11 @@ using Autodesk.AutoCAD.Runtime;
 /// are involved in a WBLOCK operation, the group(s) they belong 
 /// to are not included.
 /// 
-/// If COPYCLIP is used to copy entities and groups they are
-/// members of the clipboard, when pasted back into the same
-/// drawing or another drawing, the groups will be pasted as
+/// If one or more groups are copied to the clipboard, when 
+/// pasted back into a drawing, the groups will be pasted as 
 /// anonymous/unnamed groups. 
 /// 
-/// Because this operation does not technically Clone existing
+/// Because this operation does not technically clone existing
 /// groups, if there is any type of application-data attached to 
 /// a group (e.g., xdata or extension dictionary) it will not be
 /// copied/cloned or transformed. Supporting that is beyond the
