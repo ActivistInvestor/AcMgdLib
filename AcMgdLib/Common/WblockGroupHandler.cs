@@ -54,9 +54,9 @@ namespace AcMgdLib.Common.Examples
       {
       }
 
-      protected override void OnDeepCloneEnded(Database sender)
+      protected override void OnDeepCloneEnded(Database sender, IdMapping map)
       {
-         CloneGroups(this.IdMap);
+         CloneGroups(map);
       }
 
       /// <summary>
@@ -81,8 +81,6 @@ namespace AcMgdLib.Common.Examples
                   destGroupDictionaryId, OpenMode.ForWrite);
                foreach(var srcGroup in sourceDb.GetGroups(tr))
                {
-                  if(srcGroup.IsNotAccessible)
-                     continue;
                   var cloneIds = GetCloneIds(srcGroup, map);
                   if(cloneIds != null)
                   {
@@ -112,6 +110,8 @@ namespace AcMgdLib.Common.Examples
       public static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
       {
          var srcIds = source.GetAllEntityIds();
+         if(srcIds == null || srcIds.Length == 0)
+            return null;
          var cloneIds = new ObjectId[srcIds.Length];
          for(int i = 0; i < srcIds.Length; i++)
          {
@@ -132,7 +132,9 @@ namespace AcMgdLib.Common.Examples
          var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
          foreach(DictionaryEntry entry in groupDict)
          {
-            yield return Unsafe.As<Group>(tr.GetObject((ObjectId)entry.Value, OpenMode.ForRead));
+            var group = Unsafe.As<Group>(tr.GetObject((ObjectId)entry.Value, OpenMode.ForRead));
+            if(!group.IsNotAccessible)
+               yield return group;
          }
       }
 

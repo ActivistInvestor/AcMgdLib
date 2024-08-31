@@ -37,12 +37,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       bool forceCopy = false;
       bool observing = false;
       bool disposed = false;
+      int state = 0;
 
       public WblockCloneHandler(Database db, bool forceCopy = false)
       { 
          this.sourceDb = db;
          this.forceCopy = forceCopy;
          Observing = true;
+         state = 1;
       }
 
       /// <summary>
@@ -137,6 +139,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.idMap = null;
          this.destDb = null;
          Observing = true;
+         state = 1;
       }
 
       void wblockNotice(object sender, WblockNoticeEventArgs e)
@@ -145,6 +148,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(forceCopy)
             sourceDb.ForceWblockDatabaseCopy();
          Database.DatabaseConstructed += databaseConstructed;
+         state = 2;
          Observing = false;
       }
 
@@ -154,6 +158,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Database.DatabaseConstructed -= databaseConstructed;
          destDb = (Database)sender;
          destDb.BeginDeepClone += beginDeepClone;
+         state = 3;
       }
 
       void beginDeepClone(object sender, IdMappingEventArgs e)
@@ -166,6 +171,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          db.DeepCloneEnded += deepCloneEnded;
          db.DeepCloneAborted += deepCloneAborted;
          db.BeginDeepCloneTranslation += beginDeepCloneTranslation;
+         state = 4;
       }
 
       void beginDeepCloneTranslation(object sender, IdMappingEventArgs e)
@@ -184,7 +190,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Report();
          Database db = (Database)sender;
          CheckSender(sender);
-         OnDeepCloneEnded(db);
+         OnDeepCloneEnded(db, IdMap);
          Reset();
       }
 
@@ -227,7 +233,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="sender">The Database in which the deep
       /// clone operation is ending.</param>
 
-      protected abstract void OnDeepCloneEnded(Database sender);
+      protected abstract void OnDeepCloneEnded(Database sender, IdMapping map);
 
       [Conditional("DEBUG")]
       protected static void Report([CallerMemberName] string msg = "(unknown)")
