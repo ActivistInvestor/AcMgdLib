@@ -18,7 +18,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// WblockCloneHandler class:
    /// 
    /// Does all the grunt work required to allow 
-   /// intervention in a wblock clone operation.
+   /// intervention in a wblock operation.
    /// 
    /// Usage requires one to derive a type from this 
    /// class, that overrides the OnDeepCloneEnded()
@@ -29,31 +29,38 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// showing the use of this type.
    /// </summary>
 
-   public abstract class WblockCloneHandler
+   public abstract class WblockCloneHandler : IDisposable
    {
       Database sourceDb;
       Database destDb = null;
       IdMapping idMap = null;
       bool forceCopy = false;
+      bool observing = false;
+      bool disposed = false;
 
       public WblockCloneHandler(Database db, bool forceCopy = false)
       { 
          this.sourceDb = db;
          this.forceCopy = forceCopy;
-         db.WblockNotice += wblockNotice;
+         Observing = true;
       }
 
       /// <summary>
       /// Required to intervene during a wblock of
       /// the entire database. If this is false, there
-      /// is no copy of the database created and the
+      /// is no copy of the database created, and the
       /// operation instead is more akin to a SaveAs() 
       /// operation performed on the source Database,
-      /// and  that case, no overrides of this class'
-      /// virtual methods are called.
+      /// and in that case, OnEndDeepClone() and other
+      /// virtual methods of this type are NOT called.
       /// 
-      /// This option has no affect the wblock objects 
-      /// and block forms of WBLOCK.
+      /// This option has no affect on the objects and 
+      /// block forms of WBLOCK.
+      /// 
+      /// If you do not need to intervene during a full
+      /// WBLOCK of the entire file, leave this property
+      /// set to false, as it can ential a significant
+      /// amount of overhead and memory consumption.
       /// </summary>
       
       public bool ForceDatabaseCopy
@@ -63,11 +70,34 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
+      /// A 'master' switch that enables listening for
+      /// WBLOCK operations. This switch is turned off
+      /// for the duration of such operations, and then
+      /// turned back on when the operation completes.
+      /// </summary>
+
+      public bool Observing
+      {
+         get => observing;
+         protected set
+         {
+            if(observing ^ value)
+            {
+               if(value)
+                  sourceDb.WblockNotice += wblockNotice;
+               else
+                  sourceDb.WblockNotice -= wblockNotice;
+               observing = value;
+            }
+         }
+      }
+
+      /// <summary>
       /// Caveat emptor: The IdMapping is not usable
       /// from a handler of the BeginSave event, and 
       /// will terminate AutoCAD if accessed from that 
-      /// context. The IdMapping must not be accessed 
-      /// after the DeepCloneEnded event was raised.
+      /// context. The IdMapping should not be accessed 
+      /// after a DeepCloneEnded event is raised.
       /// </summary>
 
       protected IdMapping IdMap
@@ -102,9 +132,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       protected virtual void Reset()
       {
+         destDb.DeepCloneEnded -= deepCloneEnded;
+         destDb.DeepCloneAborted -= deepCloneAborted;
          this.idMap = null;
          this.destDb = null;
-         sourceDb.WblockNotice += wblockNotice;
+         Observing = true;
       }
 
       void wblockNotice(object sender, WblockNoticeEventArgs e)
@@ -112,10 +144,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Report();
          if(forceCopy)
             sourceDb.ForceWblockDatabaseCopy();
-         DebugWrite($"Forced Copy = {forceCopy}");
          Database.DatabaseConstructed += databaseConstructed;
-         // Added again in DeepCloneEnded/Aborted, to avoid reentry:
-         sourceDb.WblockNotice -= wblockNotice;
+         Observing = false;
       }
 
       void databaseConstructed(object sender, EventArgs e)
@@ -129,8 +159,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void beginDeepClone(object sender, IdMappingEventArgs e)
       {
          Report();
+         CheckSender(sender);
          Database db = (Database)sender;
-         CheckSender(sender, destDb);
          this.idMap = e.IdMapping;
          db.BeginDeepClone -= beginDeepClone;
          db.DeepCloneEnded += deepCloneEnded;
@@ -142,7 +172,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Report();
          Database db = (Database)sender;
-         CheckSender(sender, destDb);
+         CheckSender(sender);
          db.BeginDeepCloneTranslation -= beginDeepCloneTranslation;
          if(this.IdMap != e.IdMapping)
             return;
@@ -153,8 +183,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Report();
          Database db = (Database)sender;
-         CheckSender(sender, destDb);
-         db.DeepCloneEnded -= deepCloneEnded;
+         CheckSender(sender);
          OnDeepCloneEnded(db);
          Reset();
       }
@@ -163,8 +192,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Report();
          Database db = (Database)sender;
-         CheckSender(sender, destDb);
-         db.DeepCloneAborted -= deepCloneAborted;
+         CheckSender(sender);
          OnDeepCloneAborted(db);
          Reset();
       }
@@ -180,9 +208,24 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// This method must be overridden in a derived type
       /// to perform whatever operations are required when
-      /// the wblock clone operation has ended.
+      /// the wblock clone operation has ended, before the
+      /// destination database is written to storage. 
+      /// 
+      /// It is generally safe to operate on the destination 
+      /// database from an override of this method.
+      /// 
+      /// Keep in mind that there can be other applications,
+      /// extensions, verticals, etc., that may also listen
+      /// for the underlying notification that drives this 
+      /// method (the DeepCloneEnded event), and may also be
+      /// acting on the destination database when they receive 
+      /// that notification. The order in which those other 
+      /// observers are notified is completely undefined and 
+      /// effectively-random.
+      /// 
       /// </summary>
-      /// <param name="sender"></param>
+      /// <param name="sender">The Database in which the deep
+      /// clone operation is ending.</param>
 
       protected abstract void OnDeepCloneEnded(Database sender);
 
@@ -205,12 +248,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          doc?.Editor.WriteMessage("\n" + fmt, args);
       }
 
-      static void CheckSender(object sender, Database expected)
+      void CheckSender(object sender)
       {
-         if((Database) sender != expected)
+         if((Database) sender != destDb)
             throw new InvalidOperationException("Wrong database");
       }
 
+      public void Dispose()
+      {
+         if(!disposed)
+         {
+            disposed = true;
+            try
+            {
+               Observing = false;
+            }
+            catch 
+            { 
+            }
+         }
+      }
    }
 
 
