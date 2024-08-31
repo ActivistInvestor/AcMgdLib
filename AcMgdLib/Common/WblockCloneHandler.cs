@@ -6,7 +6,6 @@
 
 using System;
 using System.Diagnostics;
-using System.Diagnostics.Extensions;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 
