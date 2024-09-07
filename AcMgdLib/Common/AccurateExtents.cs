@@ -36,21 +36,17 @@ namespace Autodesk.AutoCAD.DatabaseServices
             {
                foreach(DBObject obj in ents)
                {
-                  try
+                  using(obj)
                   {
                      if(obj is MText mtext2)
-                        extents.AddExtents(GetTrueMTextExtents(mtext2));
-                  }
-                  finally
-                  {
-                     obj.Dispose();
+                        extents.AddExtents(GetMTextExtents(mtext2));
                   }
                }
             }
             if(extents != new Extents3d())
                return extents;
          }
-         return GetTrueMTextExtents(mtext);
+         return GetMTextExtents(mtext);
       }
 
       static DBObjectCollection TryExplode(this Entity entity)
@@ -102,7 +98,11 @@ namespace Autodesk.AutoCAD.DatabaseServices
          return blkref.GeometricExtents;
       }
 
-      static Extents3d GetTrueMTextExtents(MText mtext)
+      /// <summary>
+      /// Gets the accurate extents of an MTExt entity.
+      /// </summary>
+
+      static Extents3d GetMTextExtents(MText mtext)
       {
          if(mtext == null)
             throw new ArgumentNullException("mtext");
