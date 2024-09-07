@@ -188,9 +188,10 @@ namespace Autodesk.AutoCAD.DatabaseServices
       /// Computes the geometric extents of a sequence of entities,
       /// with optional extended accuracy.
       /// </summary>
-      /// <param name="entities"></param>
+      /// <param name="entities">The sequence of entities whose extents
+      /// is to be calculated</param>
       /// <param name="useAccurateExtents">A value indicating if accurate extents 
-      /// computation is to be used for MText, MInsertBlocks, and BlockReferences</param>
+      /// computation should be used for MText, MInsertBlocks, and BlockReferences</param>
       /// <returns></returns>
 
       public static Extents3d GetGeometricExtents(this IEnumerable<Entity> entities, bool useAccurateExtents = true)
@@ -283,8 +284,9 @@ namespace Autodesk.AutoCAD.DatabaseServices
             {
                double width = block.ColumnSpacing * (block.Columns - 1);
                double height = block.RowSpacing * (block.Rows - 1);
-               CoordinateSystem3d cs = block.BlockTransform.CoordinateSystem3d;
-               extents.ExpandBy((height * cs.Yaxis.GetNormal()) + (width * cs.Xaxis.GetNormal()));
+               var cs = block.BlockTransform.CoordinateSystem3d;
+               extents.ExpandBy((height * cs.Yaxis.GetNormal()) 
+                  + (width * cs.Xaxis.GetNormal()));
             }
          }
          return extents;
@@ -319,11 +321,8 @@ namespace Autodesk.AutoCAD.DatabaseServices
             {
                return blkref.GeometryExtentsBestFit();
             }
-            catch(AcRx.Exception ex)
+            catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
             {
-               if(ex.ErrorStatus != AcRx.ErrorStatus.InvalidInput
-                  && ex.ErrorStatus != AcRx.ErrorStatus.InvalidExtents)
-                  throw;
             }
          }
          return base.GetGeomExtents(entity);
