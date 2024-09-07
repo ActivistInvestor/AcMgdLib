@@ -206,19 +206,13 @@ namespace Autodesk.AutoCAD.DatabaseServices
                using(AccurateExtents.Enable(useAccurateExtents))
                {
                   Entity ent = e.Current;
-                  if(ent != null)
-                  {
-                     if(ent.TryGetBounds(out result).IsOk())
-                        extents = result;
-                  }
+                  if(ent != null && ent.TryGetBounds(out result).IsOk())
+                     extents = result;
                   while(e.MoveNext())
                   {
                      ent = e.Current;
-                     if(ent != null)
-                     {
-                        if(ent.TryGetBounds(out result).IsOk())
-                           extents.AddExtents(result);
-                     }
+                     if(ent != null && ent.TryGetBounds(out result).IsOk())
+                        extents.AddExtents(result);
                   }
                }
             }
