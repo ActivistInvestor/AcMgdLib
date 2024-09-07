@@ -30,11 +30,19 @@ namespace Autodesk.AutoCAD.DatabaseServices
          if(mtext.ColumnType != ColumnType.NoColumns && mtext.ColumnCount > 1)
          {
             Extents3d extents = new Extents3d();
-            using(DBObjectList<Entity> ents = mtext.TryExplode())
+            using(var ents = TryExplode(mtext))
             {
-               foreach(MText mtext2 in ents.OfType<MText>())
+               foreach(DBObject obj in ents)
                {
-                  extents.AddExtents(GetTrueMTextExtents(mtext2));
+                  try
+                  {
+                     if(obj is MText mtext2)
+                        extents.AddExtents(GetTrueMTextExtents(mtext2));
+                  }
+                  finally
+                  {
+                     obj.Dispose();
+                  }
                }
             }
             if(extents != new Extents3d())
@@ -42,6 +50,21 @@ namespace Autodesk.AutoCAD.DatabaseServices
          }
          return GetTrueMTextExtents(mtext);
       }
+
+      static DBObjectCollection TryExplode(this Entity entity)
+      {
+         Assert.IsNotNull(entity, "entity");
+         DBObjectCollection coll = new DBObjectCollection();
+         try
+         {
+            entity.Explode(coll);
+         }
+         catch(AcRx.Exception ex) when(ex.ErrorStatus == AcRx.ErrorStatus.NotApplicable)
+         {
+         }
+         return coll;
+      }
+
 
       /// <summary>
       /// Get accurate extents of MInsertBlock
@@ -91,28 +114,74 @@ namespace Autodesk.AutoCAD.DatabaseServices
             new Point3d(pos.X, pos.Y - height, pos.Z),
             new Point3d(pos.X + width, pos.Y, pos.Z),
             new Point3d(pos.X + width, pos.Y - height, pos.Z));
-         if(!mtext.Rotation.IsZero())
+         if(!mtext.Rotation.IsEqualTo(0.0))
             extents.TransformBy(Matrix3d.Rotation(mtext.Rotation, mtext.Normal, pos));
          return extents;
       }
 
-      public static IEnumerable<Entity> SetPropertiesFrom(this DBObjectCollection entities, Entity source)
+      /// <summary>
+      /// Tries to retrieve an entity's GeometricExtents, and
+      /// catches exceptions thrown by the call to that property. 
+      /// 
+      /// If the call fails, the result is the ErrorStatus that
+      /// was thrown. 
+      /// 
+      /// If the call succeeds, the result is ErrorStatus.OK.
+      /// 
+      /// This API is intended to serve use cases where how to
+      /// deal with failures to get geometric extents depends on
+      /// how the extents is to be used, which can vary based on 
+      /// each use case.
+      /// </summary>
+      /// <param name="entity">The Entity whose extents is being
+      /// requested</param>
+      /// <param name="result">The output Extents3d</param>
+      /// <returns>ErrorStatus.OK if the call succeeds, or
+      /// another ErrorStatus value returned by an exception.</returns>
+      
+      public static AcRx.ErrorStatus TryGetBounds(this Entity entity, out Extents3d result)
       {
-         Assert.IsNotNull(entities, "entities");
-         Assert.IsNotNull(source, "source");
-         return SetPropertiesFrom(entities.OfType<Entity>(), source);
-      }
-
-      public static IEnumerable<Entity> SetPropertiesFrom(this IEnumerable<Entity> entities, Entity source)
-      {
-         Assert.IsNotNull(entities, "entities");
-         Assert.IsNotNull(source, "source");
-         foreach(Entity ent in entities)
+         Assert.IsNotNull(entity);
+         if(entity is Ray or Xline)
          {
-            ent.SetPropertiesFrom(source);
-            yield return ent;
+            result = default(Extents3d);
+            return AcRx.ErrorStatus.NotApplicable;
+         }
+         try
+         {
+            result = entity.GeometricExtents;
+            return AcRx.ErrorStatus.OK;
+         }
+         catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
+         {
+            result = default(Extents3d);
+            return ex.ErrorStatus;
          }
       }
+
+      public static bool IsOk(this AcRx.ErrorStatus es)
+      {
+         return es == AcRx.ErrorStatus.OK;
+      }
+
+      /// <summary>
+      /// Filters for all known ErrorStatus values thrown by
+      /// GeometricExtents and GeometryExtentsBestFit():
+      /// </summary>
+      /// <param name="ex">The exception that was thrown</param>
+      /// <returns>A value indicating if the error status is one
+      /// that is thrown by the methods that obtain an extents.
+      /// </returns>
+
+      public static bool IsGeomExtentsError(this AcRx.Exception ex)
+      {
+         var es = ex.ErrorStatus;
+         return es == AcRx.ErrorStatus.InvalidExtents
+            || es == AcRx.ErrorStatus.NullExtents
+            || es == AcRx.ErrorStatus.NotApplicable
+            || es == AcRx.ErrorStatus.CannotScaleNonUniformly;
+      }
+
    }
 
    public class MTextExtentsOverrule : GeometryOverrule
