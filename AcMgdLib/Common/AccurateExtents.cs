@@ -10,6 +10,7 @@
 /// and additions pending.
 
 using System;
+using System.Collections.Generic;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
@@ -183,6 +184,46 @@ namespace Autodesk.AutoCAD.DatabaseServices
             || es == AcRx.ErrorStatus.CannotScaleNonUniformly;
       }
 
+      /// <summary>
+      /// Computes the geometric extents of a sequence of entities,
+      /// with optional extended accuracy.
+      /// </summary>
+      /// <param name="entities"></param>
+      /// <param name="useAccurateExtents">A value indicating if accurate extents 
+      /// computation is to be used for MText, MInsertBlocks, and BlockReferences</param>
+      /// <returns></returns>
+
+      public static Extents3d GetGeometricExtents(this IEnumerable<Entity> entities, bool useAccurateExtents = true)
+      {
+         Assert.IsNotNull(entities, "entities");
+         Extents3d extents = new Extents3d();
+         Extents3d result;
+         using(var e = entities.GetEnumerator())
+         {
+            if(e.MoveNext())
+            {
+               using(AccurateExtents.Enable(useAccurateExtents))
+               {
+                  Entity ent = e.Current;
+                  if(ent != null)
+                  {
+                     if(ent.TryGetBounds(out result).IsOk())
+                        extents = result;
+                  }
+                  while(e.MoveNext())
+                  {
+                     ent = e.Current;
+                     if(ent != null)
+                     {
+                        if(ent.TryGetBounds(out result).IsOk())
+                           extents.AddExtents(result);
+                     }
+                  }
+               }
+            }
+         }
+         return extents;
+      }
    }
 
    public class MTextExtentsOverrule : GeometryOverrule
