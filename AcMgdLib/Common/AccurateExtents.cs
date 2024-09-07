@@ -96,9 +96,8 @@ namespace Autodesk.AutoCAD.DatabaseServices
          {
             return blkref.GeometryExtentsBestFit();
          }
-         catch(AcRx.Exception ex)
+         catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
          {
-            ex.Allow(AcRx.ErrorStatus.InvalidInput, AcRx.ErrorStatus.InvalidExtents);
          }
          return blkref.GeometricExtents;
       }
