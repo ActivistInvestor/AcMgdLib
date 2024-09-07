@@ -1,18 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿/// AccurateExtents.cs 
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+
+/// This file has not yet been fully-integrated into
+/// AcMgdLib, and as such it should be regarded as a
+/// 'Preview' distribution, with additional changes
+/// and additions pending.
+
+using System;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
-using System.Diagnostics;
-using Autodesk.AutoCAD.BoundaryRepresentation;
-using Autodesk.AutoCAD.DatabaseServices;
 using AcRx = Autodesk.AutoCAD.Runtime;
-using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
-using AcGe = Autodesk.AutoCAD.Geometry;
-using AcDb = Autodesk.AutoCAD.DatabaseServices;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
-
 using Assert = System.Diagnostics.Assert;
 
 namespace Autodesk.AutoCAD.DatabaseServices
