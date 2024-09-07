@@ -11,11 +11,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.ApplicationServices;
 using AcRx = Autodesk.AutoCAD.Runtime;
-using Application = Autodesk.AutoCAD.ApplicationServices.Application;
-using Assert = System.Diagnostics.Assert;
 
 namespace Autodesk.AutoCAD.DatabaseServices
 {
