@@ -118,7 +118,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          {
             if(sourceDb == null || sourceDb.IsDisposed)
                throw new InvalidOperationException("source database is null or disposed");
-            return destDb;
+            return sourceDb;
          }
       }
 
@@ -191,14 +191,35 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void deepCloneEnded(object sender, EventArgs e)
       {
          Report();
-         OnDeepCloneEnded(IdMap, false);
-         Reset();
+         deepCloneEnded(IdMap, false);
       }
 
       void deepCloneAborted(object sender, EventArgs e)
       {
          Report();
-         OnDeepCloneEnded(IdMap, true);
+         deepCloneEnded(IdMap, true);
+      }
+
+      /// <summary>
+      /// This method wraps the call to OnDeepCloneEnded()
+      /// in a try/catch, because if an exception is allowed
+      /// to escape the handler of the DeepCloneEnded event,
+      /// AutoCAD will completely disable all deep clone and 
+      /// wblock clone events, system-wide.
+      /// </summary>
+      /// <param name="map"></param>
+      /// <param name="aborted"></param>
+      
+      void deepCloneEnded(IdMapping map, bool aborted)
+      {
+         try
+         {
+            OnDeepCloneEnded(idMap, aborted);
+         }
+         catch(System.Exception ex)
+         {
+            WriteMessage(ex.ToString());
+         }
          Reset();
       }
 

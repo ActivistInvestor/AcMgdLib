@@ -52,11 +52,11 @@ namespace AcMgdLib.Common.Examples
       {
       }
 
-      protected override void OnDeepCloneEnded(IdMapping idMapping, bool aborted)
+      protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
          if(!aborted)
          {
-            int cloned = CloneGroups(idMapping);
+            int cloned = CloneGroups(map);
             if(cloned > 0)
                DebugWrite($"Copied {cloned} groups");
          }
@@ -108,8 +108,8 @@ namespace AcMgdLib.Common.Examples
 
       /// <summary>
       /// If not all source entities exist in the map (e.g., they
-      /// were not cloned), then this returns null and the group
-      /// is not cloned.
+      /// were not all cloned), this returns null and the group is 
+      /// not cloned.
       /// </summary>
 
       public static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
