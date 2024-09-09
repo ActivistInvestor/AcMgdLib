@@ -1,9 +1,10 @@
-﻿using AcMgdLib.Interop.Examples;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
-using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 /// <summary>
@@ -32,11 +33,11 @@ using Autodesk.AutoCAD.Runtime;
 /// are involved in a WBLOCK operation, the group(s) they belong 
 /// to are not included.
 /// 
-/// If one or more groups are copied to the clipboard, when 
-/// pasted back into a drawing, the groups will be pasted as 
-/// anonymous/unnamed groups. 
+/// If COPYCLIP is used to copy entities and groups to the 
+/// clipboard, when pasted back into a drawing the groups will 
+/// be pasted as anonymous/unnamed groups. 
 /// 
-/// Because this operation does not technically clone existing
+/// Because this operation does not technically Clone existing
 /// groups, if there is any type of application-data attached to 
 /// a group (e.g., xdata or extension dictionary) it will not be
 /// copied/cloned or transformed. Supporting that is beyond the
@@ -47,57 +48,118 @@ namespace AcMgdLib.Common.Examples
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
-      GroupOverrule overrule;
-
-      public WblockGroupHandler(Database db) 
-         : base(db, true)
+      public WblockGroupHandler(Database db) : base(db, true)
       {
       }
 
-      protected override void OnBeginWblock(Database destDb, IdMapping idMap)
+      protected override void OnDeepCloneEnded(Database db, IdMapping idMapping, bool aborted)
       {
-         base.OnBeginWblock(destDb, idMap);
-         overrule = new GroupOverrule();
+         if(!aborted)
+            CloneGroups(this.IdMap);
       }
 
-      protected override void OnBeginDeepCloneTranslation(IdMapping map)
+      /// <summary>
+      /// Clones all groups from the source database
+      /// to the destination database, only if all of 
+      /// the entities in the group were cloned. 
+      /// </summary>
+      /// <param name="map"></param>
+
+      static void CloneGroups(IdMapping map)
       {
+         if(map == null)
+            throw new ArgumentNullException(nameof(map));
          try
          {
-            // map.Dump();
-            map.CloneGroups();
+            using(var tr = new OpenCloseTransaction())
+            {
+               Database sourceDb = map.OriginalDatabase;
+               Database destDb = map.DestinationDatabase;
+               ObjectId destGroupDictionaryId = destDb.GroupDictionaryId;
+               var groupDictionary = tr.GetObject<DBDictionary>(
+                  destGroupDictionaryId, OpenMode.ForWrite);
+               foreach(var srcGroup in sourceDb.GetAccessibleGroups(tr))
+               {
+                  var cloneIds = GetCloneIds(srcGroup, map);
+                  if(cloneIds != null)
+                  {
+                     Group group = new Group(srcGroup.Description, srcGroup.Selectable);
+                     groupDictionary.SetAt(srcGroup.Name, group);
+                     tr.AddNewlyCreatedDBObject(group, true);
+                     group.Append(cloneIds);
+                  }
+               }
+               tr.Commit();
+            }
          }
          catch(System.Exception ex)
          {
-            AcConsole.WriteLine(ex.ToString());
+            WriteMessage($"Exception in {nameof(CloneGroups)}(): {ex.ToString()}");
+            return;
          }
-         base.OnBeginDeepCloneTranslation(map);
       }
 
-      protected override void OnDeepCloneEnded(Database sender, IdMapping map, bool aborted)
+      /// <summary>
+      /// If not all source entities exist in the map (e.g., they
+      /// were not cloned), then this returns null and the group
+      /// is not cloned.
+      /// </summary>
+
+      public static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
       {
-         // map.CopyGroups();
-         overrule?.Dispose();
-         overrule = null;
+         var srcIds = source.GetAllEntityIds();
+         var cloneIds = new ObjectId[srcIds.Length];
+         for(int i = 0; i < srcIds.Length; i++)
+         {
+            var id = srcIds[i];
+            if(!map.Contains(id))
+               return null;
+            cloneIds[i] = map[id].Value;
+         }
+         return new ObjectIdCollection(cloneIds);
       }
 
-      public class GroupOverrule : ObjectOverrule<Group>
+   }
+
+   public static class WBlockCloneGroupExtensions
+   {
+      public static IEnumerable<Group> GetAccessibleGroups(this Database db, Transaction tr)
       {
-         public override DBObject DeepClone(DBObject dbObject, DBObject ownerObject, IdMapping idMap, bool isPrimary)
+         var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
+         foreach(var entry in groupDict)
          {
-            var result = base.DeepClone(dbObject, ownerObject, idMap, isPrimary);
-            AcConsole.WriteLine($"*** Group.DeepClone(): {result.Format()}");
-            return result;
+            Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
+            if(group.IsNotAccessible)
+               continue;
+            yield return group;
          }
+      }
+   }
 
-         public override DBObject WblockClone(DBObject dbObject, RXObject ownerObject, IdMapping idMap, bool isPrimary)
+   public static class WblockGroupHandlers
+   {
+      static bool initialized = false;
+
+      public static void Initialize()
+      {
+         if(!initialized)
          {
-            DBObject result = base.WblockClone(dbObject, ownerObject, idMap, isPrimary);
-            AcConsole.WriteLine($"*** Group.WblockClone(): {result.Format()}");
-            return result;
+            initialized = true;
+            foreach(Document doc in Application.DocumentManager)
+            {
+               doc.UserData[typeof(WblockGroupHandler)] =
+                  new WblockGroupHandler(doc.Database);
+            }
+
+            Application.DocumentManager.DocumentCreated += documentCreated;
          }
       }
 
+      private static void documentCreated(object sender, DocumentCollectionEventArgs e)
+      {
+         e.Document.UserData[typeof(WblockGroupHandler)] =
+            new WblockGroupHandler(e.Document.Database);
+      }
    }
 
    public static class TestCommand
@@ -105,42 +167,8 @@ namespace AcMgdLib.Common.Examples
       [CommandMethod("WBLOCKGROUPS")]
       public static void Initialize()
       {
-         DocData<WblockGroupHandler>.Initialize(
-            doc => new WblockGroupHandler(doc.Database));
+         WblockGroupHandlers.Initialize();
       }
-
-      /// <summary>
-      /// List the names of *all* groups in a drawing file,
-      /// along with their count, and selectable, anonymous 
-      /// and erased status.
-      /// 
-      /// Using this command reveals that when inserting
-      /// a file containing groups into a drawing, empty
-      /// anonymous groups are created. 
-      /// 
-      /// It also shows that those empty groups are removed 
-      /// when the file is saved (or subsequently-reopened).
-      /// 
-      /// Note that this command is dependent on AcMgdLib, 
-      /// and will not work without it.
-      /// </summary>
-
-      [CommandMethod("LISTGR")]
-      public static void ListGroups()
-      {
-         using(var tr = new DocumentTransaction(true, true))
-         {
-            foreach(var gr in tr.GetNamedObjects<Group>())
-            {
-               AcConsole.Write($"{gr.Name}  Count: {gr.NumEntities}  " +
-                  $"Selectable: {gr.Selectable}  " + 
-                  $"Anonymous: {gr.IsAnonymous}  " +
-                  $"Erased: {gr.IsErased}");
-            }
-         }
-      }
-
-
    }
 
 }

@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 
-/// This code requires C# 10.0
+/// This code may require C# 10.0
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
