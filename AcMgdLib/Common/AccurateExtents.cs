@@ -37,10 +37,10 @@ namespace Autodesk.AutoCAD.DatabaseServices
             using(var ents = TryExplode(mtext))
             {
                foreach(DBObject obj in ents) using(obj)
-                  {
-                     if(obj is MText mtext2)
-                        extents.AddExtents(GetMTextExtents(mtext2));
-                  }
+               {
+                  if(obj is MText mtext2)
+                     extents.AddExtents(GetMTextExtents(mtext2));
+               }
             }
             return extents;
          }
