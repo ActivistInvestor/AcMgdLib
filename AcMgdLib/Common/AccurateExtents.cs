@@ -12,9 +12,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Extensions;
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.ApplicationServices;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices
@@ -22,102 +22,106 @@ namespace Autodesk.AutoCAD.DatabaseServices
    public static class AccurateExtentsExtension
    {
       /// <summary>
-      /// Get accurate MText extents
+      /// Get accurate MText extents (multi-column MTEXT
+      /// seems to have issues with extents calculation).
       /// </summary>
       /// <param name="mtext"></param>
       /// <returns></returns>
 
       public static Extents3d GetGeometricExtents(this MText mtext)
       {
+         Assert.IsNotNullOrDisposed(mtext);
          if(mtext.ColumnType != ColumnType.NoColumns && mtext.ColumnCount > 1)
          {
             Extents3d extents = new Extents3d();
             using(var ents = TryExplode(mtext))
             {
-               foreach(DBObject obj in ents)
-               {
-                  using(obj)
+               foreach(DBObject obj in ents) using(obj)
                   {
                      if(obj is MText mtext2)
                         extents.AddExtents(GetMTextExtents(mtext2));
                   }
-               }
             }
-            if(extents != new Extents3d())
-               return extents;
+            return extents;
          }
          return GetMTextExtents(mtext);
       }
 
+      static Extents3d GetMTextExtents(MText mtext)
+      {
+         Assert.IsNotNullOrDisposed(mtext);
+         Extents3d extents = new Extents3d();
+         double width = mtext.ActualWidth;
+         double height = mtext.ActualHeight;
+         Point3d pos = mtext.Location;
+         extents.AddPoint(pos);
+         extents.AddPoint(new Point3d(pos.X, pos.Y - height, pos.Z));
+         extents.AddPoint(new Point3d(pos.X + width, pos.Y, pos.Z));
+         extents.AddPoint(new Point3d(pos.X + width, pos.Y - height, pos.Z));
+         if(!mtext.Rotation.IsEqualTo(0.0))
+            extents.TransformBy(Matrix3d.Rotation(mtext.Rotation, mtext.Normal, pos));
+         return extents;
+      }
+
+      static bool IsDefault(Extents3d ext)
+      {
+         return ext.IsEqualTo(default(Extents3d));
+      }
+
       static DBObjectCollection TryExplode(this Entity entity)
       {
-         Assert.IsNotNull(entity, "entity");
+         Assert.IsNotNullOrDisposed(entity);
          DBObjectCollection coll = new DBObjectCollection();
          try
          {
             entity.Explode(coll);
          }
-         catch(AcRx.Exception ex) when(ex.ErrorStatus == AcRx.ErrorStatus.NotApplicable)
+         catch(AcRx.Exception ex) when(ex.IsExplodeError())
          {
          }
          return coll;
       }
 
-
-      /// <summary>
-      /// Get accurate extents of MInsertBlock
-      /// </summary>
-
-      static Extents3d GetGeometricExtents(this MInsertBlock block)
+      public static bool IsExplodeError(this AcRx.Exception ex)
       {
-         Extents3d extents = block.TryGetGeometricExtentsBestFit();
-         if(block.Columns != 1 && block.Rows != 1)
-         {
-            double width = block.ColumnSpacing * (block.Columns - 1);
-            double height = block.RowSpacing * (block.Rows - 1);
-            CoordinateSystem3d matrix = block.BlockTransform.CoordinateSystem3d;
-            extents.ExpandBy((height * matrix.Yaxis.GetNormal()) + (width * matrix.Xaxis.GetNormal()));
-         }
-         return extents;
+         return ex.ErrorStatus == AcRx.ErrorStatus.NotApplicable
+            || ex.ErrorStatus == ErrorStatus.CannotExplodeEntity
+            || ex.ErrorStatus == ErrorStatus.CannotScaleNonUniformly;
       }
 
       /// <summary>
-      /// Get accurate/best-fit extents of BlockReference
+      /// Tries to get accurate/best-fit extents of BlockReference,
+      /// including MInserted blocks.
+      /// 
+      /// This API follows the pattern used by TryGetBounds().
+      /// It returns ErrorStatus.OK on success, or another
+      /// ErrorStatus on failure.
       /// </summary>
 
-      public static Extents3d TryGetGeometricExtentsBestFit(this BlockReference blkref)
+      public static AcRx.ErrorStatus TryGetGeomExtentsBestFit(this BlockReference blkref, out Extents3d result)
       {
          Assert.IsNotNull(blkref, "blockReference");
          try
          {
-            return blkref.GeometryExtentsBestFit();
+            result = blkref.GeometryExtentsBestFit();
+            if(blkref is MInsertBlock mib && mib.Columns != 1 && mib.Rows != 1)
+               result = AddMInsertExtents(mib, result);
+            return AcRx.ErrorStatus.OK;
          }
-         catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
+         catch(AcRx.Exception ex) when(ex.IsBoundsError())
          {
+            result = default(Extents3d);
+            return ex.ErrorStatus;
          }
-         return blkref.GeometricExtents;
       }
 
-      /// <summary>
-      /// Gets the accurate extents of an MTExt entity.
-      /// </summary>
-
-      static Extents3d GetMTextExtents(MText mtext)
+      static Extents3d AddMInsertExtents(MInsertBlock blk, Extents3d input)
       {
-         if(mtext == null)
-            throw new ArgumentNullException("mtext");
-         Extents3d extents = new Extents3d();
-         double width = mtext.ActualWidth;
-         double height = mtext.ActualHeight;
-         Point3d pos = mtext.Location;
-         extents = extents.AddPoints(
-            pos,
-            new Point3d(pos.X, pos.Y - height, pos.Z),
-            new Point3d(pos.X + width, pos.Y, pos.Z),
-            new Point3d(pos.X + width, pos.Y - height, pos.Z));
-         if(!mtext.Rotation.IsEqualTo(0.0))
-            extents.TransformBy(Matrix3d.Rotation(mtext.Rotation, mtext.Normal, pos));
-         return extents;
+         double width = blk.ColumnSpacing * (blk.Columns - 1);
+         double height = blk.RowSpacing * (blk.Rows - 1);
+         var ecs = blk.BlockTransform.CoordinateSystem3d;
+         input.ExpandBy((height * ecs.Yaxis.GetNormal()) + (width * ecs.Xaxis.GetNormal()));
+         return input;
       }
 
       /// <summary>
@@ -139,7 +143,7 @@ namespace Autodesk.AutoCAD.DatabaseServices
       /// <param name="result">The output Extents3d</param>
       /// <returns>ErrorStatus.OK if the call succeeds, or
       /// another ErrorStatus value returned by an exception.</returns>
-      
+
       public static AcRx.ErrorStatus TryGetBounds(this Entity entity, out Extents3d result)
       {
          Assert.IsNotNull(entity);
@@ -150,31 +154,28 @@ namespace Autodesk.AutoCAD.DatabaseServices
          }
          try
          {
+            if(entity is BlockReference blkref && !(blkref is Table))
+               return blkref.TryGetGeomExtentsBestFit(out result);
             result = entity.GeometricExtents;
             return AcRx.ErrorStatus.OK;
          }
-         catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
+         catch(AcRx.Exception ex) when(ex.IsBoundsError())
          {
             result = default(Extents3d);
             return ex.ErrorStatus;
          }
       }
 
-      public static bool IsOk(this AcRx.ErrorStatus es)
-      {
-         return es == AcRx.ErrorStatus.OK;
-      }
-
       /// <summary>
-      /// Filters for all known ErrorStatus values thrown by
-      /// GeometricExtents and GeometryExtentsBestFit():
+      /// Indicates if the Exception's ErrorStatus is one of those
+      /// thrown by GeometricExtents and GeometryExtentsBestFit():
       /// </summary>
       /// <param name="ex">The exception that was thrown</param>
-      /// <returns>A value indicating if the error status is one
-      /// that is thrown by the methods that obtain an extents.
+      /// <returns>A value indicating if the ErrorStatus is one
+      /// that is thrown by methods that compute an extents.
       /// </returns>
 
-      public static bool IsGeomExtentsError(this AcRx.Exception ex)
+      public static bool IsBoundsError(this AcRx.Exception ex)
       {
          var es = ex.ErrorStatus;
          return es == AcRx.ErrorStatus.InvalidExtents
@@ -183,17 +184,22 @@ namespace Autodesk.AutoCAD.DatabaseServices
             || es == AcRx.ErrorStatus.CannotScaleNonUniformly;
       }
 
+      public static bool IsOk(this AcRx.ErrorStatus es)
+      {
+         return es == AcRx.ErrorStatus.OK;
+      }
+
       /// <summary>
       /// Computes the geometric extents of a sequence of entities,
       /// with optional extended accuracy.
       /// </summary>
       /// <param name="entities">The sequence of entities whose extents
       /// is to be calculated</param>
-      /// <param name="useAccurateExtents">A value indicating if accurate extents 
+      /// <param name="accurate">A value indicating if accurate extents 
       /// computation should be used for MText, MInsertBlocks, and BlockReferences</param>
       /// <returns></returns>
 
-      public static Extents3d GetGeometricExtents(this IEnumerable<Entity> entities, bool useAccurateExtents = true)
+      public static Extents3d GetGeometricExtents(this IEnumerable<Entity> entities, bool accurate = true)
       {
          Assert.IsNotNull(entities, "entities");
          Extents3d extents = new Extents3d();
@@ -202,7 +208,7 @@ namespace Autodesk.AutoCAD.DatabaseServices
          {
             if(e.MoveNext())
             {
-               using(AccurateExtents.Enable(useAccurateExtents))
+               using(AccurateExtents.Enable(accurate))
                {
                   Entity ent = e.Current;
                   if(ent != null && ent.TryGetBounds(out result).IsOk())
@@ -218,115 +224,102 @@ namespace Autodesk.AutoCAD.DatabaseServices
          }
          return extents;
       }
-   }
 
-   public class MTextExtentsOverrule : GeometryOverrule
-   {
-      bool disposed = false;
-      public MTextExtentsOverrule()
-      {
-         AddOverrule(GetClass(typeof(MText)), this, true);
-      }
+      /// <summary>
+      /// Similar to the above overload, but also accepts
+      /// an Action that's called when an attempt to obtain
+      /// an entity's extents fails. 
+      /// </summary>
 
-      protected override void Dispose(bool disposing)
+      public static Extents3d GetGeometricExtents<T>(this IEnumerable<T> entities,
+         Action<T, AcRx.ErrorStatus> error,
+         bool accurate = true) where T : Entity
       {
-         if(!disposed)
+         Assert.IsNotNull(entities);
+         Assert.IsNotNull(error);
+         Extents3d extents = new Extents3d();
+         Extents3d result;
+         using(var e = entities.GetEnumerator())
          {
-            disposed = true;
-            RemoveOverrule(GetClass(typeof(MText)), this);
-         }
-         base.Dispose(disposing);
-      }
-
-      public override Extents3d GetGeomExtents(Entity entity)
-      {
-         if(AccurateExtents.Enabled)
-         {
-            return ((MText)entity).GetGeometricExtents();
-         }
-         return base.GetGeomExtents(entity);
-      }
-   }
-
-   public class MInsertBlockExtentsOverrule : GeometryOverrule
-   {
-      bool disposed = false;
-
-      public MInsertBlockExtentsOverrule()
-      {
-         AddOverrule(GetClass(typeof(MInsertBlock)), this, true);
-      }
-
-      protected override void Dispose(bool disposing)
-      {
-         if(!disposed)
-         {
-            disposed = true;
-            RemoveOverrule(GetClass(typeof(MInsertBlock)), this);
-         }
-         base.Dispose(disposing);
-      }
-
-      public override Extents3d GetGeomExtents(Entity entity)
-      {
-         Extents3d extents = base.GetGeomExtents(entity);
-         if(AccurateExtents.Enabled)
-         {
-            MInsertBlock block = entity as MInsertBlock;
-            if(block != null && block.Columns > 1 || block.Rows > 1)
+            if(e.MoveNext())
             {
-               double width = block.ColumnSpacing * (block.Columns - 1);
-               double height = block.RowSpacing * (block.Rows - 1);
-               var cs = block.BlockTransform.CoordinateSystem3d;
-               extents.ExpandBy((height * cs.Yaxis.GetNormal()) 
-                  + (width * cs.Xaxis.GetNormal()));
+               using(AccurateExtents.Enable(accurate))
+               {
+                  T ent = e.Current;
+                  if(ent != null)
+                  {
+                     var es = ent.TryGetBounds(out result);
+                     if(!es.IsOk())
+                        error(ent, es);
+                     else
+                        extents = result;
+                  }
+                  while(e.MoveNext())
+                  {
+                     ent = e.Current;
+                     if(ent != null)
+                     {
+                        var es = ent.TryGetBounds(out result);
+                        if(es.IsOk())
+                           extents.AddExtents(result);
+                        else
+                           error(ent, es);
+                     }
+                  }
+               }
             }
          }
          return extents;
       }
    }
 
-   public class BlockReferenceExtentsOverrule : GeometryOverrule
+   public class MTextExtentsOverrule : GeometryOverrule<MText>
    {
-      bool disposed = false;
-
-      public BlockReferenceExtentsOverrule()
-      {
-         AddOverrule(GetClass(typeof(BlockReference)), this, true);
-      }
-
-      protected override void Dispose(bool disposing)
-      {
-         if(!disposed)
-         {
-            disposed = true;
-            RemoveOverrule(GetClass(typeof(BlockReference)), this);
-         }
-         base.Dispose(disposing);
-      }
-
       public override Extents3d GetGeomExtents(Entity entity)
       {
-         if(AccurateExtents.Enabled && !(entity is Table))
+         if(AccurateExtents.Enabled)
          {
-            BlockReference blkref = (BlockReference)entity;
             try
             {
-               return blkref.GeometryExtentsBestFit();
+               return ((MText)entity).GetGeometricExtents();
             }
-            catch(AcRx.Exception ex) when (ex.IsGeomExtentsError())
+            catch(AcRx.Exception ex) when(ex.IsBoundsError())
             {
             }
          }
          return base.GetGeomExtents(entity);
       }
+   }
+
+   public class BlockReferenceExtentsOverrule : GeometryOverrule<BlockReference>
+   {
+      public override Extents3d GetGeomExtents(Entity entity)
+      {
+         if(AccurateExtents.Enabled && IsTrueBlockReference(entity))
+         {
+            BlockReference blkref = (BlockReference)entity;
+            Extents3d result;
+            if(blkref.TryGetGeomExtentsBestFit(out result).IsOk())
+               return result;
+         }
+         return base.GetGeomExtents(entity);
+      }
+
+      static bool IsTrueBlockReference(DBObject obj)
+      {
+         return obj != null
+            && !DBObject.IsCustomObject(obj.Id)
+            && (obj is BlockReference)
+            && !(obj is Table);
+      }
 
    }
 
+
    /// <summary>
-   /// A global switch that enables/disables the above three
-   /// GeometryOverrules used to compute more accurate extents
-   /// for MText, MinsertBlocks, and BlockReferences. The value
+   /// A class that manages the above GeometryOverrules that 
+   /// are used to compute more accurate extents for MText, 
+   /// MinsertBlocks, and BlockReferences. The Enabled property
    /// is false by default, and must be enabled. It is highly-
    /// recommended that the value is enabled only while it is
    /// absolutely necessary, as the overhead of computing more-
@@ -335,8 +328,9 @@ namespace Autodesk.AutoCAD.DatabaseServices
 
    public static class AccurateExtents
    {
-      static bool enabled = false;
-      static Overrule[] overrules = new Overrule[3];
+      static bool enabled => mTextOverrule != null && blockRefOverrule != null;
+      static BlockReferenceExtentsOverrule blockRefOverrule;
+      static MTextExtentsOverrule mTextOverrule;
 
       /// <summary>
       /// Enables or disables accurate extents computation
@@ -398,7 +392,7 @@ namespace Autodesk.AutoCAD.DatabaseServices
 
       public static IDisposable Enable(bool value = true)
       {
-         return new Scope(value);
+         return new Enabler(value);
       }
 
       /// Non-public members
@@ -407,36 +401,27 @@ namespace Autodesk.AutoCAD.DatabaseServices
       {
          if(enabled ^ value)
          {
-            if(enabled = value)
+            if(value)
             {
-               overrules[0] = new MTextExtentsOverrule();
-               overrules[1] = new MInsertBlockExtentsOverrule();
-               overrules[2] = new BlockReferenceExtentsOverrule();
-               Autodesk.AutoCAD.ApplicationServices.Application.BeginQuit += beginQuit;
+               mTextOverrule = new MTextExtentsOverrule();
+               blockRefOverrule = new BlockReferenceExtentsOverrule();
             }
             else
             {
-               for(int i = 0; i < overrules.Length; i++)
-               {
-                  overrules[i].Dispose();
-                  overrules[i] = null;
-               }
-               Application.BeginQuit -= beginQuit;
+               mTextOverrule?.Dispose();
+               mTextOverrule = null;
+               blockRefOverrule?.Dispose();
+               blockRefOverrule = null;
             }
          }
       }
 
-      static void beginQuit(object sender, EventArgs e)
-      {
-         Enabled = false;
-      }
-
-      class Scope : IDisposable
+      class Enabler : IDisposable
       {
          bool oldvalue;
          bool disposed = false;
 
-         public Scope(bool value)
+         public Enabler(bool value)
          {
             this.oldvalue = Enabled;
             Enabled = value;
