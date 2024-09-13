@@ -163,6 +163,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static RibbonEventManager()
       {
+         AcConsole.Report();
          stateView = EditorStateView.Instance;
          stateView.AddRef();
          if(RibbonExists)

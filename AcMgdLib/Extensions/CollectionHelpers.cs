@@ -186,24 +186,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return ObjectId.Null;
       }
 
+      /// <summary>
+      /// Overcomes a long-standing problem releated to SymbolTables,
+      /// which is that the Has() method considers erased entries, while
+      /// the indexer does not. The problem manifests when a request is
+      /// made using Has() and an erased entry with the given key exists.
+      /// 
+      /// This method does not consider erased entries, and will only
+      /// return true if a non-erased entry exists with the given key.
+      /// </summary>
+      /// <param name="table"></param>
+      /// <param name="key"></param>
+      /// <returns></returns>
+      
       public static bool Contains(this SymbolTable table, string key)
       {
-         Assert.IsNotNullOrDisposed(table, nameof(table));
-         Assert.IsNotNullOrWhiteSpace(key, nameof(key));
-         try
-         {
-            return !table[key].IsErased;
-         }
-         catch(AcRx.Exception)
-         {
-         }
-         return false;
+         var id = GetRecordId(table, key);
+         return !(id.IsNull || id.IsErased);
       }
 
-
    }
-
-
 
    /// <summary>
    /// This class follows the same pattern used by

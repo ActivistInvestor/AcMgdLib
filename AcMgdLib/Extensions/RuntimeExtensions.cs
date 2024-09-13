@@ -158,9 +158,11 @@ namespace Autodesk.AutoCAD.Runtime
       /// case-insenstive string comparisons.
       /// </summary>
 
-      public static bool IsEqualTo(this string str, string other)
+      public static bool IsEqualTo(this string str, string other, bool ignoreCase = true)
       {
-         return string.Equals(str, other, StringComparison.InvariantCultureIgnoreCase);
+         return string.Equals(str, other, 
+            ignoreCase ? StringComparison.InvariantCultureIgnoreCase 
+               : StringComparison.InvariantCulture);
       }
 
       /// <summary>

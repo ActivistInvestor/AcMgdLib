@@ -4,6 +4,7 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
+using AcMgdLib.Interop.Examples;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
@@ -109,6 +110,39 @@ namespace AcMgdLib.Utility
             }
          }
       }
+
+      /// <summary>
+      /// List the names of *all* groups in a drawing file,
+      /// along with their count, and selectable, anonymous 
+      /// and erased status.
+      /// 
+      /// Using this command reveals that when inserting
+      /// a file containing groups into a drawing, empty
+      /// anonymous groups are created. 
+      /// 
+      /// It also shows that those empty groups are removed 
+      /// when the file is saved (or subsequently-reopened).
+      /// 
+      /// Note that this command is dependent on AcMgdLib, 
+      /// and will not work without it.
+      /// </summary>
+
+      [CommandMethod("LISTGR")]
+      public static void ListGroups()
+      {
+         using(var tr = new DocumentTransaction(true, true))
+         {
+            foreach(var gr in tr.GetNamedObjects<Group>())
+            {
+               AcConsole.Write($"{gr.Name}  Count: {gr.NumEntities}  " +
+                  $"Selectable: {gr.Selectable}  " +
+                  $"Anonymous: {gr.IsAnonymous}  " +
+                  $"Erased: {gr.IsErased}");
+               gr.GetXDataForApplication("ACMGDLIB_GROUPDATA")?.Dump();
+            }
+         }
+      }
+
 
    }
 }

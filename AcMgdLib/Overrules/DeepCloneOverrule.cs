@@ -7,6 +7,7 @@
 using System;
 using System.Diagnostics.Extensions;
 using System.Linq;
+using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -133,7 +134,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Do not cache references to the arguments, as
       /// they will be unusable after this method has
-      /// returned.
+      /// returned. 
+      /// 
+      /// Do not dispose either argument, as doing that 
+      /// will most-likely lead to a catastrophic failure.
       /// 
       /// The default implementation of this method 
       /// calls the Action supplied to the constructor.

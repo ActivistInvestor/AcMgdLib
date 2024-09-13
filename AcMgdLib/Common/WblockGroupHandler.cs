@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
+using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Extensions;
+using DeepCloneMappingExample;
 
 /// <summary>
 /// An example showing the use of the WblockCloneHandler
@@ -52,13 +56,49 @@ namespace AcMgdLib.Common.Examples
       {
       }
 
+      //protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
+      //{
+      //   if(!aborted)
+      //   {
+      //      int cloned = CloneGroups(map);
+      //      if(cloned > 0)
+      //         DebugWrite($"Copied {cloned} groups");
+      //   }
+      //}
+
       protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
          if(!aborted)
          {
-            int cloned = CloneGroups(map);
-            if(cloned > 0)
-               DebugWrite($"Copied {cloned} groups");
+            deepCloneGroups(Destination, map);
+         }
+      }
+
+      private void deepCloneGroups(Database destination, IdMapping map)
+      {
+         IEnumerable<ObjectId> ids;
+         using(var tr = new OpenCloseTransaction())
+         {
+            ids = Source.GetNamedObjects<Group>(tr)
+               .Where(group => !group.IsNotAccessible)
+               .Select(group => group.ObjectId);
+
+            tr.Commit();
+         }
+         if(ids.Any())
+         {
+            ids.CopyTo<Group>(Destination.GroupDictionaryId,
+               OnGroupCloned);
+         }
+
+         void OnGroupCloned(Group source, Group clone)
+         {
+            var cloneIds = GetCloneIds(source, map);
+            AcConsole.ReportMsg($"clone.NumEntities = {clone.NumEntities}");
+            //if(cloneIds != null)
+            //{
+            //   clone.Append(cloneIds);
+            //}
          }
       }
 
@@ -93,6 +133,8 @@ namespace AcMgdLib.Common.Examples
                      tr.AddNewlyCreatedDBObject(group, true);
                      group.Append(cloneIds);
                      ++cloned;
+                     destDb.RegisterApplication(ACMGDLIB_GROUPDATA, tr);
+                     group.XData = GetXDataForSource(srcGroup);
                   }
                }
                tr.Commit();
@@ -105,6 +147,57 @@ namespace AcMgdLib.Common.Examples
             return 0;
          }
       }
+
+      DeepCloneOverrule<Group> overrule;
+
+      protected override void OnBeginInsert(Database from)
+      {
+         /// Get the names of all groups in the destination
+         /// document, to determine if the incoming groups
+         /// can have their name restored.
+         base.OnBeginInsert(from);
+         overrule = new DeepCloneOverrule<Group>(OnCloned);
+      }
+
+      void OnCloned(Group src, Group clone)
+      {
+         AcConsole.ReportMsg($" {src.ToDebugString()}" +
+          $" => {clone.ToDebugString()} (writeEnabled = {clone.IsWriteEnabled})");
+      }
+
+      protected override void OnInsertEnded(Database db, bool aborted)
+      {
+         overrule?.Dispose();
+         overrule = null;
+         ResolveGroups(db, InsertMapping);
+         base.OnInsertEnded(db, aborted);
+      }
+
+      void ResolveGroups(Database db, IdMapping map)
+      {
+         using(var tr = new OpenCloseTransaction())
+         {
+            var cloneIds = map.GetPrimaryCloneIds<Group>();
+            foreach(var cloneId in cloneIds)
+            {
+               Group group = tr.GetObject<Group>(cloneId);
+               AcConsole.Write($"Group {group.Name} IsWriteEnabled = {group.IsWriteEnabled}");
+            }
+         }
+      }
+
+      static TypedValueList GetXDataForSource(Group group)
+      {
+         TypedValueList list = new TypedValueList();
+         list.AddRange(
+            (DxfCode.ExtendedDataRegAppName, ACMGDLIB_GROUPDATA),
+            (DxfCode.ExtendedDataAsciiString, group.Name),
+            (DxfCode.ExtendedDataInteger16, group.Selectable ? 1 : 0)
+         );
+         return list;
+      }
+
+      public const string ACMGDLIB_GROUPDATA = "ACMGDLIB_GROUPDATA";
 
       /// <summary>
       /// If not all source entities exist in the map (e.g., they

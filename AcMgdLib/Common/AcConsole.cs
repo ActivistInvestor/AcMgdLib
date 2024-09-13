@@ -9,6 +9,7 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -141,10 +142,24 @@ namespace Autodesk.AutoCAD.Runtime
          return new StackTrace(1, false).GetFrame(1).ToString();
       }
 
+      public static MethodBase GetCallingMethod(int skip = 0)
+      {
+         return new StackTrace(skip + 1, false).GetFrame(0).GetMethod();
+      }
+
+      public static string GetCaller(bool withType = true, int skip = 0)
+      {
+         var method = GetCallingMethod(skip);
+         if(withType)
+            return $"{method.ReflectedType.CSharpName()}.{method.Name}";
+         else
+            return method.Name;
+      }
+
       [Conditional("DEBUG")]
       public static void Report([CallerMemberName] string caller = "(unknown)")
       {
-         Write($"*** {caller} ***");
+         Write($"*** {caller} ***\n");
       }
 
       [Conditional("DEBUG")]

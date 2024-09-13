@@ -93,10 +93,18 @@ namespace Autodesk.AutoCAD.EditorInput.Extensions
          }
       }
 
-      public static bool IsFailed(this PromptResult pr)
+      public static bool IsFailed(this PromptResult pr, bool acceptNone = false)
       {
-         return pr.Status != PromptStatus.OK && pr.Status != PromptStatus.Keyword
-            && pr.Status != PromptStatus.Other;
+         return !IsValid(pr, acceptNone);
+      }
+
+      public static bool IsValid(this PromptResult pr, bool acceptNone = false)
+      {
+         var stat = pr.Status;
+         return stat == PromptStatus.OK
+            || stat == PromptStatus.Keyword
+            || stat == PromptStatus.Other
+            || acceptNone && stat == PromptStatus.None;
       }
 
       public static bool IsNone(this PromptResult pr)
@@ -250,7 +258,12 @@ namespace Autodesk.AutoCAD.ApplicationServices.EditorInputExtensions
       /// will reappear after the call to this method returns.
       /// 
       /// An example that requires a user to select a closed,
-      /// planar curve:
+      /// planar curve. If this method is called from a modal
+      /// dialog box, the modal dialog will be hidden until
+      /// the call to this method returns. The validation 
+      /// function executes while the dialog is hidden, and
+      /// returns a value indicating if the selected entity
+      /// is valid.
       /// 
       /// <code>
       /// 
@@ -264,10 +277,12 @@ namespace Autodesk.AutoCAD.ApplicationServices.EditorInputExtensions
       ///      else
       ///         return ObjectId.Null;
       ///         
-      ///      // The validation method is called by GetEntity<T>,
-      ///      // when an object is selected, and is passed the open
+      ///      // This validation function is passed to GetEntity<T>.
+      ///      // When an object is selected, it is passed the opened
       ///      // entity. If the validation method returns false, the 
-      ///      // input prompt is re-issued:
+      ///      // input prompt is re-issued. The validation function
+      ///      // should display an appropriate message if validation
+      ///      // fails and the prompt is reissued:
       ///      
       ///      bool validate(Curve crv, PromptEntityResult rslt, Editor ed)
       ///      {
@@ -322,7 +337,7 @@ namespace Autodesk.AutoCAD.ApplicationServices.EditorInputExtensions
                   return result;
                using(var tr = new OpenCloseTransaction())
                {
-                  T entity = tr.GetObject(result.ObjectId, OpenMode.ForRead) as T;
+                  T entity = (T) tr.GetObject(result.ObjectId, OpenMode.ForRead);
                   if(validate(entity, result, editor))
                      return result;
                }
@@ -424,7 +439,7 @@ namespace Autodesk.AutoCAD.ApplicationServices.EditorInputExtensions
       {
          if(string.IsNullOrEmpty(kwTrue) || string.IsNullOrEmpty(kwFalse))
             throw new ArgumentException("true/false keywords must be non-empty strings");
-         if(kwTrue.Equals(kwFalse, StringComparison.InvariantCultureIgnoreCase))
+         if(kwTrue.IsEqualTo(kwFalse))
             throw new ArgumentException("true and false keywords must not be equal");
          PromptKeywordOptions pko = new PromptKeywordOptions(msg);
          pko.Keywords.Add(kwTrue);

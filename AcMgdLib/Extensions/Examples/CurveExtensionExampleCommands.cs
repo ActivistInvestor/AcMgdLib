@@ -44,8 +44,7 @@ namespace AcMgdLib.Extensions.Examples
             {
                if(fragments.Count > 0)
                {
-                  var ids = tr.Append(fragments);
-                  ed.SetImpliedSelection(ids.ToArray());
+                  ed.SetImpliedSelection(tr.Append(fragments).ToArray());
                }
             }
             tr.Commit();

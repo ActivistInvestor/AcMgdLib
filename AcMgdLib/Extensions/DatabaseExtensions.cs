@@ -15,6 +15,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -444,7 +445,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// If a non-erased entry is not found with the given
       /// name, a KeyNotFoundException will be thrown if the
-      /// throwIfNotFound method is true. Otherwise, null is
+      /// throwIfNotFound argument is true. Otherwise, null is
       /// returned. The default for throwIfNotFound is false.
       /// 
       /// </summary>
@@ -613,7 +614,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             Func<T, bool> predicate) where T : DBObject
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));
-         Assert.IsNotNull(predicate, nameof(predicate));
          using(var tr = new ReadOnlyTransaction())
          {
             foreach(var entry in DBDictionary<T>.GetDictionary(db, tr))
@@ -662,6 +662,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(throwIfNotFound)
             throw new KeyNotFoundException(key);
          return null;
+      }
+
+      public static DBDictionary GetDictionary<T>(this Database db, Transaction tr, OpenMode mode = OpenMode.ForRead)
+         where T: DBObject
+      {
+         return DBDictionary<T>.GetDictionary(db, tr, mode);
       }
 
       /// <summary>
@@ -1352,6 +1358,68 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       //   }
       //}
 
+      /// <summary>
+      /// Can optionally be passed a transaction.
+      /// If not provided, a transaction is started
+      /// and either commited or aborted.
+      /// </summary>
+      /// <param name="db"></param>
+      /// <param name="name"></param>
+      /// <param name="trans"></param>
+      
+      public static void RegisterApplication(this Database db, string name, Transaction trans = null)
+      {
+         Assert.IsValid(db, true);
+         Assert.IsNotNullOrWhiteSpace(name);
+         SymbolUtilityServices.ValidateSymbolName(name, false);
+         bool flag = trans == null;
+         if(flag)
+            trans = new OpenCloseTransaction();
+         RegAppTableRecord rec = null;
+         try
+         {
+            var table = trans.GetObject<RegAppTable>(db.RegAppTableId);
+            if(!table.Contains(name))
+            {
+               table.UpgradeOpen();
+               using(rec = new RegAppTableRecord())
+               {
+                  rec.Name = name;
+                  table.Add(rec);
+                  trans.AddNewlyCreatedDBObject(rec, true);
+                  rec = null;
+               }
+            }
+            if(flag)
+               trans.Commit();
+         }
+         finally
+         {
+            if(flag)
+               trans.Dispose();
+         }
+      }
+
+      /// <summary>
+      /// Cannot be called on non database-resident objects.
+      /// </summary>
+      /// <param name="db"></param>
+      /// <param name="appName"></param>
+      /// <param name="rb"></param>
+
+      public static void SetXData(this DBObject obj, string appName, Transaction tr, IEnumerable<TypedValue> items)
+      {
+         Assert.IsNotNullOrDisposed(obj);
+         Assert.IsNotNullOrWhiteSpace(appName);
+         Assert.IsNotNull(items);
+         Assert.MustBeTrue(items.Any());
+         AcRx.ErrorStatus.NotInDatabase.ThrowIf(obj.Database == null);
+         var list = new TypedValueList(items);
+         if(list[0].TypeCode != (short)DxfCode.ExtendedDataRegAppName)
+            list.Insert(0, new TypedValue((short)DxfCode.ExtendedDataRegAppName, appName));
+         RegisterApplication(obj.Database, (string) list[0].Value);
+         obj.XData = list;
+      }
 
       public static IDisposable AsWorkingDatabase(this Database db)
       {

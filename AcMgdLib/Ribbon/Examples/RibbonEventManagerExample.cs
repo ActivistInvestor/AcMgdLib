@@ -106,9 +106,10 @@ using Autodesk.Windows.Extensions;
 /// the name of the actual IExtensionApplication-
 /// based class:
 
-[assembly: ExtensionApplication(typeof(Namespace1.MyRibbonUIApplication))]
+[assembly: ExtensionApplication(
+   typeof(AcMgdLib.Ribbon.Examples.MyRibbonUIApplication))]
 
-namespace Namespace1
+namespace AcMgdLib.Ribbon.Examples
 {
    public class MyRibbonUIApplication : IExtensionApplication
    {
@@ -134,8 +135,8 @@ namespace Namespace1
 
       public void Initialize()
       {
+         AcConsole.Report();
          /// Add a handler to the InitializeRibbon event.
-
          RibbonEventManager.InitializeRibbon += LoadMyRibbonContent;
       }
 

@@ -14,6 +14,7 @@ using System.Linq.Expressions.Predicates;
 using System.Windows.Navigation;
 using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 /// Note: This file is intentionally kept free of any
@@ -858,6 +859,32 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead) where T : SymbolTableRecord
       {
          return ThisDb.GetRecord<T>(predicate, Transaction, mode);
+      }
+
+      /// <summary>
+      /// Unlike the DatabaseExtension method of the same
+      /// name, this method can operate on objects that are
+      /// not Database-resident, but they must be added to 
+      /// the Database associated with the instance.
+      /// </summary>
+      /// <param name="obj"></param>
+      /// <param name="appName"></param>
+      /// <param name="items"></param>
+      
+      public void SetXData(DBObject obj, string appName, IEnumerable<TypedValue> items)
+      {
+         Assert.IsNotNullOrDisposed(obj);
+         Assert.IsNotNullOrWhiteSpace(appName);
+         Assert.IsNotNull(items);
+         Assert.MustBeTrue(items.Any());
+         Database db = obj.Database ?? ThisDb;
+         var list = new TypedValueList(items);
+         if(list[0].TypeCode != (short)DxfCode.ExtendedDataRegAppName)
+            list.Insert(0, new TypedValue((short)DxfCode.ExtendedDataRegAppName, appName));
+         db.RegisterApplication((string)list[0].Value, this);
+         if(!obj.IsWriteEnabled && obj.Database != ThisDb)
+            this.GetObject(obj.ObjectId, OpenMode.ForWrite, true, true);
+         obj.XData = list;
       }
 
       public ObjectId GetLayoutId(string layoutName, bool throwIfNotFound = false)
