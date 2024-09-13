@@ -172,6 +172,39 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          }
       }
 
+      public static void AddRange(this IList<TypedValue> list, params (int code, object value)[] args)
+      {
+         CheckIsFixedSize(list);
+         if(args == null)
+            throw new ArgumentNullException(nameof(args));
+         if(args.Length > 0)
+         {
+            AddRange(list, args.ToTypedValues());
+         }
+      }
+
+      public static void AddRange(this IList<TypedValue> list, params (DxfCode code, object value)[] args)
+      {
+         CheckIsFixedSize(list);
+         if(args == null)
+            throw new ArgumentNullException(nameof(args));
+         if(args.Length > 0)
+         {
+            AddRange(list, args.ToTypedValues());
+         }
+      }
+
+      public static void AddRange(this IList<TypedValue> list, params (LispDataType code, object value)[] args)
+      {
+         CheckIsFixedSize(list);
+         if(args == null)
+            throw new ArgumentNullException(nameof(args));
+         if(args.Length > 0)
+         {
+            AddRange(list, args.ToTypedValues());
+         }
+      }
+
       /// <summary>
       /// Adds a range of elements all having the same 
       /// given type code, each having one of the given 

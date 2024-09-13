@@ -112,7 +112,7 @@ namespace Linq2Lisp
          if(typeToLispDataTypeMap.TryGetValue(type, out LispDataType result))
             return result;
          if(throwIfNotFound)
-            throw new ArgumentException($"Unsupported type {type.CSharpName()}");
+            throw new ArgumentException($"Unsupported type {type.Name}");
          return LispDataType.None;
       }
 

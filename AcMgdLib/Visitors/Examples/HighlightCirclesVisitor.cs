@@ -62,7 +62,7 @@ namespace AcMgdLib.Visitors.Examples
             tr.IsReadOnly = true;
             var per = tr.Editor.GetEntity<BlockReference>(
                "\nSelect a block reference, or ENTER for all: ");
-            if(per.IsFailed() && !per.IsNone())
+            if(per.IsFailed(true))
                return;
             var visitor = new HighlightCirclesVisitor();
             var id = per.ObjectId.IsNull ? tr.CurrentSpaceId : per.ObjectId;

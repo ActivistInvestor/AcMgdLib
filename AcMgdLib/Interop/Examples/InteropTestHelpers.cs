@@ -69,12 +69,12 @@ namespace AcMgdLib.Interop.Examples
 
       public static void Dump(this ResultBuffer rb, string label = null)
       {
-         WriteLine((label ?? "") + rb.Cast<TypedValue>().Format());
+         Write((label ?? "") + rb.Cast<TypedValue>().Format());
       }
 
       public static void Dump(this IEnumerable<TypedValue> items, string label = null)
       {
-         WriteLine((label ?? "") + items.Format());
+         Write((label ?? "") + items.Format());
       }
 
       public static string Format<TKey, TValue>(this Dictionary<TKey, IEnumerable<TValue>> map)

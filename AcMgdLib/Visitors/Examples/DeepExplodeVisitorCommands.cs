@@ -30,22 +30,42 @@ namespace AcMgdLib.Visitors.Examples
       /// will explode all curves from the nested references
       /// as well, to any depth.
       /// 
+      /// If a curve is nested in one or more blocks with
+      /// a compound transformation that is non-uniformly
+      /// scaled, the curve will not be exploded.
+      /// 
+      /// Notice that it may at first appear that it isn't
+      /// necessary to visit a block whose block transform
+      /// is non-uniformly scaled, but that is actually not 
+      /// the case.
+      /// 
+      /// Consider a case where there is a block named 'A' 
+      /// that contains an insertion of a block named 'B'.
+      /// if the insertion scale factors of an insertion of
+      /// block 'A' are X = 2.0, Y = 1.0, Z = 1.0, and the
+      /// insertions of block 'B' within block 'A' have the
+      /// insertion scale factors X = 0.5, Y = 1.0, Z = 1.0,
+      /// the compound transformation from the contents of
+      /// block 'B' to the insertion space of the insertion 
+      /// of block 'A' would be X = 1.0, Y = 1.0, Z = 1.0,
+      /// allowing the entities in B within the insertion of
+      /// A to be transformed.
+      /// 
       /// This code does not modify any existing objects. It
       /// simply copies existing entities and transforms them
       /// to the current space in the drawing editor.
       /// 
-      /// While the term 'EXPLODE' is used throught this code,
+      /// While the term 'EXPLODE' is used thruout this code,
       /// what the code actually does is what AutoCAD's NCOPY
-      /// command does, except that this code operates on all
+      /// command does, except that this code operates on all,
       /// or a range of nested entities of a given type.
       /// 
-      /// In real-world applications, one might use the 
-      /// DeepExplodeVisitor class to conditionally copy 
-      /// nested objects based on a broad range of criteria
-      /// such as what container block(s) they're nested in;
-      /// they depth they are nested at; or their geometric 
-      /// traits and/or spatial relationship with one or more 
-      /// other parameters.
+      /// In actual use, one might use the DeepExplodeVisitor 
+      /// class to conditionally copy nested objects based on 
+      /// a broad variety of criteria such as what container 
+      /// block(s) they're nested in; the depth they are nested 
+      /// at; or their geometric and/or spatial relationship 
+      /// with some given criteria.
       /// </summary>
 
       [CommandMethod("DEEPEXPLODECURVES", CommandFlags.Redraw)]
@@ -86,7 +106,7 @@ namespace AcMgdLib.Visitors.Examples
          {
             var per = tr.Editor.GetEntity<BlockReference>(
                "\nSelect a block reference, or ENTER for all: ");
-            if(per.IsFailed() && !per.IsNone())
+            if(per.IsFailed(true))
                return;
             var visitor = new DeepExplodeVisitor<T>();
             var id = per.ObjectId.IsNull ? tr.CurrentSpaceId : per.ObjectId;

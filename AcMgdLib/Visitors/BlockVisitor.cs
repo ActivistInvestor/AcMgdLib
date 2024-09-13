@@ -187,12 +187,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// argument is the id of a layout block, this argument is
       /// ignored and is effectively-true.</param>
 
-      /// Problem here: If ErrorStatus.WrongObjectType.Throw()
-      /// is reached, 
       public void Visit(ObjectId id, Transaction trans, bool nested = false)
       {
          id.CheckTransaction(trans);
-         if(!id.IsA<BlockReference>() || id.IsA<BlockTableRecord>())
+         if(!(id.IsA<BlockReference>() || id.IsA<BlockTableRecord>()))
             AcRx.ErrorStatus.WrongObjectType.Throw(id.ObjectClass.Name);
          this.trans = trans;
          InitializeInternal(id);

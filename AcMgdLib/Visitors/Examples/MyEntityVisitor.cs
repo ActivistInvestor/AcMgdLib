@@ -266,7 +266,7 @@ namespace AcMgdLib.Visitors.Examples
          var ed = doc.Editor;
          var per = ed.GetEntity<BlockReference>(
             "\nSelect a block reference, or ENTER for all: ");
-         if(per.IsFailed() && !per.IsNone())
+         if(per.IsFailed(true))
             return;
          ObjectId id = per.ObjectId.IsNull ?
             doc.Database.CurrentSpaceId : per.ObjectId;
