@@ -9,6 +9,7 @@ using System.Diagnostics.Extensions;
 using System.Runtime.InteropServices;
 using AcRx = Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.DatabaseServices;
+using System.Runtime.CompilerServices;
 
 namespace Autodesk.AutoCAD.Runtime.NativeInterop
 {
@@ -129,6 +130,8 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
 
    public static class AcDbNativeMethods
    {
+      const string ACCORE_DLL = "accore.dll";
+
       //const string acdbGetAdsName64 =
       //   "?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z";
 
@@ -136,28 +139,57 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       // specified by applying the EntryPointAttribute
       // to the delegate type:
 
-      [EntryPoint("?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z")]
-      delegate AcRx.ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ObjectId id);
+      /// <summary>
+      /// acdbGetDbmod():
+      /// </summary>
 
-      static acdbGetAdsNameFunc acdbGetAdsName = acdbGetAdsNameLoader;
+      [EntryPoint("?acdbGetDbmod@@YAHPEAVAcDbDatabase@@@Z")]     // entry point
+      delegate int acdbGetDbmodFunc(IntPtr database);            // delegate type
+      static acdbGetDbmodFunc acdbGetDbmod = acdbGetDbmodLoader; // initial assignment
+      static int acdbGetDbmodLoader(IntPtr database)             // loader proxy
+      {
+         acdbGetDbmod = acdbGetDbmod.Load();
+         return acdbGetDbmod(database);
+      }
 
       /// <summary>
-      /// This proxy/stub loader function is initially assigned to 
+      /// acdbSetDbmod():
+      /// This import doesn't use the EntryPoint attribute and
+      /// instead supplies it to the Load() extension method:
+      /// </summary>
+
+      delegate int acdbSetDbmodFunc(IntPtr database, int newval);
+      static acdbSetDbmodFunc acdbSetDbmod = acdbSetDbmodLoader;
+      static int acdbSetDbmodLoader(IntPtr database, int newVal)
+      {
+         acdbSetDbmod = acdbSetDbmod.Load("?acdbSetDbmod@@YAHPEAVAcDbDatabase@@H@Z");
+         return acdbSetDbmod(database, newVal);
+      }
+
+      /// <summary>
+      /// acdbGetAdsName()
+      /// </summary>
+
+      [EntryPoint("?acdbGetAdsName@@YA?AW4ErrorStatus@Acad@@AEAY01_JVAcDbObjectId@@@Z")]
+      delegate AcRx.ErrorStatus acdbGetAdsNameFunc(out AdsName ename, ObjectId id);
+      static acdbGetAdsNameFunc acdbGetAdsName = acdbGetAdsNameLoader;
+      static AcRx.ErrorStatus acdbGetAdsNameLoader(out AdsName ename, ObjectId id)
+      {
+         acdbGetAdsName = acdbGetAdsName.Load();
+         return acdbGetAdsName(out ename, id);
+      }
+
+      /// <summary>
+      /// The above proxy/stub loader function is initially assigned to 
       /// acdbGetAdsName, so that the first time that delegate is called, 
-      /// the real acdbGetAdsName method is loaded and assigned to the
-      /// same identifier the loader is assigned to, allowing the real
+      /// the native acdbGetAdsName method is loaded and assigned to the
+      /// same identifier the loader is assigned to, allowing the native
       /// function to subsequently be called directly. The loader's job 
       /// is to load the exported API and then execute it. This design 
       /// provides for 'just-in-time' loading of exported functions the 
       /// first time they are called. If an exported API is never called,
       /// it is never loaded.
       /// </summary>
-
-      static AcRx.ErrorStatus acdbGetAdsNameLoader(out AdsName ename, ObjectId id)
-      {
-         acdbGetAdsName = acdbGetAdsName.Load();
-         return acdbGetAdsName(out ename, id);
-      }
 
       /// <summary>
       /// acdbEntGet doesn't need to be dynamically-
@@ -166,13 +198,14 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       /// </summary>
 
       [System.Security.SuppressUnmanagedCodeSecurity]
-      [DllImport("accore.dll", 
+      [DllImport(ACCORE_DLL, 
          CallingConvention = CallingConvention.Cdecl,
          EntryPoint = "acdbEntGet")]
       static extern IntPtr acdbEntGet(AdsName ename);
 
       /// <summary>
-      /// The public managed wrapper for acdbGetAdsName():
+      /// The public managed wrappers for acdbGetAdsName(),
+      /// acdbGetDbmod() and acdbSetDbmod():
       /// </summary>
 
       public static AdsName GetAdsName(this ObjectId id)
@@ -184,6 +217,18 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
             throw new AcRx.Exception(es);
          AcRx.ErrorStatus.InvalidAdsName.ThrowIf(result.IsNull());
          return result;
+      }
+
+      public static int GetDBMod(this Database db)
+      {
+         Assert.IsValid(db);
+         return acdbGetDbmod(db.UnmanagedObject);
+      }
+
+      public static int SetDBMod(this Database db, int value)
+      {
+         Assert.IsValid(db);
+         return acdbSetDbmod(db.UnmanagedObject, value);
       }
 
       /// <summary>
@@ -216,5 +261,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
          return EntGet(dbObj.ObjectId);
       }
    }
+
+
 
 }
