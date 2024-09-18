@@ -41,18 +41,26 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       /// <returns></returns>
       /// <exception cref="InvalidOperationException"></exception>
 
+      static string acdbDllName = null;
+
       static string GetAcDbDllName()
       {
-         string acad = Process.GetCurrentProcess().MainModule.FileName;
-         string basePath = Path.GetDirectoryName(acad);
-         for(int ver = 30; ver > 16; ver--)
+         if(string.IsNullOrWhiteSpace(acdbDllName))
          {
-            string file = $"acdb{ver}.dll";
-            string found = FindFile(Path.Combine(basePath, file));
-            if(found != null)
-               return file;
+            string acad = Process.GetCurrentProcess().MainModule.FileName;
+            string basePath = Path.GetDirectoryName(acad);
+            for(int ver = 30; ver > 16; ver--)
+            {
+               string file = $"acdb{ver}.dll";
+               string found = FindFile(Path.Combine(basePath, file));
+               if(found != null)
+               {
+                  acdbDllName = found;
+                  break;
+               }
+            }
          }
-         return null;
+         return acdbDllName;
       }
 
       static string FindFile(string path)
@@ -77,7 +85,7 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
       /// the exported function signature</typeparam>
       /// <param name="entryPoint">The C++ mangled export name of 
       /// the API to import (should be the same string used as the 
-      /// Name argument to the [DllImport] attribute).</param>
+      /// EntryPoint argument to the [DllImport] attribute).</param>
       /// <returns>A delegate representing the exported function.</returns>
 
       public static T AcDbImport<T>(string entryPoint = null) where T : Delegate
