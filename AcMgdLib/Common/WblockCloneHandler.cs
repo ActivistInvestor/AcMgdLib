@@ -27,6 +27,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// See the WblockGroupHandler class for an example
    /// showing the use of this type.
+   /// 
+   /// All overridable virtual methods are called in a
+   /// try/catch that handles any exception thrown from
+   /// an override, to prevent it from escaping from the
+   /// calling event handler, because if that happens,
+   /// AutoCAD's managed API disables all deep clone and
+   /// wblock clone events system-wide.
+   /// 
+   /// The IdMapping property should not be used after the
+   /// OnDeepCloneEnded/Aborted virtual methods are called,
+   /// because after that point it becomes unusable and can
+   /// lead to a failure if it is accessed.
    /// </summary>
 
    public abstract partial class WblockCloneHandler : IDisposable
@@ -164,28 +176,46 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void beginDeepClone(object sender, IdMappingEventArgs e)
       {
          Report();
-         Database db = CheckSender(sender);
+         Database db = (Database)sender;
+         if(db != destDb)
+            return;
          this.idMap = e.IdMapping;
          db.BeginDeepClone -= beginDeepClone;
          db.DeepCloneEnded += deepCloneEnded;
          db.DeepCloneAborted += deepCloneAborted;
          db.BeginDeepCloneTranslation += beginDeepCloneTranslation;
-         OnBeginDeepClone(destDb, IdMap);
+         try
+         {
+            OnBeginDeepClone(destDb, IdMap);
+         }
+         catch(System.Exception ex)
+         {
+            WriteMessage(ex.ToString());
+         }
          state = 4;
       }
 
       protected virtual void OnBeginDeepClone(Database destDb, IdMapping idMap)
       {
-         Report();
       }
 
       void beginDeepCloneTranslation(object sender, IdMappingEventArgs e)
       {
          Report();
-         CheckSender(sender).BeginDeepCloneTranslation -= beginDeepCloneTranslation;
+         Database db = (Database)sender;
+         db.BeginDeepCloneTranslation -= beginDeepCloneTranslation;
+         if(db != destDb)
+            return;
          if(this.IdMap != e.IdMapping)
             return;
-         OnBeginDeepCloneTranslation(e.IdMapping);
+         try
+         {
+            OnBeginDeepCloneTranslation(e.IdMapping);
+         }
+         catch(System.Exception ex)
+         {
+            WriteMessage(ex.ToString());
+         }
       }
 
       void deepCloneEnded(object sender, EventArgs e)
