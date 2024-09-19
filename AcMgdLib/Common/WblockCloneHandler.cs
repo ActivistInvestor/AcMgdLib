@@ -8,7 +8,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Diagnostics.Extensions;
 
 /// This code may require C# 10.0
 
@@ -87,94 +86,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(observing ^ value)
             {
                if(value)
-               {
                   sourceDb.WblockNotice += wblockNotice;
-                  sourceDb.BeginInsert += beginInsert;
-               }
                else
-               {
                   sourceDb.WblockNotice -= wblockNotice;
-                  sourceDb.BeginInsert -= beginInsert;
-               }
                observing = value;
             }
          }
-      }
-
-      Database insertFrom;
-      /// <summary>
-      /// Tentative - Insert operations will be in a seperate type
-      /// </summary>
-      Database InsertSource => insertFrom;
-      Database InsertDestination => sourceDb;
-
-      IdMapping insertMapping;
-      protected IdMapping InsertMapping => insertMapping;
-
-      private void beginInsert(object sender, BeginInsertEventArgs e)
-      {
-         Report();
-         Database db = (Database)sender;
-         insertFrom = e.From;
-         db.InsertMappingAvailable += insertMappingAvailable;
-         db.BeginInsert -= beginInsert;
-         db.InsertEnded += insertEnded;
-         db.InsertAborted += insertAborted;
-         try
-         {
-            OnBeginInsert(insertFrom);
-         }
-         catch(System.Exception ex)
-         {
-            WriteMessage(ex.ToString());
-         }
-      }
-   
-      protected virtual void OnBeginInsert(Database from)
-      {
-      }
-
-      private void insertMappingAvailable(object sender, IdMappingEventArgs e)
-      {
-         Report();
-         insertMapping = e.IdMapping;
-         insertMapping.Dump();
-         Database db = (Database)sender;
-         db.InsertMappingAvailable -= insertMappingAvailable;
-      }
-
-      private void insertAborted(object sender, EventArgs e)
-      {
-         Report();
-         insertEnded((Database)sender, true);
-      }
-
-      private void insertEnded(object sender, EventArgs e)
-      {
-         Report();
-         //if(insertMapping != null)
-         //   insertMapping.Dump();
-         insertEnded((Database)sender, false);
-      }
-
-      void insertEnded(Database db, bool aborted)
-      {
-         db.InsertEnded -= insertEnded;
-         db.InsertAborted -= insertAborted;
-         db.BeginInsert += beginInsert;
-         try
-         {
-            OnInsertEnded(db, aborted);
-         }
-         catch(System.Exception ex)
-         {
-            WriteMessage(ex.ToString());
-         }
-      }
-
-      protected virtual void OnInsertEnded(Database db, bool aborted)
-      {
-
       }
 
       /// <summary>
@@ -280,11 +197,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void deepCloneAborted(object sender, EventArgs e)
       {
          Report();
-         /// Done in Reset, if DeepCloneObjects is called
-         /// internally, these handlers need to be removed
-         /// beforehand:
-         destDb.DeepCloneAborted -= deepCloneAborted;
-         destDb.DeepCloneEnded -= deepCloneAborted;
          deepCloneEnded(IdMap, true);
       }
 
