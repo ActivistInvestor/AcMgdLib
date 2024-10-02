@@ -157,11 +157,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void wblockNotice(object sender, WblockNoticeEventArgs e)
       {
          Report();
-         if(forceDatabaseCopy)
-            sourceDb.ForceWblockDatabaseCopy();
-         Database.DatabaseConstructed += databaseConstructed;
-         state = 2;
-         Observing = false;
+         if(OnWblockNotice(sourceDb))
+         {
+            if(forceDatabaseCopy)
+               sourceDb.ForceWblockDatabaseCopy();
+            Database.DatabaseConstructed += databaseConstructed;
+            state = 2;
+            Observing = false;
+         }
+      }
+
+      protected virtual bool OnWblockNotice(Database sourceDb)
+      {
+         return true;
       }
 
       void databaseConstructed(object sender, EventArgs e)

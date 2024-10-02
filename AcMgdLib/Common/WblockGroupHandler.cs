@@ -52,6 +52,11 @@ namespace AcMgdLib.Common.Examples
       {
       }
 
+      protected override bool OnWblockNotice(Database sourceDb)
+      {
+         return sourceDb.HasCloneableGroups();
+      }
+
       protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
          if(!aborted)
@@ -138,8 +143,30 @@ namespace AcMgdLib.Common.Examples
          foreach(var entry in groupDict)
          {
             Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-            if(!group.IsNotAccessible)
+            if(!group.IsNotAccessible && group.NumEntities > 0)
                yield return group;
+         }
+      }
+
+      public static bool HasCloneableGroups(this Database db)
+      {
+         using(var tr = new OpenCloseTransaction())
+         {
+            try
+            {
+               var groups = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
+               foreach(var entry in groups)
+               {
+                  Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
+                  if(!group.IsNotAccessible && group.NumEntities > 0)
+                     return true;
+               }
+               return false;
+            }
+            finally
+            {
+               tr.Commit();
+            }
          }
       }
    }
