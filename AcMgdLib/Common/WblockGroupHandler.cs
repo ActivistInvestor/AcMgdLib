@@ -117,7 +117,7 @@ namespace AcMgdLib.Common.Examples
       /// <summary>
       /// If not all source entities exist in the map (e.g., they
       /// were not all cloned), this returns null and the group is 
-      /// not cloned.
+      /// not cloned. 
       /// </summary>
 
       public static ObjectIdCollection GetCloneIds(this Group source, IdMapping map)
