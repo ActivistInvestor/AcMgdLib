@@ -42,26 +42,42 @@ using Autodesk.AutoCAD.Runtime;
 /// a group (e.g., xdata or extension dictionary) it will not be
 /// copied/cloned or transformed. Supporting that is beyond the
 /// scope of this example.
+/// 
+/// Updates:
+/// 
+/// Bug fixes since original commit:
+/// 
+/// 1. Modified code to avoid copying empty groups
+///    to distination database.
+///    
+/// 2. Modified code to enable forced copy of database
+///    on full WBLOCK operation.
+///    
+/// 3. Modified code to not act when the source database 
+///    contains no clonable groups.
 /// </summary>
 
 namespace AcMgdLib.Common.Examples
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
+      ObjectIdCollection clonableGroupIds = null;
+
       public WblockGroupHandler(Database db) : base(db, true)
       {
       }
 
       protected override bool OnWblockNotice(Database sourceDb)
       {
-         return sourceDb.HasCloneableGroups();
+         clonableGroupIds = sourceDb.GetClonableGroupIds();
+         return clonableGroupIds != null;
       }
 
       protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
-         if(!aborted)
+         if(!aborted && clonableGroupIds != null)
          {
-            int cloned = CloneGroups(map);
+            int cloned = CloneGroups(map, clonableGroupIds);
             if(cloned > 0)
                DebugWrite($"Exported {cloned} groups");
          }
@@ -74,7 +90,7 @@ namespace AcMgdLib.Common.Examples
       /// </summary>
       /// <param name="map"></param>
 
-      static int CloneGroups(IdMapping map)
+      static int CloneGroups(IdMapping map, ObjectIdCollection groupIds)
       {
          if(map == null)
             throw new ArgumentNullException(nameof(map));
@@ -83,13 +99,12 @@ namespace AcMgdLib.Common.Examples
          {
             using(var tr = new OpenCloseTransaction())
             {
-               Database sourceDb = map.OriginalDatabase;
                Database destDb = map.DestinationDatabase;
-               ObjectId destGroupDictionaryId = destDb.GroupDictionaryId;
                var groupDictionary = (DBDictionary) tr.GetObject(
-                  destGroupDictionaryId, OpenMode.ForWrite);
-               foreach(var srcGroup in sourceDb.GetAccessibleGroups(tr))
+                  destDb.GroupDictionaryId, OpenMode.ForWrite);
+               foreach(ObjectId id in groupIds)
                {
+                  var srcGroup = (Group)tr.GetObject(id, OpenMode.ForRead);
                   var cloneIds = srcGroup.GetCloneIds(map);
                   if(cloneIds != null)
                   {
@@ -136,30 +151,38 @@ namespace AcMgdLib.Common.Examples
          return new ObjectIdCollection(cloneIds);
       }
 
-      public static IEnumerable<Group> GetAccessibleGroups(this Database db, Transaction tr)
+      public static IEnumerable<Group> GetClonableGroups(this Database db, Transaction tr = null)
       {
-         var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
-         foreach(var entry in groupDict)
+         bool flag = tr == null;
+         if(flag)
+            tr = new OpenCloseTransaction();
+         try
          {
-            Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-            if(!group.IsNotAccessible && group.NumEntities > 0)
-               yield return group;
+            var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
+            foreach(var entry in groupDict)
+            {
+               Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
+               if(!group.IsNotAccessible && group.NumEntities > 0)
+                  yield return group;
+            }
+         }
+         finally
+         {
+            if(flag)
+            {
+               tr.Commit();
+               tr.Dispose();
+            }
          }
       }
 
-      public static bool HasCloneableGroups(this Database db)
+      public static ObjectIdCollection GetClonableGroupIds(this Database db)
       {
-         using(var tr = new OpenCloseTransaction())
-         {
-            try
-            {
-               return GetAccessibleGroups(db, tr).Any();
-            }
-            finally
-            {
-               tr.Commit();
-            }
-         }
+         var groups = GetClonableGroups(db);
+         if(groups.Any())
+            return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
+         else
+            return null;
       }
    }
 
