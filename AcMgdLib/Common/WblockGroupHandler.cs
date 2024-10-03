@@ -45,16 +45,17 @@ using Autodesk.AutoCAD.Runtime;
 /// 
 /// Updates:
 /// 
-/// Bug fixes since original commit:
+/// Bug fixes/optimizations since original commit:
 /// 
-/// 1. Modified code to avoid copying empty groups
+/// -  Modified code to avoid copying empty groups
 ///    to distination database.
 ///    
-/// 2. Modified code to enable forced copy of database
+/// -  Modified code to enable forced copy of database
 ///    on full WBLOCK operation.
 ///    
-/// 3. Modified code to not act when the source database 
+/// -  Modified code to not act when source database 
 ///    contains no clonable groups.
+///    
 /// </summary>
 
 namespace AcMgdLib.Common.Examples
