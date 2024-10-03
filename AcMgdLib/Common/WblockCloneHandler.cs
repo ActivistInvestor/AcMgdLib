@@ -8,6 +8,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ViewModel.SysvarMonitor;
 
 /// This code may require C# 10.0
 
@@ -36,12 +37,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// wblock clone events system-wide.
    /// 
    /// The IdMapping property should not be used after the
-   /// OnDeepCloneEnded/Aborted virtual methods are called,
-   /// because after that point it becomes unusable and can
-   /// lead to a failure if it is accessed.
+   /// OnDeepCloneEnded virtual method is called, because 
+   /// after that point it becomes unusable and will lead 
+   /// to a failure if it is accessed.
    /// </summary>
 
-   public abstract partial class WblockCloneHandler : IDisposable
+   public abstract class WblockCloneHandler : IDisposable
    {
       Database sourceDb;
       Database destDb = null;
@@ -56,7 +57,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.sourceDb = db;
          this.forceDatabaseCopy = forceCopy;
          Observing = true;
-         state = 1;
       }
 
       /// <summary>
@@ -65,7 +65,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// is no copy of the database created, and the
       /// operation instead is more akin to a SaveAs() 
       /// operation performed on the source Database,
-      /// and in that case, OnEndDeepClone() and other
+      /// and in that case, OnDeepCloneEnded() and other
       /// virtual methods of this type are NOT called.
       /// 
       /// This option has no affect on the objects and 
@@ -93,7 +93,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public bool Observing
       {
          get => observing;
-         protected set
+         set
          {
             if(observing ^ value)
             {
@@ -111,7 +111,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// from a handler of the BeginSave event, and 
       /// will terminate AutoCAD if accessed from that 
       /// context. The IdMapping should not be accessed 
-      /// after a DeepCloneEnded event is raised.
+      /// after the DeepCloneEnded event is raised.
       /// </summary>
 
       protected IdMapping IdMap
@@ -144,20 +144,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
-      protected virtual void Reset()
+      protected virtual void Reset(bool enable = true)
       {
          destDb.DeepCloneEnded -= deepCloneEnded;
          destDb.DeepCloneAborted -= deepCloneAborted;
          this.idMap = null;
          this.destDb = null;
-         Observing = true;
-         state = 1;
+         Observing = enable;
+         state = enable ? 1 : 0;
       }
 
       void wblockNotice(object sender, WblockNoticeEventArgs e)
       {
          Report();
-         if(OnWblockNotice(sourceDb))
+         bool result = false;
+         if(Invoke(() => result = OnWblockNotice(sourceDb)) && result)
          {
             if(forceDatabaseCopy)
                sourceDb.ForceWblockDatabaseCopy();
@@ -167,9 +168,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+      /// <summary>
+      /// Default is false. Derived types must override and
+      /// return a value indicating if the operation should
+      /// be handled or not.
+      /// </summary>
+      /// <param name="sourceDb"></param>
+      /// <returns></returns>
+      
       protected virtual bool OnWblockNotice(Database sourceDb)
       {
-         return true;
+         return false;
       }
 
       void databaseConstructed(object sender, EventArgs e)
@@ -189,18 +198,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             return;
          this.idMap = e.IdMapping;
          db.BeginDeepClone -= beginDeepClone;
-         db.DeepCloneEnded += deepCloneEnded;
-         db.DeepCloneAborted += deepCloneAborted;
-         db.BeginDeepCloneTranslation += beginDeepCloneTranslation;
-         try
+         if(Invoke(() => OnBeginDeepClone(destDb, IdMap)))
          {
-            OnBeginDeepClone(destDb, IdMap);
+            db.DeepCloneEnded += deepCloneEnded;
+            db.DeepCloneAborted += deepCloneAborted;
+            db.BeginDeepCloneTranslation += beginDeepCloneTranslation;
+            state = 4;
          }
-         catch(System.Exception ex)
-         {
-            WriteMessage(ex.ToString());
-         }
-         state = 4;
       }
 
       protected virtual void OnBeginDeepClone(Database destDb, IdMapping idMap)
@@ -216,14 +220,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             return;
          if(this.IdMap != e.IdMapping)
             return;
-         try
-         {
-            OnBeginDeepCloneTranslation(e.IdMapping);
-         }
-         catch(System.Exception ex)
-         {
-            WriteMessage(ex.ToString());
-         }
+         if(!Invoke(() => OnBeginDeepCloneTranslation(e.IdMapping)))
+            Reset(false);
+         state = 5;
       }
 
       void deepCloneEnded(object sender, EventArgs e)
@@ -244,23 +243,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// to escape the handler of the DeepCloneEnded event,
       /// AutoCAD will completely disable all deep clone and 
       /// wblock clone events, system-wide.
+      /// 
+      /// Revised: All virtual methods are called in a guarded
+      /// execution context (via the Invoke() method), and if
+      /// any one of them throws an exception, all further
+      /// notifications are disabled.
       /// </summary>
       /// <param name="map"></param>
       /// <param name="aborted"></param>
       
       void deepCloneEnded(IdMapping map, bool aborted)
       {
-         try
-         {
-            OnDeepCloneEnded(idMap, aborted);
-         }
-         catch(System.Exception ex)
-         {
-            WriteMessage(ex.ToString());
-         }
-         Reset();
+         if(Invoke(() => OnDeepCloneEnded(map, aborted)))
+            Reset();
       }
 
+      /// <summary>
+      /// Overridables - Deep clone events of the Database class
+      /// are handled and managed by this type, and exposed as
+      /// overridable virtual methods, which allows derived types
+      /// to easily handle thes events without having to deal with
+      /// adding and removing handlers.
+      /// </summary>
+      /// <param name="map"></param>
+      
       protected virtual void OnBeginDeepCloneTranslation(IdMapping map)
       {
       }
@@ -298,6 +304,37 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       protected virtual void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
+      }
+
+      /// <summary>
+      /// If any virtual method invoked via this method throws
+      /// an exception, no further notifications will be sent, 
+      /// and the instance is disabled and will not respond to 
+      /// subsequent wblock operations.
+      /// 
+      /// This is necessary because of how AutoCAD's deep clone
+      /// and wblock clone events behave - if a handler of one
+      /// of those events throws an exception, AutoCAD disables
+      /// all deep clone and wblock clone notifications, system-
+      /// wide, for all managed applications.
+      /// </summary>
+      /// <param name="action"></param>
+      /// <returns></returns>
+      
+      bool Invoke(Action action)
+      {
+         try
+         {
+            action();
+            return true;
+         }
+         catch(System.Exception ex)
+         {
+            WriteMessage(ex.ToString());
+            Reset(false);
+            WriteMessage($"{GetType().Name} permanently disabled.");
+            return false;
+         }
       }
 
       /// <summary>

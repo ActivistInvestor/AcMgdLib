@@ -62,55 +62,62 @@ namespace AcMgdLib.Common.Examples
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
-      ObjectIdCollection clonableGroupIds = null;
-
       public WblockGroupHandler(Database db) : base(db, true)
       {
       }
 
+      /// <summary>
+      /// Revised:
+      /// 
+      /// Returning false causes further notifications to
+      /// be supressed, and the operation is not handled.
+      /// 
+      /// By opting-out of the operation at this point, a
+      /// full database copy can be avoided if there's no
+      /// clonable groups in the source database.
+      /// </summary>
+      /// <param name="sourceDb"></param>
+      /// <returns></returns>
+      
       protected override bool OnWblockNotice(Database sourceDb)
       {
-         clonableGroupIds = sourceDb.GetClonableGroupIds();
-         return clonableGroupIds != null;
+         return HasClonableGroups(sourceDb);
       }
 
       protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
-         if(!aborted && clonableGroupIds != null)
+         if(!aborted && map != null) 
          {
-            int cloned = CloneGroups(map, clonableGroupIds);
+            int cloned = CloneGroups(map);
             if(cloned > 0)
-               DebugWrite($"Exported {cloned} groups");
+               DebugWrite($"Copied {cloned} groups");
          }
       }
 
       /// <summary>
       /// Clones all groups from the source database
       /// to the destination database, only if all of 
-      /// the entities in the group were cloned. 
+      /// the member entities in a group were cloned. 
       /// </summary>
       /// <param name="map"></param>
 
-      static int CloneGroups(IdMapping map, ObjectIdCollection groupIds)
+      int CloneGroups(IdMapping map)
       {
-         if(map == null)
-            throw new ArgumentNullException(nameof(map));
          int cloned = 0;
          try
          {
             using(var tr = new OpenCloseTransaction())
             {
                Database destDb = map.DestinationDatabase;
-               var groupDictionary = (DBDictionary) tr.GetObject(
+               var groups = (DBDictionary) tr.GetObject(
                   destDb.GroupDictionaryId, OpenMode.ForWrite);
-               foreach(ObjectId id in groupIds)
+               foreach(Group srcGroup in GetClonableGroups(map.OriginalDatabase, tr))
                {
-                  var srcGroup = (Group)tr.GetObject(id, OpenMode.ForRead);
-                  var cloneIds = srcGroup.GetCloneIds(map);
+                  var cloneIds = GetCloneIds(srcGroup, map);
                   if(cloneIds != null)
                   {
                      Group group = new Group(srcGroup.Description, srcGroup.Selectable);
-                     groupDictionary.SetAt(srcGroup.Name, group);
+                     groups.SetAt(srcGroup.Name, group);
                      tr.AddNewlyCreatedDBObject(group, true);
                      group.Append(cloneIds);
                      ++cloned;
@@ -126,17 +133,14 @@ namespace AcMgdLib.Common.Examples
             return 0;
          }
       }
-   }
 
-   static class WBlockCloneGroupExtensions
-   {
       /// <summary>
       /// If not all source entities exist in the map (e.g., they
       /// were not all cloned), this returns null and the group is 
       /// not cloned. 
       /// </summary>
 
-      public static ObjectIdCollection GetCloneIds(this Group source, IdMapping map)
+      static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
       {
          var srcIds = source.GetAllEntityIds();
          if(srcIds.Length == 0)
@@ -152,38 +156,44 @@ namespace AcMgdLib.Common.Examples
          return new ObjectIdCollection(cloneIds);
       }
 
-      public static IEnumerable<Group> GetClonableGroups(this Database db, Transaction tr = null)
+      public static IEnumerable<Group> GetClonableGroups(Database db, Transaction tr)
       {
-         bool flag = tr == null;
-         if(flag)
-            tr = new OpenCloseTransaction();
-         try
+         var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
+         foreach(var entry in groupDict)
          {
-            var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
-            foreach(var entry in groupDict)
-            {
-               Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-               if(!group.IsNotAccessible && group.NumEntities > 0)
-                  yield return group;
-            }
+            Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
+            if(!group.IsNotAccessible && group.NumEntities > 0)
+               yield return group;
          }
-         finally
+      }
+
+      public static ObjectIdCollection GetClonableGroupIds(Database db)
+      {
+         using(var tr = new OpenCloseTransaction())
          {
-            if(flag)
+            try
+            {
+               var groups = GetClonableGroups(db, tr);
+               if(groups.Any())
+                  return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
+               else
+                  return null;
+            }
+            finally
             {
                tr.Commit();
-               tr.Dispose();
             }
          }
       }
 
-      public static ObjectIdCollection GetClonableGroupIds(this Database db)
+      static bool HasClonableGroups(Database db)
       {
-         var groups = GetClonableGroups(db);
-         if(groups.Any())
-            return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
-         else
-            return null;
+         using(var tr = new OpenCloseTransaction())
+         {
+            var result = GetClonableGroups(db, tr).Any();
+            tr.Commit();
+            return result;
+         }
       }
    }
 
