@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -12,9 +13,9 @@ using Autodesk.AutoCAD.Runtime;
 /// base type, which automates the grunt work required to
 /// intervene in a wblock clone operation. 
 /// 
-/// This example causes groups to be included in a WBLOCK or a
-/// COPYCLIP operation when all of their member entities are 
-/// included in the operation. 
+/// This example causes groups to be included in a WBLOCK or 
+/// a COPYCLIP operation when all member entities in a group
+/// are included in the operation. 
 /// 
 /// To enable the functionality provided by this example, one 
 /// only need to issue the WBLOCKGROUPS command defined below. 
@@ -29,13 +30,12 @@ using Autodesk.AutoCAD.Runtime;
 /// 
 /// In order for a group to be included in a WBLOCK operation,
 /// all of the member entities in the group must be included in
-/// the operation. If only a subset of member entities of a group
-/// are involved in a WBLOCK operation, the group(s) they belong 
-/// to are not included.
+/// the operation. If only a subset of a group's entities are 
+/// involved in a WBLOCK operation, the group is not included.
 /// 
 /// If COPYCLIP is used to copy entities and groups to the 
-/// clipboard, when pasted back into a drawing the groups will 
-/// be pasted as anonymous/unnamed groups. 
+/// clipboard, when pasted back into a drawing, the pasted
+/// groups become anonymous/unnamed groups. 
 /// 
 /// Because this operation does not technically Clone existing
 /// groups, if there is any type of application-data attached to 
@@ -63,7 +63,7 @@ namespace AcMgdLib.Common.Examples
          {
             int cloned = CloneGroups(map);
             if(cloned > 0)
-               DebugWrite($"Copied {cloned} groups");
+               DebugWrite($"Exported {cloned} groups");
          }
       }
 
@@ -90,7 +90,7 @@ namespace AcMgdLib.Common.Examples
                   destGroupDictionaryId, OpenMode.ForWrite);
                foreach(var srcGroup in sourceDb.GetAccessibleGroups(tr))
                {
-                  var cloneIds = GetCloneIds(srcGroup, map);
+                  var cloneIds = srcGroup.GetCloneIds(map);
                   if(cloneIds != null)
                   {
                      Group group = new Group(srcGroup.Description, srcGroup.Selectable);
@@ -110,14 +110,17 @@ namespace AcMgdLib.Common.Examples
             return 0;
          }
       }
+   }
 
+   static class WBlockCloneGroupExtensions
+   {
       /// <summary>
       /// If not all source entities exist in the map (e.g., they
       /// were not all cloned), this returns null and the group is 
       /// not cloned.
       /// </summary>
 
-      public static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
+      public static ObjectIdCollection GetCloneIds(this Group source, IdMapping map)
       {
          var srcIds = source.GetAllEntityIds();
          if(srcIds.Length == 0)
@@ -133,10 +136,6 @@ namespace AcMgdLib.Common.Examples
          return new ObjectIdCollection(cloneIds);
       }
 
-   }
-
-   public static class WBlockCloneGroupExtensions
-   {
       public static IEnumerable<Group> GetAccessibleGroups(this Database db, Transaction tr)
       {
          var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
@@ -154,14 +153,7 @@ namespace AcMgdLib.Common.Examples
          {
             try
             {
-               var groups = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
-               foreach(var entry in groups)
-               {
-                  Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-                  if(!group.IsNotAccessible && group.NumEntities > 0)
-                     return true;
-               }
-               return false;
+               return GetAccessibleGroups(db, tr).Any();
             }
             finally
             {
