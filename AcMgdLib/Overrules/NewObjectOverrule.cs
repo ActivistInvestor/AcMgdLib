@@ -1,6 +1,4 @@
-﻿/// NOTE: Refactoring required (SetCustomFilter removal).
-
-using Autodesk.AutoCAD.Runtime;
+﻿using Autodesk.AutoCAD.Runtime;
 
 /// NewObjectOverrule.cs
 /// 
@@ -31,21 +29,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    {
       public NewObjectOverrule(bool enabled = true) : base(enabled)
       {
-         /// Need to refactor to avoid this,
-         /// because IsApplicable() is called before 
-         /// each virtual overridable method is called.
-         SetCustomFilter(); 
-      }
-
-      public override bool IsApplicable(RXObject subject)
-      {
-         return subject is T obj && obj.IsNewObject;
       }
 
       public override void Close(DBObject dbObject)
       {
          T subject = dbObject as T;
-         bool flag = subject != null && subject.IsNewObject;
+         bool flag = subject != null && subject.IsNewObject && subject.IsReallyClosing;
          if(flag)
             OnClosing(subject);
          base.Close(dbObject);
@@ -55,8 +44,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Only called when the object that is about to be
-      /// closed is a new object. The ObjectId of the new
-      /// object is not available from this override.
+      /// closed is a new object. 
       /// </summary>
 
       protected virtual void OnClosing(T obj)
@@ -65,8 +53,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Only called when the object that was closed is
-      /// a new object. The ObjectId of the new object is 
-      /// available from this override.
+      /// a new object. 
       /// </summary>
 
       protected virtual void OnClosed(T obj)
