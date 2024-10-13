@@ -119,6 +119,8 @@ namespace AcMgdLib.Common.Examples
                      Group group = new Group(srcGroup.Description, srcGroup.Selectable);
                      groups.SetAt(srcGroup.Name, group);
                      tr.AddNewlyCreatedDBObject(group, true);
+                     if(group.Name.StartsWith('*'))
+                        group.SetAnonymous();                     
                      group.Append(cloneIds);
                      ++cloned;
                   }
