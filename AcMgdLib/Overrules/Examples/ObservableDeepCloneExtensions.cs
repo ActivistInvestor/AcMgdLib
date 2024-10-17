@@ -8,7 +8,6 @@
 /// that can be observed by an ObjectOverrule.
 
 using System;
-using System.Diagnostics.Extensions;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.EditorInput;
