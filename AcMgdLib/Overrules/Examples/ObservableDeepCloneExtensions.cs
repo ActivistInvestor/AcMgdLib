@@ -117,7 +117,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ObjectIdCollection ids,
          Action<T, T> action) where T : Entity
       {
-         AssertAreAllEntities(ids);
+         ids.ValidateTypes<Entity>();
          if(db == null)
             throw new ArgumentNullException(nameof(db));
          if(ids.Count == 0)
@@ -129,8 +129,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// A Copy() extension method that operates only on entities, 
-      /// and implicitly transforms the clones, using the supplied
+      /// An overload that operates only on entities, and 
+      /// implicitly transforms the clones using the supplied
       /// transformation matrix.
       /// </summary>
       /// <param name="ids">The ObjectIdCollection containing
@@ -151,7 +151,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
 
       /// <summary>
-      /// An extension method that targets ObjectIdCollection.
+      /// What follows are are versions of the above extension
+      /// methods that target ObjectIdCollection.
       /// </summary>
       /// <typeparam name="T">The type of the DBObject that is
       /// passed to the action. Only instances of the this argument
@@ -174,7 +175,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="AcRx.Exception"></exception>
 
-      public static IdMapping CopyObjects<T>(this ObjectIdCollection ids,
+      public static IdMapping Copy<T>(this ObjectIdCollection ids,
          ObjectId ownerId,
          bool primaryOnly,
          Action<T, T> action) where T : DBObject
@@ -209,9 +210,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>An IdMapping representing the result of the
       /// operation</returns>
 
-      public static IdMapping CopyObjects(this ObjectIdCollection ids, Matrix3d xform)
+      public static IdMapping Copy(this ObjectIdCollection ids, Matrix3d xform)
       {
-         AssertAreAllEntities(ids);
+         ids.ValidateTypes<Entity>();
          Action<Entity, Entity> action = null;
 
          /// If the caller passed the Identity matrix, there's
@@ -221,16 +222,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(!xform.IsEqualTo(Matrix3d.Identity))
             action = (source, clone) => clone.TransformBy(xform);
          
-         return CopyObjects<Entity>(ids, ObjectId.Null, true, action);
+         return Copy<Entity>(ids, ObjectId.Null, true, action);
       }
 
       /// <summary>
       /// An overload of the above method that targets IEnumerable<ObjectId>.
       /// </summary>
       
-      public static IdMapping CopyObjects(this IEnumerable<ObjectId> ids, Matrix3d xform)
+      public static IdMapping Copy(this IEnumerable<ObjectId> ids, Matrix3d xform)
       {
-         return CopyObjects(new ObjectIdCollection(
+         return Copy(new ObjectIdCollection(
             ids as ObjectId[] ?? ids.ToArray()), xform);
       }
 
@@ -261,22 +262,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       static readonly RXClass entityClass = RXObject.GetClass(typeof(Entity));
 
-      //static Cache<RXClass, bool> entityClasses
-      //   = new Cache<RXClass, bool>(c => c.IsDerivedFrom(entityClass));
-
-      static void AssertAreAllEntities(this ObjectIdCollection ids)
+      static void ValidateTypes<T>(this ObjectIdCollection ids) where T : DBObject
       {
          if(ids == null)
             throw new ArgumentNullException(nameof(ids));
+         RXClass rxclass = RXObject.GetClass(typeof(T));
          for(int i = 0; i < ids.Count; i++)
          {
             ObjectId id = ids[i];
             if(id.IsNull)
                throw new AcRx.Exception(AcRx.ErrorStatus.NullObjectId);
-            //if(!entityClasses[id.ObjectClass])
-            //   throw new AcRx.Exception(AcRx.ErrorStatus.NotAnEntity);
-            if(!id.ObjectClass.IsDerivedFrom(entityClass))
-               throw new AcRx.Exception(AcRx.ErrorStatus.NotAnEntity);
+            if(!id.ObjectClass.IsDerivedFrom(rxclass))
+               throw new AcRx.Exception(AcRx.ErrorStatus.WrongObjectType);
          }
       }
 
@@ -366,8 +363,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ppr = ed.GetPoint(ppo);
          if(ppr.Status != PromptStatus.OK)
             return;
-         psr.Value.GetObjectIds().CopyObjects(
-            Matrix3d.Displacement(from.GetVectorTo(ppr.Value)));
+         ObservableDeepCloneExtensions.Copy(
+psr.Value.GetObjectIds(), Matrix3d.Displacement(from.GetVectorTo(ppr.Value)));
       }
    }
 }
