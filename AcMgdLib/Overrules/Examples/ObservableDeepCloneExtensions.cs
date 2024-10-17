@@ -9,6 +9,7 @@
 /// ObjectOverrule invokes a user-defined action on each
 /// pair of source/clone objects, allowing either or both
 /// of same to be acted on within the deep clone operation.
+/// 
 
 using System;
 using System.Runtime.CompilerServices;
@@ -25,26 +26,34 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// An extension method that overloads the Database's
       /// DeepCloneObjects() method, adding support for operating
-      /// on each source/clone pair as each clone is created and
-      /// added to its owner.
+      /// on each source/clone pair at the point when each clone 
+      /// is created and added to its owner, while it is open for
+      /// write and able to be modified.
       /// 
-      /// Using this method one can completely avoid additional
-      /// post-processing steps that involve iterating over the 
-      /// IdMapping and opening each clone to perform additional 
-      /// operations on them.
+      /// Using this method, one can completely avoid additional
+      /// post-processing steps that typically involve iterating 
+      /// over the IdMapping and opening each clone to perform 
+      /// additional operations on them. 
       /// 
-      /// This method can be far more efficient than the native
-      /// DeepCloneObjects() method, mainly because the delegate 
-      /// passed to this method is called while the source and its
-      /// clone are still open within the deep-clone operation.
+      /// That allows this method to be far more efficient than 
+      /// using the stock DeepCloneObjects() method followed by a 
+      /// post-processing loop that operates on all of the clones. 
+      /// 
+      /// This is mainly because the delegate passed to this method 
+      /// is called while the source and its clone are still open 
+      /// within the deep-clone operation. 
+      /// 
+      /// In addition to being able to operate on the clone, the
+      /// delegate passed to this method can also operate on the 
+      /// source object by upgrading it to OpenMode.ForWrite.
       /// 
       /// Included below is a basic example, the MyCopyCommand() 
-      /// method. As can be seen in the example, there's no need 
-      /// to start a transaction; iterate over an IdMapping; or
-      /// open each clone to transform it. The delegate passed to
-      /// the DeepCloneObjects<T>() method does that, effectively-
-      /// reducing the task of transforming the clones to a single 
-      /// line of code.
+      /// method. As can be seen in the example, after the entities
+      /// have been cloned, there's no need to start a transaction; 
+      /// iterate over an IdMapping and open each clone to transform 
+      /// it. The delegate passed to DeepCloneObjects<T>() does that, 
+      /// effectively-reducing the task of transforming the clones 
+      /// to a single line of code.
       ///   
       /// </summary>
       /// <typeparam name="T">The type of the DBObject that is
