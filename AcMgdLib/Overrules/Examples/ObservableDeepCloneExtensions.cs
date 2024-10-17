@@ -11,7 +11,6 @@
 /// of same to be acted on within the deep clone operation.
 
 using System;
-using System.Diagnostics.Extensions;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.EditorInput;
