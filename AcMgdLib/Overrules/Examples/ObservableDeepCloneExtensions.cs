@@ -125,7 +125,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ObjectId ownerId = GetOwnerId(ids[0]);
          if(ownerId.Database != db)
             throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
-         return DeepClone<T>(db, ids, ownerId, true, action);
+         return DeepClone(db, ids, ownerId, true, action);
       }
 
       /// <summary>
@@ -136,8 +136,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="ids">The ObjectIdCollection containing
       /// the ObjectIds of the entities to be copied. All elements
       /// must have the same owner.</param>
-      /// <param name="xform">The Matrix3d describing the
-      /// transformation to be applied to each cloned entity</param>
+      /// <param name="xform">A Matrix3d that describes the
+      /// transformation to be applied to each clone. If this 
+      /// argument is the identity matrix, no transformation
+      /// is performed.</param>
 
       public static IdMapping CopyObjects(this Database db,
          ObjectIdCollection ids,
@@ -146,18 +148,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Action<Entity, Entity> action = null;
          if(!xform.IsEqualTo(Matrix3d.Identity))
             action = (source, clone) => clone.TransformBy(xform);
-         return CopyObjects<Entity>(db, ids, action);
+         return CopyObjects(db, ids, action);
       }
 
 
       /// <summary>
-      /// What follows are are versions of the above extension
-      /// methods that target ObjectIdCollection.
+      /// What follows are versions of the above extension methods 
+      /// targeting ObjectIdCollection and IEnumerable<ObjectId>.
+      /// The main difference is that they are invoked on a given
+      /// collection, and obtain the database from the collection.
       /// </summary>
-      /// <typeparam name="T">The type of the DBObject that is
-      /// passed to the action. Only instances of the this argument
-      /// type are passed to the action. All other types of objects
-      /// that are also cloned are not passed to the action.</typeparam>
+      /// <typeparam name="T">The type of the DBObject that is to be
+      /// passed to the action. Only instances of this type will be
+      /// passed to the action.</typeparam>
       /// <param name="ids">The ObjectIdCollection containing the 
       /// objects to be cloned. All objects must have the same owner.</param>
       /// <param name="ownerId">The ObjectId of the destination owner
@@ -175,7 +178,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="AcRx.Exception"></exception>
 
-      public static IdMapping Copy<T>(this ObjectIdCollection ids,
+      public static IdMapping CopyObjects<T>(this ObjectIdCollection ids,
          ObjectId ownerId,
          bool primaryOnly,
          Action<T, T> action) where T : DBObject
@@ -191,7 +194,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             throw new AcRx.Exception(AcRx.ErrorStatus.NoDatabase);
          if(db != ids[0].Database)
             throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
-         return DeepClone<T>(db, ids, ownerId, primaryOnly, action);
+         return DeepClone(db, ids, ownerId, primaryOnly, action);
       }
 
       /// <summary>
@@ -210,7 +213,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>An IdMapping representing the result of the
       /// operation</returns>
 
-      public static IdMapping Copy(this ObjectIdCollection ids, Matrix3d xform)
+      public static IdMapping CopyObjects(this ObjectIdCollection ids, Matrix3d xform)
       {
          ids.ValidateTypes<Entity>();
          Action<Entity, Entity> action = null;
@@ -222,16 +225,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(!xform.IsEqualTo(Matrix3d.Identity))
             action = (source, clone) => clone.TransformBy(xform);
          
-         return Copy<Entity>(ids, ObjectId.Null, true, action);
+         return CopyObjects(ids, ObjectId.Null, true, action);
       }
 
       /// <summary>
       /// An overload of the above method that targets IEnumerable<ObjectId>.
       /// </summary>
       
-      public static IdMapping Copy(this IEnumerable<ObjectId> ids, Matrix3d xform)
+      public static IdMapping CopyObjects(this IEnumerable<ObjectId> ids, Matrix3d xform)
       {
-         return Copy(new ObjectIdCollection(
+         return CopyObjects(new ObjectIdCollection(
             ids as ObjectId[] ?? ids.ToArray()), xform);
       }
 
@@ -363,7 +366,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ppr = ed.GetPoint(ppo);
          if(ppr.Status != PromptStatus.OK)
             return;
-         ObservableDeepCloneExtensions.Copy(
+         ObservableDeepCloneExtensions.CopyObjects(
 psr.Value.GetObjectIds(), Matrix3d.Displacement(from.GetVectorTo(ppr.Value)));
       }
    }
