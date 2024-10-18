@@ -63,17 +63,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// A basic usage example is included in the file:
       /// 
-      ///    ObservableDeepCloneExtensionsExample.cs
+      ///   ObservableDeepCloneExtensionsExample.cs
       ///    
       /// As can be seen in the example, after the entities have been 
       /// cloned, there's no need for additional code that starts a 
-      /// transaction; iterates over the IdMapping; and opens each 
-      /// clone to transform it, etc. Instead of that, the delegate 
+      /// transaction; iterates over the IdMapping; opens each clone 
+      /// and transforms it; etc. Instead of that, the delegate that's
       /// passed to the CopyObjects() method does everything needed,
-      /// effectively-reducing the task of cloning the objects and
-      /// transforming the clones, to a single line of code:
+      /// effectively-reducing the task of cloning the objects, and
+      /// transforming the clones to a single line of code:
       /// 
       ///   ids.CopyObjects((source, clone) => clone.TransformBy(xform));
+      ///   
+      /// Because both the source and clone are already open when 
+      /// the delegate is called and passed to them, we can completely 
+      /// avoid the significant overhead associated with iteratively
+      /// opening each clone in a transaction and modifying it, after 
+      /// the deep clone operation ends.
       /// 
       /// Implementation Notes:
       /// 
@@ -85,9 +91,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// their type, but the action delegate will only be called 
       /// for those that are block references.
       /// 
-      /// If the generic argument is a sub-entity type such as
+      /// Primary verses non-primary delegate invocation:
+      /// 
+      /// By default, the delegate passed to CopyObjects() is only
+      /// called for primary clones. That behavior is controlled by
+      /// the optional primaryOnly argument passed to the core API.
+      /// If one wishes to act on non-primary clones (which could
+      /// be any object that is cloned as part of cloning a primary
+      /// object - such as an extension dictionary or Xrecord), the 
+      /// primarOnly argument can be set to false, and the generic
+      /// argument type can be set to the type of object which the
+      /// caller wants to operate on, or one of its base types.
+      /// 
+      /// Targeting Sub-entity types:
+      /// 
+      /// If the generic argument is any sub-entity type such as 
       /// AttributeReference, Vertex, etc., The optional primaryOnly 
-      /// argument is ignored and effectively-false. This is due
+      /// argument is ignored and is effectively-false. This is due
       /// to the fact that sub-entities are always passed with the
       /// isPrimary argument set to false when their owner object 
       /// is a primary clone.
@@ -98,7 +118,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// that are divided into two groups. One group can be invoked
       /// on a Database object (like the DeepCloneObjects() method),
       /// and another group that can be invoked on ObjectIdCollection
-      /// and IEnumerable<ObjectId>. This latter group allows modular
+      /// or IEnumerable<ObjectId>. This latter group supports modular
       /// use of these APIs in scenarios where there is no Database to
       /// operate on directly. The only and main difference is that the
       /// latter group obtains the Database from the collection items.
@@ -112,9 +132,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// Implied owner:
       /// 
-      /// Overloads that do not take an OwnerId property always clone the 
+      /// Overloads that do not take an OwnerId property will clone the 
       /// objects to their current owner. If an overload that takes an 
-      /// OwnerId property receives ObjectId.Null for that argument, the
+      /// OwnerId property receives ObjectId.Null in that argument, the
       /// behavior is the same as calling an overload taking no ownerId.
       /// 
       /// The simplest overloads are also the most commonly-used ones,
@@ -125,11 +145,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// implicitly transform the clones by the given matrix.
       /// 
       /// Note that arguments are documented only for the primary API,
-      /// and argument descriptions for other APIs docs can be inferred 
-      /// from same.
+      /// and the argument documentation for all other overloads can be 
+      /// inferred from same.
       /// </summary>
+      /// 
+      /// 
       /// <summary>
-      /// The primary CopyObjects() method that accepts all arguments.
+      /// The core CopyObjects() method that accepts all arguments.
       /// 
       /// <typeparam name="T">The type of the DBObject that is
       /// passed to the action. Only instances of the this argument
@@ -143,7 +165,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// object which the clones are to be added to, or ObjectId.Null
       /// to add the clones to the owner of the source objects.</param>
       /// <param name="action">A delegate that takes two instances of
-      /// the generic argument type, the first being the source object
+      /// the generic argument type, the first being a source object
       /// and the second being the clone of it. The source object is 
       /// open for read, and the clone is open for write.</param>
       /// <param name="primaryOnly">A value indicating if the action
@@ -162,12 +184,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             throw new ArgumentNullException(nameof(db));
          if(ids == null)
             throw new ArgumentNullException(nameof(ids));
-         if(ids.Count == 0)
-            return new IdMapping();
-         if(ownerId.IsNull)
-            ownerId = GetOwnerId(ids);
-         if(db != ids[0].Database || db != ownerId.Database)
-            throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
          return DeepClone(db, ids, ownerId, action, primaryOnly);
       }
 
@@ -196,14 +212,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Action<T, T> action) where T : Entity
       {
          Validate<Entity>(ids);
-         if(db == null)
-            throw new ArgumentNullException(nameof(db));
-         if(ids.Count == 0)
-            return new IdMapping();
-         ObjectId ownerId = GetOwnerId(ids[0]);
-         if(ownerId.Database != db)
-            throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
-         return DeepClone(db, ids, ownerId, action, true);
+         return DeepClone(db, ids, ObjectId.Null, action, true);
       }
 
       public static IdMapping CopyObjects<T>(this Database db,
@@ -276,18 +285,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Action<T, T> action,
          bool primaryOnly = true) where T : DBObject
       {
-         if(ids == null)
-            throw new ArgumentNullException(nameof(ids));
-         if(ids.Count == 0)
-            return new IdMapping();
-         if(ownerId.IsNull)
-            ownerId = GetOwnerId(ids);
-         Database db = ownerId.Database;
-         if(db == null)
-            throw new AcRx.Exception(AcRx.ErrorStatus.NoDatabase);
-         if(db != ids[0].Database)
-            throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
-         return DeepClone(db, ids, ownerId, action, primaryOnly);
+         return DeepClone(null, ids, ownerId, action, primaryOnly);
       }
 
       public static IdMapping CopyObjects<T>(this IEnumerable<ObjectId> ids,
@@ -366,7 +364,20 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       static IdMapping DeepClone<T>(Database db, ObjectIdCollection ids, ObjectId ownerId, Action<T, T> action, bool primaryOnly = true) where T : DBObject
       {
+         if(ids == null)
+            throw new ArgumentNullException(nameof(ids));
          IdMapping map = new IdMapping();
+         if(ids.Count == 0)
+            return map;
+         if(ownerId.IsNull)
+            ownerId = GetOwnerId(ids);
+         db = db ?? ownerId.Database;
+         if(db == null)
+            throw new AcRx.Exception(AcRx.ErrorStatus.NoDatabase);
+         if(ownerId.IsNull || ownerId.Database != db)
+            throw new AcRx.Exception(AcRx.ErrorStatus.InvalidOwnerObject);
+         if(db != ids[0].Database)
+            throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
          Overrule<T> overrule = null;
          if(action != null)
             overrule = new Overrule<T>(ownerId, primaryOnly, action);
@@ -410,9 +421,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       static void Validate<T>(this ObjectIdCollection ids) where T : DBObject
       {
-         bool checkType = typeof(T) != typeof(DBObject);
          if(ids == null)
             throw new ArgumentNullException(nameof(ids));
+         bool checkType = typeof(T) != typeof(DBObject);
          RXClass rxclass = RXObject.GetClass(typeof(T));
          for(int i = 0; i < ids.Count; i++)
          {
