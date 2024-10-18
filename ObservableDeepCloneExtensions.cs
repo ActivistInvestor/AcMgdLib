@@ -46,9 +46,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// perform additional operations on them. 
       /// 
       /// By operating on clones at the point where they are created
-      /// within the deep clone process, this method to be far more 
+      /// within the deep clone process, this method can be far-more 
       /// efficient than using the stock DeepCloneObjects() method 
-      /// followed by post-processing the clones using the IdMapping.
+      /// followed by code that post-processes the clones using the 
+      /// IdMapping and a transaction.
       /// 
       /// The performance advantage achieved through the use of this
       /// method in lieu of calling DeepCloneObjects(), mostly comes
@@ -60,14 +61,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// delegate passed to this method can also operate on the 
       /// source object by upgrading it to OpenMode.ForWrite.
       /// 
-      /// An basic example is included below. As can be seen in the 
-      /// example, after the entities have been cloned, there's no 
-      /// need to start a transaction; iterate over an IdMapping;
-      /// open each clone to transform it, etc. The delegate used by 
-      /// the CopyObjects() method does that, effectively-reducing 
-      /// the task of transforming the clones to one line of code.
+      /// A basic usage example is included in the file:
       /// 
-      /// Notes:
+      ///    ObservableDeepCloneExtensionsExample.cs
+      ///    
+      /// As can be seen in the example, after the entities have been 
+      /// cloned, there's no need for additional code that starts a 
+      /// transaction; iterates over the IdMapping; and opens each 
+      /// clone to transform it, etc. Instead of that, the delegate 
+      /// passed to the CopyObjects() method does everything needed,
+      /// effectively-reducing the task of cloning the objects and
+      /// transforming the clones, to a single line of code:
+      /// 
+      ///   ids.CopyObjects((source, clone) => clone.TransformBy(xform));
+      /// 
+      /// Implementation Notes:
       /// 
       /// The generic argument does not constrain the type(s) of
       /// objects that are cloned. It only constraints what subset
