@@ -366,8 +366,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ppr = ed.GetPoint(ppo);
          if(ppr.Status != PromptStatus.OK)
             return;
-         ObservableDeepCloneExtensions.CopyObjects(
-psr.Value.GetObjectIds(), Matrix3d.Displacement(from.GetVectorTo(ppr.Value)));
+         var xform = Matrix3d.Displacement(from.GetVectorTo(ppr.Value));
+         psr.Value.GetObjectIds().CopyObjects(xform);
       }
    }
 }
