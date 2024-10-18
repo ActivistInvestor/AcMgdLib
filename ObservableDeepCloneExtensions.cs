@@ -45,7 +45,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// iterating over the IdMapping, and opening each clone to 
       /// perform additional operations on them. 
       /// 
-      /// By operating on clones at the point where the are created
+      /// By operating on clones at the point where they are created
       /// within the deep clone process, this method to be far more 
       /// efficient than using the stock DeepCloneObjects() method 
       /// followed by post-processing the clones using the IdMapping.
