@@ -33,7 +33,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public static class ObservableDeepCloneExtensions
    {
       /// <summary>
-      /// Extension methods that complement the Database's class'
+      /// Extension methods that supplement the Database's class'
       /// DeepCloneObjects() method, adding support for operating
       /// on each source/clone pair at the point when each clone 
       /// is created and added to its owner, while it is open for
