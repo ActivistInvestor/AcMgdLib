@@ -154,6 +154,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// which are those that accept only an ownerid and an action, or 
       /// only an action argument.
       /// 
+      /// Owner filtering: 
+      /// 
+      /// The action delegate is only called for source/clone pairs that 
+      /// are owned by the destination owner of the deep clone operation. 
+      /// For all entity-based types, the BlockId property is compared to 
+      /// the destination owner Id. For all other non-entity based types, 
+      /// the OwnerId property is compared to the destination owner id.
+      /// 
       /// There are also overloads provided that accept a Matrix3d, and
       /// implicitly transform the clones by the given matrix.
       /// 
@@ -184,6 +192,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="primaryOnly">A value indicating if the action
       /// should be invoked on all source/clone pairs, or only primary 
       /// source/clone pairs.</param>
+      /// <param name="exactMatch">A value indicating if the action is
+      /// to be called only for objects that are instances of the generic 
+      /// argument, or should be called for objects of any type derived 
+      /// from the generic argument. If the generic argument is abstract, 
+      /// this argument is ignored and is effectively-false</param>
       /// <returns>An IdMapping instance representing the result of 
       /// the operation</returns>
 
@@ -191,11 +204,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ObjectIdCollection ids,
          ObjectId ownerId,
          Action<T, T> action,
-         bool primaryOnly = true) where T : DBObject
+         bool primaryOnly = true,
+         bool exactMatch = false) where T : DBObject
       {
          if(db == null)
             throw new ArgumentNullException(nameof(db));
-         return DeepClone(db, ids, ownerId, action, primaryOnly);
+         return DeepClone(db, ids, ownerId, action, exactMatch, primaryOnly);
       }
 
       /// <summary>
@@ -369,7 +383,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Worker for all CopyObjects() overloads:
       /// </summary>
 
-      static IdMapping DeepClone<T>(Database db, ObjectIdCollection ids, ObjectId ownerId, Action<T, T> action, bool primaryOnly = true) where T : DBObject
+      static IdMapping DeepClone<T>(Database db, ObjectIdCollection ids, ObjectId ownerId, Action<T, T> action, bool primaryOnly = true, bool exactMatch = false) where T : DBObject
       {
          if(ids == null)
             throw new ArgumentNullException(nameof(ids));
@@ -385,10 +399,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             throw new AcRx.Exception(AcRx.ErrorStatus.NoDatabase);
          if(ownerId.Database != db || ids[0].Database != db)
             throw new AcRx.Exception(AcRx.ErrorStatus.WrongDatabase);
-         DeepCloneObjectsOverrule<T> overrule = null;
-         if(action != null)
-            overrule = new DeepCloneObjectsOverrule<T>(ownerId, primaryOnly, action);
-         using(overrule)
+         using(new DeepCloneObjectsOverrule<T>(ownerId, action, exactMatch, primaryOnly))
          {
             db.DeepCloneObjects(ids, ownerId, map, false);
          }
@@ -470,40 +481,123 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    public class DeepCloneObjectsOverrule<T> : ObjectOverrule where T : DBObject
    {
       static readonly RXClass targetClass = RXObject.GetClass(typeof(T));
-      static readonly Func<DBObject, ObjectId, bool> IsOwnedBy;
-      Action<T, T> cloneAction;
+      static readonly Func<DBObject, ObjectId, bool> IsOwner;
+      static Func<DBObject, T> match;
+      Action<T, T> action1;
+      Action<bool, T, T> action2;
       ObjectId ownerId;
       bool primaryOnly = true;
       bool disposed = false;
+      bool exactMatch = false;
+      Action<bool, T, T> action;
+
+      static readonly Func<DBObject, T> matchExact = 
+         obj => obj.GetType() == typeof(T) ? obj as T : null;
+      static readonly Func<DBObject, T> matchAny = 
+         obj => obj as T;
+
+      /// <summary>
+      /// Compare the BlockId property for entities and the
+      /// OwnerId property for anything else:
+      /// </summary>
 
       static DeepCloneObjectsOverrule()
       {
          if(typeof(Entity).IsAssignableFrom(typeof(T)))
-            IsOwnedBy = (obj, ownerId) => Unsafe.As<Entity>(obj).BlockId == ownerId;
+            IsOwner = (obj, ownerId) => Unsafe.As<Entity>(obj).BlockId == ownerId;
          else
-            IsOwnedBy = (obj, ownerId) => obj.OwnerId == ownerId;
+            IsOwner = (obj, ownerId) => obj.OwnerId == ownerId;
       }
 
-      public DeepCloneObjectsOverrule(ObjectId ownerId, bool primaryOnly, Action<T, T> cloneAction)
+      /// <summary>
+      /// Creates an instance of a DeepCloneObjectsOverrule.
+      /// </summary>
+      /// <param name="ownerId">The ObjectId of the object that owns the
+      /// source/clone pairs for which the action is invoked. The action
+      /// is only invoked on source/clone pairs if they are owned by the
+      /// object having this ObjectId. If this is ObjectId.Null, there is 
+      /// no filtering by owner object</param>
+      /// <param name="action">The action to call for each source/clone 
+      /// pair matching the criteria. If a null action argument is passed 
+      /// in, no exception is raised and there is no overruling. The action 
+      /// must accept two arguments of the generic argument type. The first 
+      /// is the source object open for read, and the second is the newly-
+      /// created clone of the source object, open for write</param>
+      /// <param name="exactMatch">A value indicating if the action is
+      /// to be called only for objects that are instances of the generic 
+      /// argument, or should be called for objects of any type derived 
+      /// from the generic argument. If the generic argument is abstract, 
+      /// this argument is ignored and is effectively-false</param>
+      /// <param name="primaryOnly">A value indicating if the action should
+      /// be invoked on primary source/clone pairs only, or all source/clone 
+      /// pairs matching all other criteria.</param>
+
+      public DeepCloneObjectsOverrule(ObjectId ownerId,
+         Action<T, T> action = null,
+         bool exactMatch = false,
+         bool primaryOnly = true)
       {
-         this.cloneAction = cloneAction;
-         this.ownerId = ownerId;
-         if(IsSubEntityTarget)
-            this.primaryOnly = false;
-         else
-            this.primaryOnly = primaryOnly;
-         AddOverrule(targetClass, this, true);
+         Initialize(ownerId, action, null, exactMatch, primaryOnly);
+      }
+
+      /// <summary>
+      /// Overloaded constructor that takes an Action<bool, T, T> that, 
+      /// in addition to the source and clone, accepts a bool indicating 
+      /// if the cloned pair is primary or not. Specialized use cases may 
+      /// need to know that. This constructor overload implicitly sets
+      /// primaryOnly to false. Hence, it should be used when the action
+      /// is to be called for all clones rather than only primary clones.
+      /// </summary>
+      /// <param name="ownerId"></param>
+      /// <param name="action"></param>
+      /// <param name="exactMatch"></param>
+      
+      public DeepCloneObjectsOverrule(ObjectId ownerId,
+         Action<bool, T, T> action = null,
+         bool exactMatch = false)
+      {
+         Initialize(ownerId, null, action, exactMatch, false);
+      }
+
+      void Initialize(ObjectId ownerId, Action<T, T> action1, Action<bool, T, T> action2, bool exactMatch, bool primaryOnly)
+      {
+         if(action1 != null || action2 != null || OverridesOnCloned())
+         {
+            this.action1 = action1;
+            this.action2 = action2;
+            if(this.action1 != null)
+               this.action = (primary, source, clone) => this.action1(source, clone);
+            else if(this.action2 != null)
+               this.action = action2;
+            else
+               this.action = (p, s, c) => {};
+            this.ownerId = ownerId;
+            this.primaryOnly = TargetsSubEntity || action2 != null ? false : primaryOnly;
+            if(exactMatch && !typeof(T).IsAbstract)
+               match = matchExact;
+            else
+               match = matchAny;
+            AddOverrule(targetClass, this, true);
+         }
+      }
+
+      bool OverridesOnCloned()
+      {
+         if(this.GetType() == typeof(DeepCloneObjectsOverrule<T>))
+            return false;
+         Delegate d = OnCloned;
+         return d.Method != d.Method.GetBaseDefinition();
       }
 
       /// <summary>
       /// DeepClone() is never passed a sub-entity (AttributeReference, 
       /// Vertex, etc) with the isPrimary argument set to true when the 
-      /// owner is being cloned, so if the generic argument type is the 
-      /// type of a sub-entity, primaryOnly must be false, otherwise the 
-      /// action will not be invoked on the DeepClone() arguments.
+      /// owner is a primary clone, so if the generic argument type is 
+      /// the type of a sub-entity, primaryOnly must be false, otherwise 
+      /// the action will not be invoked on the sub-entity source/clone.
       /// </summary>
-      
-      static bool IsSubEntityTarget
+
+      static bool TargetsSubEntity
       {
          get
          {
@@ -517,17 +611,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          var result = base.DeepClone(obj, owner, idMap, isPrimary);
          if((isPrimary || !primaryOnly)
-            && (ownerId.IsNull || IsOwnedBy(obj, ownerId))
-            && obj is T source && result is T clone)
+            && (ownerId.IsNull || IsOwner(obj, ownerId))
+            && match(obj) is T source && result is T clone)
          {
-            OnCloned(source, clone);
+            OnCloned(source, clone, isPrimary);
          }
          return result;
       }
 
-      protected virtual void OnCloned(T source, T clone)
+      protected virtual void OnCloned(T source, T clone, bool primary)
       {
-         cloneAction?.Invoke(source, clone);
+         action(primary, source, clone);  
       }
 
       protected override void Dispose(bool disposing)
