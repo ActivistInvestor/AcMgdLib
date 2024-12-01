@@ -66,6 +66,17 @@ namespace AcMgdLib.DatabaseServices
       /// purely experimental and may only be useful in very
       /// specialized use-cases).
       /// 
+      /// Parallel Execution disabled by default:
+      /// 
+      /// Due to some unexplained, intermittent crashes, the
+      /// parallel switch is disabled by default, until the
+      /// cause of the failure can be identified. At this
+      /// point, the suspect is extracting curves from breps,
+      /// But, this has yet to be confirmed. If that proves
+      /// to be the case, the code will need to be refactored
+      /// to extract brep curves serially, and then operate
+      /// on them in parallel.
+      /// 
       /// Disclaimer: This is experimental code that is not
       /// recommended for production AutoCAD use. Any use of
       /// this code is undertaken entirely at your own risk,
