@@ -9,14 +9,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Geometry.Extensions;
 using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-
    public static class ParallelBrepExtensions
    {
       /// <summary>
@@ -38,32 +37,48 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// curves (e.g., create a single spline, multiple polylines
       /// connected to splines or ellipses, or the default behavior 
       /// of the EXPLODE command). 
+      /// 
+      /// Revised: Callers can explicitly specify if the operation
+      /// should execute in parallel, via the parallel argument.
       /// </summary>
-      /// <param name="complex"></param>
+      /// <param name="complex">The Brep Complex whose loops are
+      /// to be obtained.</param>
+      /// <param name="parallel">A value indicating if the operation
+      /// should execute in parallel (true = yes)</param>
       /// <returns></returns>
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="InvalidOperationException"></exception>
 
-      public static IEnumerable<Curve3d[]> ParallelGetLoops(this AcBr.Complex complex)
+      public static IEnumerable<Curve3d[]> GetLoops(this AcBr.Complex complex, 
+         bool parallel = false,
+         Func<BoundaryLoop, bool> predicate = null)
+
       {
          if(complex is null)
             throw new ArgumentNullException(nameof(complex));
 
+         predicate ??= loop => true;
+
          var loops = complex.Shells
             .SelectMany(shell => shell.Faces)
             .SelectMany(face => face.Loops)
+            .Where(predicate)
             .ToArray();
 
          var results = new Curve3d[loops.Length][];
-         loops.ForEach(1, (loop, i) =>
+         parallel &= loops.Length > 1;
+         loops.ForEach(parallel ? 1 : 0, (loop, i) =>
          {
             var geCurves = loop.GetGeCurves();
             if(!geCurves.Any())
                throw new InvalidOperationException("no curves");
 
-            if(geCurves.IsPolyline())   // create polyline from multiple GeCurves
-               results[i] = new[] { new CompositeCurve3d(geCurves.Normalize()) };
-            else  // return a single curve or create a spline
+            // Try to create a CompositeCurve3d representing
+            // a Polyline from the input curves:
+            var result = geCurves.TryCreatePolyline();
+            if(result != null)
+               results[i] = new[] { result };
+            else  // return the input curves.
                results[i] = geCurves.ToArray();
          });
 
@@ -76,16 +91,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// lines and arcs converted to Polylines.
       /// </summary>
       /// <param name="brep"></param>
+      /// <param name="parallel">A value indicating if
+      /// the operation should execute in parallel</param>
       /// <returns></returns>
       /// <exception cref="ArgumentNullException"></exception>
 
-      public static IEnumerable<Curve3d> ParallelGetEdgeGeometry(this Brep brep)
+      public static IEnumerable<Curve3d> GetEdgeGeometry(this Brep brep, bool parallel = false)
       {
-         if(brep is null)
+         if(brep is null || brep.IsDisposed)
             throw new ArgumentNullException(nameof(brep));
-         return brep.Complexes.Select(ParallelGetLoops)
-            .SelectMany(outer => outer)
-            .SelectMany(inner => inner);
+         return brep.Complexes.Select(c => c.GetLoops(parallel))
+            .SelectMany(level1 => level1)
+            .SelectMany(level2 => level2)
+            .ToArray();
       }
 
       public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop)
@@ -198,11 +216,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return output;
       }
 
-      static void Validate(this Curve3d curve)
-      {
-         // empty placeholder - not included.
-      }
-
       /// <summary>
       /// Attempts to create a CompositeCurve3d that can be
       /// used to create a Polyline, from an input sequence 
@@ -298,91 +311,4 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return new CompositeCurve3d(output);
       }
    }
-}
-
-public static class ParallelArrayExtensions
-{
-   /// <summary>
-   /// Conditional parallel execution based on array size:
-   /// 
-   /// The ParallelizationThreshold property determines the 
-   /// point at which the operation is done in parallel. If 
-   /// the array length is > ParallelizationThreshold, the 
-   /// operation is done in parallel.
-   /// 
-   /// The threshold can also be passed as an argument.
-   /// 
-   /// If the operation is not done in parallel, it uses a
-   /// Span<T> to access the array elements.
-   /// </summary>
-
-   /// User-tunable threshold
-
-   public static int ParallelizationThreshold
-   {
-      get;set;
-   }
-
-   public static void ForEach<T>(this T[] array, Action<T> action)
-   {
-      ForEach<T>(array, ParallelizationThreshold, action);
-   }
-
-   public static void ForEach<T>(this T[] array, int threshold, Action<T> action)
-   {
-      if(array is null)
-         throw new ArgumentNullException(nameof(array));
-      if(action is null)
-         throw new ArgumentNullException(nameof(action));
-      threshold = threshold < 1 ? ParallelizationThreshold : threshold;
-      if(array.Length > threshold)
-      {
-         var options = new ParallelOptions
-         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount
-         };
-         Parallel.For(0, array.Length, options, i => action(array[i]));
-      }
-      else
-      {
-         var span = array.AsSpan();
-         for(int i = 0; i < span.Length; i++)
-            action(span[i]);
-      }
-   }
-
-   /// <summary>
-   /// Same as above except the action also takes the index
-   /// of the array element.
-   /// </summary>
-
-   public static void ForEach<T>(this T[] array, Action<T, int> action)
-   {
-      ForEach<T>(array, ParallelizationThreshold, action);
-   }
-
-   public static void ForEach<T>(this T[] array, int threshold, Action<T, int> action)
-   {
-      threshold = threshold < 1 ? ParallelizationThreshold : threshold;
-      if(array is null)
-         throw new ArgumentNullException(nameof(array));
-      if(action is null)
-         throw new ArgumentNullException(nameof(action));
-      if(array.Length > threshold)
-      {
-         var options = new ParallelOptions
-         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount
-         };
-         Parallel.For(0, array.Length, options, i => action(array[i], i));
-      }
-      else
-      {
-         var span = array.AsSpan();
-         for(int i = 0; i < span.Length; i++)
-            action(span[i], i);
-      }
-
-   }
-
 }
