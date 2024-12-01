@@ -57,6 +57,8 @@ public static class ParallelArrayExtensions
          throw new ArgumentNullException(nameof(array));
       if(action is null)
          throw new ArgumentNullException(nameof(action));
+      if(array.Length == 0)
+         return;
       if(threshold < 0)
          threshold = ParallelizationThreshold;
       if(threshold != 0 && array.Length > threshold)
@@ -91,6 +93,8 @@ public static class ParallelArrayExtensions
          throw new ArgumentNullException(nameof(array));
       if(action is null)
          throw new ArgumentNullException(nameof(action));
+      if(array.Length == 0)
+         return;
       if(threshold < 0)
          threshold = ParallelizationThreshold;
       if(threshold != 0 && array.Length > threshold)
