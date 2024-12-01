@@ -1,17 +1,16 @@
-﻿/// EntityExtensions.cs  
+﻿/// ParallelBrepExtensions.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Extension methods targeting the Entity class.
+/// Extension methods targeting the BrepEntity class.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.Geometry.Extensions;
 using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -49,22 +48,20 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="InvalidOperationException"></exception>
 
-      public static IEnumerable<Curve3d[]> GetLoops(this AcBr.Complex complex, 
-         bool parallel = false,
+      public static IEnumerable<Curve3d[]> GetLoops(this AcBr.Complex complex,
+         bool convertToPolylines = true,
+         bool parallel = false, 
          Func<BoundaryLoop, bool> predicate = null)
 
       {
          if(complex is null)
             throw new ArgumentNullException(nameof(complex));
-
          predicate ??= loop => true;
-
          var loops = complex.Shells
             .SelectMany(shell => shell.Faces)
             .SelectMany(face => face.Loops)
             .Where(predicate)
             .ToArray();
-
          var results = new Curve3d[loops.Length][];
          parallel &= loops.Length > 1;
          loops.ForEach(parallel ? 1 : 0, (loop, i) =>
@@ -72,14 +69,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var geCurves = loop.GetGeCurves();
             if(!geCurves.Any())
                throw new InvalidOperationException("no curves");
-
-            // Try to create a CompositeCurve3d representing
-            // a Polyline from the input curves:
-            var result = geCurves.TryCreatePolyline();
-            if(result != null)
+            Curve3d result = null;
+            if(convertToPolylines && null != (result = geCurves.TryCreatePolyline()))
+            {
                results[i] = new[] { result };
+            }
             else  // return the input curves.
+            {
                results[i] = geCurves.ToArray();
+            }
          });
 
          return results;
@@ -87,23 +85,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Returns a Curve3d[] array containing all
-      /// edge geometry in the Brep, with contiguous
-      /// lines and arcs converted to Polylines.
+      /// edge geometry in the Brep, converting loops
+      /// containing only contiguous lines and arcs 
+      /// to Polylines.
       /// </summary>
       /// <param name="brep"></param>
-      /// <param name="parallel">A value indicating if
-      /// the operation should execute in parallel</param>
+      /// <param name="convertToPoly"></param>
       /// <returns></returns>
       /// <exception cref="ArgumentNullException"></exception>
 
-      public static IEnumerable<Curve3d> GetEdgeGeometry(this Brep brep, bool parallel = false)
+      /// <param name="parallel">A value indicating if
+      /// the operation should execute in parallel</param>
+      public static IEnumerable<Curve3d> Explode(this Brep brep, bool convertToPoly = true, bool parallel = false)
       {
          if(brep is null || brep.IsDisposed)
             throw new ArgumentNullException(nameof(brep));
-         return brep.Complexes.Select(c => c.GetLoops(parallel))
+         var result = brep.Complexes.Select(c => c.GetLoops(convertToPoly, parallel))
             .SelectMany(level1 => level1)
             .SelectMany(level2 => level2)
             .ToArray();
+         return parallel ? result.ToArray() : result;
       }
 
       public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop)
@@ -175,7 +176,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          var joined = new bool[count];
          var output = new Curve3d[count];
          if(validate)
-            input[0].Validate();
+            input[0].AssertIsValid();
          output[0] = input[0];
          joined[0] = true;
          Point3d startPoint = input[0].StartPoint;
@@ -193,7 +194,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                   continue;
                var next = spInput[i];
                if(validate)
-                  next.Validate();
+                  next.AssertIsValid();
                if(endPoint.IsEqualTo(next.StartPoint, tol))
                {
                   spOutput[idx] = next;
@@ -226,7 +227,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// to be in traversal order and direction before using
       /// them to create the result.
       /// 
-      /// This method incorporates the operations performed
+      /// This method consolidates the operations performed
       /// by IsPolyline() and Normalize(), and returns a
       /// CompositeCurve3d representing a Polyline, if the 
       /// input curves can be joined to form one, or null 
@@ -268,7 +269,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(current.IsClosed() || !(current is LineSegment3d or CircularArc3d))
             return null;
          if(validate)
-            current.Validate();
+            current.AssertIsValid();
          var output = new Curve3d[count];
          output[0] = current;
          joined[0] = true;
@@ -288,7 +289,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                if(current.IsClosed() || !(current is LineSegment3d or CircularArc3d))
                   return null;
                if(validate)
-                  current.Validate();
+                  current.AssertIsValid();
                if(endPoint.IsEqualTo(current.StartPoint, tol))
                {
                   spOutput[i] = current;
@@ -309,6 +310,38 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             i++;
          }
          return new CompositeCurve3d(output);
+      }
+
+      public static void AssertIsValid(this Curve3d curve,
+            bool rejectClosed = true,
+            bool rejectSelfIntersecting = true)
+      {
+         if(curve is null)
+            throw new ArgumentNullException(nameof(curve));
+         var tolerance = Tolerance.Global.EqualPoint;
+         // disqualify degenerate curves first:
+         if(curve.IsDegenerate(out var entity))
+            throw new ArgumentException("degenerate curve");
+         var iv = curve.GetInterval();
+         // disqualify unbounded curves
+         if(iv.IsUnbounded)
+            throw new ArgumentException("unbounded curve");
+         // disqualify zero-length curves
+         if(curve.GetLength(iv.LowerBound, iv.UpperBound, tolerance) < tolerance)
+            throw new ArgumentException("Zero-length curve");
+         // disqualify closed curves if rejectClosed == true
+         if(rejectClosed && curve.IsClosed())
+            throw new ArgumentException("closed curve");
+         // disqualify non-planar curves
+         if(!curve.IsPlanar(out Plane plane))
+            throw new ArgumentException("non-planar curve");
+         // disqualify self-intersecting curves if rejectSelfIntersecting is true:
+         if(rejectSelfIntersecting)
+         {
+            var cci = new CurveCurveIntersector3d(curve, curve, plane.Normal);
+            if(cci.NumberOfIntersectionPoints > 0)
+               throw new ArgumentException("self-intersecting curve");
+         }
       }
    }
 }

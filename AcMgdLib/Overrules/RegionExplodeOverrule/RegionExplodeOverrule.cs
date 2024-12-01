@@ -59,6 +59,13 @@ namespace AcMgdLib.DatabaseServices
       /// It probably should have worked this way from
       /// the outset, but.....
       /// 
+      /// Development notes:
+      /// 
+      /// The overrule will propagate XData from the Region
+      /// being exploded to the resulting entities (this is
+      /// purely experimental and may only be useful in very
+      /// specialized use-cases).
+      /// 
       /// Disclaimer: This is experimental code that is not
       /// recommended for production AutoCAD use. Any use of
       /// this code is undertaken entirely at your own risk,
@@ -77,23 +84,22 @@ namespace AcMgdLib.DatabaseServices
       {
          public override void Explode(Entity entity, DBObjectCollection entitites)
          {
-            if(entity is Region region)
+            if(entity is Region region && IsExplodeCommand)
             {
                try
                {
                   using(var brep = new Brep(region))
                   {
-                     /// Important: the result of ParallelGetEdgeGeometry()
-                     /// must be executed within the scope of the BRep, which 
-                     /// is done by calling .ToArray() on the result. This is 
-                     /// necessary to cause the code to execute in the scope 
-                     /// of the Brep, rather than after it has been disposed.
+                     var geCurves = brep.Explode();
+                     var xdata = entity.XData;
+                     bool hasXData = xdata != null && xdata.Cast<TypedValue>().Any();
 
-                     var curves = brep.GetEdgeGeometry(parallel).ToArray();
-
-                     foreach(var item in curves)
+                     foreach(var geCurve in geCurves)
                      {
-                        entitites.Add(Curve.CreateFromGeCurve(item));
+                        Entity curve = Curve.CreateFromGeCurve(geCurve);
+                        entitites.Add(curve);
+                        if(hasXData)
+                           curve.XData = xdata;
                      }
                   }
                }
@@ -149,6 +155,15 @@ namespace AcMgdLib.DatabaseServices
             string what = instance.IsOverruling ? "en" : "dis";
             Application.DocumentManager.MdiActiveDocument
                .Editor.WriteMessage($"\nExplode Regions to Polylines {what}abled");
+         }
+
+         static bool IsExplodeCommand
+         {
+            get
+            {
+               return Application.DocumentManager.MdiActiveDocument?
+                  .CommandInProgress == "EXPLODE";
+            }
          }
       }
 
