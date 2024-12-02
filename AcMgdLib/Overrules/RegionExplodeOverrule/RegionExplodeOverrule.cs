@@ -3,6 +3,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
+using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.DatabaseServices
@@ -77,6 +78,14 @@ namespace AcMgdLib.DatabaseServices
       /// to extract brep curves serially, and then operate
       /// on them in parallel.
       /// 
+      /// Conditional operation only during EXPLODE.
+      /// 
+      /// Because this overrule can be called for any type of
+      /// explode of Regions (something AutoCAD does routinely
+      /// to identify sub-entities, perform object snap, etc.), 
+      /// the overrule is constrained to only work during the 
+      /// EXPLODE command.
+      /// 
       /// Disclaimer: This is experimental code that is not
       /// recommended for production AutoCAD use. Any use of
       /// this code is undertaken entirely at your own risk,
@@ -93,21 +102,52 @@ namespace AcMgdLib.DatabaseServices
 
       public class RegionExplodeOverrule : TransformOverrule<Region>
       {
+
+         /// <summary>
+         /// Notes on optimizations to be done:
+         /// 
+         ///   1.  Determine if the region contains any geometry
+         ///       of interest (edge geometry that is convertable 
+         ///       to a polyline), which means looking for two or 
+         ///       more contiguous line/arc edges). 
+         ///       
+         ///       If the region has no converable geometry, then 
+         ///       there is nothing to do, and we can defer to the 
+         ///       default behavior (e.g., call base.Explode()).
+         ///       
+         ///       The above optimization has been implemented in
+         ///       this commit.
+         ///       
+         /// </summary>
+         /// <param name="entity"></param>
+         /// <param name="entitites"></param>
+
          public override void Explode(Entity entity, DBObjectCollection entitites)
          {
-            if(entity is Region region && IsExplodeCommand)
+            bool flag = !CanExplode(entity);
+            if(entity is Region region && !flag) 
             {
                try
                {
                   using(var brep = new Brep(region))
                   {
-                     var geCurves = brep.Explode();
-                     var xdata = entity.XData;
+                     var geCurves = brep.Explode(true, parallel, BrepExtensions.IsPolyline);
+                     if(!geCurves.Any())
+                     {
+                        /// Didn't find any loops that can be converted
+                        /// to polylines, so do nothing. To play it safe,
+                        /// the BRep is disposed before making the call 
+                        /// to base.Explode()
+                        
+                        flag = true;
+                        return;
+                     }
+                     ResultBuffer xdata = propagateXdata ? entity.XData : null;
                      bool hasXData = xdata != null && xdata.Cast<TypedValue>().Any();
 
                      foreach(var geCurve in geCurves)
                      {
-                        Entity curve = Curve.CreateFromGeCurve(geCurve);
+                        Curve curve = Curve.CreateFromGeCurve(geCurve);
                         entitites.Add(curve);
                         if(hasXData)
                            curve.XData = xdata;
@@ -116,7 +156,12 @@ namespace AcMgdLib.DatabaseServices
                }
                catch(System.Exception)
                {
-                  base.Explode(entity, entitites);
+                  flag = true;
+               }
+               finally
+               {
+                  if(flag)
+                     base.Explode(entity, entitites);
                }
             }
             else
@@ -125,9 +170,24 @@ namespace AcMgdLib.DatabaseServices
             }
          }
 
+         /// <summary>
+         /// The overrule alters the default behavior only
+         /// for the EXPLODE command. In any other context,
+         /// the default behavior prevails.
+         /// </summary>
+
+         static bool CanExplode(Entity entity)
+         {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            return entity.Database != null
+               && doc?.Database == entity.Database
+               && doc.CommandInProgress == "EXPLODE";
+         }
+
          static RegionExplodeOverrule instance = null;
 
          static bool parallel = false;
+         static bool propagateXdata = false;
 
          /// <summary>
          /// A command that enables/disables parallel
@@ -154,6 +214,15 @@ namespace AcMgdLib.DatabaseServices
                .Editor.WriteMessage($"\nRegion Explode parallelization {what}abled");
          }
 
+         [CommandMethod("REGIONEXPLODEXDATA")]
+         public static void ToggleXdata()
+         {
+            propagateXdata ^= true;
+            string what = propagateXdata ? "en" : "dis";
+            Application.DocumentManager.MdiActiveDocument
+               .Editor.WriteMessage($"\nRegion Explode XData propagation {what}abled");
+         }
+
          [CommandMethod("REGIONEXPLODE")]
          public static void StopStart()
          {
@@ -168,14 +237,6 @@ namespace AcMgdLib.DatabaseServices
                .Editor.WriteMessage($"\nExplode Regions to Polylines {what}abled");
          }
 
-         static bool IsExplodeCommand
-         {
-            get
-            {
-               return Application.DocumentManager.MdiActiveDocument?
-                  .CommandInProgress == "EXPLODE";
-            }
-         }
       }
 
    }
