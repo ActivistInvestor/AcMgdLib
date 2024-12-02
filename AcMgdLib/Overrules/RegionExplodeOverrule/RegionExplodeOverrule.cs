@@ -40,6 +40,15 @@ namespace AcMgdLib.DatabaseServices
       ///      sequences converted to Polylines. This is a bit
       ///      more of a challenge but is entirely possible.
       ///      
+      /// Updated:
+      /// 
+      /// Option 2 above has been implemented and is now the 
+      /// default behavior. The overrule will convert all 
+      /// contiguous chains of 2 or more lines/arcs to polylines, 
+      /// including those that are a part of loops containing 
+      /// other types of curves, such as splines or elliptical 
+      /// arcs.
+      ///      
       /// Usage:
       /// 
       /// Add all files in the repo folder to a project, 
@@ -79,7 +88,7 @@ namespace AcMgdLib.DatabaseServices
       /// Conditional operation only during EXPLODE.
       /// 
       /// Because this overrule can be called for any type of
-      /// explode of Regions (something AutoCAD does routinely
+      /// explosion of Regions (something AutoCAD does routinely
       /// to identify sub-entities, perform object snap, etc.), 
       /// the overrule is constrained to only work during the 
       /// EXPLODE command.
@@ -122,14 +131,14 @@ namespace AcMgdLib.DatabaseServices
 
          public override void Explode(Entity entity, DBObjectCollection entitites)
          {
-            bool flag = !CanExplode(entity);
-            if(entity is Region region && !flag) 
+            bool handled = CanExplode(entity);
+            if(handled && entity is Region region) 
             {
                try
                {
                   using(var brep = new Brep(region))
                   {
-                     var geCurves = brep.Explode(true, parallel, BrepExtensions.IsPolyline);
+                     var geCurves = brep.Explode(parallel);
                      if(!geCurves.Any())
                      {
                         /// Didn't find any loops that can be converted
@@ -137,7 +146,7 @@ namespace AcMgdLib.DatabaseServices
                         /// the BRep is disposed before making the call 
                         /// to base.Explode()
                         
-                        flag = true;
+                        handled = false;
                         return;
                      }
                      ResultBuffer xdata = propagateXdata ? entity.XData : null;
@@ -154,11 +163,11 @@ namespace AcMgdLib.DatabaseServices
                }
                catch(System.Exception)
                {
-                  flag = true;
+                  handled = false;
                }
                finally
                {
-                  if(flag)
+                  if(!handled)
                      base.Explode(entity, entitites);
                }
             }

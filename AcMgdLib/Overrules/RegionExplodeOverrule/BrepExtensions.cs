@@ -9,7 +9,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Autodesk.AutoCAD.BoundaryRepresentation;
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
@@ -40,6 +42,9 @@ namespace AcMgdLib.DatabaseServices
       /// Revised: Callers can explicitly specify if the operation
       /// should execute in parallel, via the parallel argument.
       /// </summary>
+      /// <param name="convertToPolylines">A value indicating if
+      /// contiguous chains of two or more line/arc segments should
+      /// be converted to a single polyline.</param>
       /// <param name="complex">The Brep Complex whose loops are
       /// to be obtained.</param>
       /// <param name="parallel">A value indicating if the operation
@@ -48,15 +53,17 @@ namespace AcMgdLib.DatabaseServices
       /// <exception cref="ArgumentNullException"></exception>
       /// <exception cref="InvalidOperationException"></exception>
 
-      public static IEnumerable<Curve3d[]> GetLoops(this AcBr.Complex complex,
+      public static IEnumerable<Curve3d[]> GetLoops(
+         this AcBr.Complex complex,
          bool convertToPolylines = true,
-         bool parallel = false, 
+         bool parallel = false,
          Func<BoundaryLoop, bool> predicate = null)
 
       {
          if(complex is null)
             throw new ArgumentNullException(nameof(complex));
-         predicate ??= loop => true;
+         // bool hasPolylines = false;
+         predicate ??= defaultPredicate;
          var loops = complex.Shells
             .SelectMany(shell => shell.Faces)
             .SelectMany(face => face.Loops)
@@ -79,31 +86,53 @@ namespace AcMgdLib.DatabaseServices
                results[i] = geCurves.ToArray();
             }
          });
-
          return results;
       }
 
+      public static IEnumerable<Curve3d[]> GetOptimizedLoops(
+         this AcBr.Complex complex,
+         bool parallel = false)
+
+      {
+         if(complex is null)
+            throw new ArgumentNullException(nameof(complex));
+         var loops = complex.Shells
+            .SelectMany(shell => shell.Faces)
+            .SelectMany(face => face.Loops)
+            .ToArray();
+         var results = new Curve3d[loops.Length][];
+         parallel &= loops.Length > 1;
+         // Optimize() and TryCreatePolyline() will execute in parallel
+         // but there is still a question regarding whether GetGeCurves()
+         // is thread-safe. 
+         loops.ForEach(parallel ? 1 : 0, (loop, i) =>
+         {
+            results[i] = loop.GetGeCurves().Optimize().ToArray();
+         });
+         return results;
+      }
+
+      static readonly Func<BoundaryLoop, bool> defaultPredicate
+         = loop => true;
+
       /// <summary>
       /// Returns a Curve3d[] array containing all
-      /// edge geometry in the Brep, converting loops
-      /// containing only contiguous lines and arcs 
-      /// to Polylines.
+      /// edge geometry in the Brep, converting all
+      /// contiguous sequences of 2 or more lines or
+      /// arcs to a single Polyline.
       /// </summary>
       /// <param name="brep"></param>
-      /// <param name="convertToPoly"></param>
       /// <returns></returns>
       /// <exception cref="ArgumentNullException"></exception>
-
       /// <param name="parallel">A value indicating if
       /// the operation should execute in parallel</param>
-      public static IEnumerable<Curve3d> Explode(this Brep brep, 
-         bool convertToPoly = true, 
-         bool parallel = false,
-         Func<BoundaryLoop, bool> predicate = null)
+
+      public static IEnumerable<Curve3d> Explode(this Brep brep,
+         bool parallel = false)
       {
          if(brep is null || brep.IsDisposed)
             throw new ArgumentNullException(nameof(brep));
-         var result = brep.Complexes.Select(c => c.GetLoops(convertToPoly, parallel, predicate))
+         var result = brep.Complexes.Select(c => c.GetOptimizedLoops(parallel))
             .SelectMany(level1 => level1)
             .SelectMany(level2 => level2)
             .ToArray();
@@ -349,6 +378,71 @@ namespace AcMgdLib.DatabaseServices
             var cci = new CurveCurveIntersector3d(curve, curve, plane.Normal);
             if(cci.NumberOfIntersectionPoints > 0)
                throw new ArgumentException("self-intersecting curve");
+         }
+      }
+
+      /// <summary>
+      /// Given a sequence of contiguous Curve3d, this will 
+      /// replace sub-sequences consisting of two or more line 
+      /// or arc segments with a polyline.
+      /// 
+      /// The input sequence must form a contiguous chain of
+      /// inter-connected curves.
+      /// </summary>
+      /// <param name="curves"></param>
+      /// <returns></returns>
+      /// <exception cref="ArgumentNullException"></exception>
+
+      public static IEnumerable<Curve3d> Optimize(this IEnumerable<Curve3d> curves)
+      {
+         if(curves is null)
+            throw new ArgumentNullException(nameof(curves));
+         if(!curves.Any())
+            yield break;
+         if(!curves.Skip(1).Any())
+            yield return curves.First();
+         List<Curve3d> segments = new List<Curve3d>();
+         foreach(Curve3d curve in curves)
+         {
+            if(curve is LineSegment3d or CircularArc3d)
+            {
+               segments.Add(curve);
+               continue;
+            }
+            if(segments.Count == 0)
+            {
+               yield return curve;
+               continue;
+            }
+            if(segments.Count == 1)
+            {
+               yield return segments[0];
+               yield return curve;
+               segments.Clear();
+               continue;
+            }
+            foreach(var segment in segments.TryConvert())
+               yield return segment;
+            yield return curve;
+            segments.Clear();
+         }
+         if(segments.Count > 0)
+         {
+            foreach(var segment in segments.TryConvert())
+               yield return segment;
+         }
+      }
+
+      static IEnumerable<Curve3d> TryConvert(this IEnumerable<Curve3d> segments)
+      {
+         var pline = segments.TryCreatePolyline();
+         if(pline != null)
+         {
+            return new Curve3d[] { pline };
+         }
+         else
+         {
+            return segments;
          }
       }
    }
