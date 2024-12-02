@@ -2,6 +2,7 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.DatabaseServices
@@ -139,7 +140,7 @@ namespace AcMgdLib.DatabaseServices
                   using(var brep = new Brep(region))
                   {
                      var geCurves = brep.Explode(parallel);
-                     if(!geCurves.Any())
+                     if(geCurves is null || !geCurves.Any())
                      {
                         /// Didn't find any loops that can be converted
                         /// to polylines, so do nothing. To play it safe,
@@ -152,7 +153,7 @@ namespace AcMgdLib.DatabaseServices
                      ResultBuffer xdata = propagateXdata ? entity.XData : null;
                      bool hasXData = xdata != null && xdata.Cast<TypedValue>().Any();
 
-                     foreach(var geCurve in geCurves)
+                     foreach(var geCurve in geCurves as Curve3d[] ?? geCurves.ToArray())
                      {
                         Curve curve = Curve.CreateFromGeCurve(geCurve);
                         entitites.Add(curve);
@@ -187,8 +188,8 @@ namespace AcMgdLib.DatabaseServices
          {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             return entity.Database != null
-               && doc?.Database == entity.Database
-               && doc.CommandInProgress == "EXPLODE";
+               && doc.CommandInProgress == "EXPLODE"
+               && IsEqualTo(doc.Database, entity.Database);
          }
 
          static RegionExplodeOverrule instance = null;
@@ -221,6 +222,12 @@ namespace AcMgdLib.DatabaseServices
                .Editor.WriteMessage($"\nRegion Explode parallelization {what}abled");
          }
 
+         /// <summary>
+         /// A command that toggles propagation of Xdata from
+         /// a region to the entities created by exploding it.
+         /// This is disabled by default.
+         /// </summary>
+
          [CommandMethod("REGIONEXPLODEXDATA")]
          public static void ToggleXdata()
          {
@@ -230,6 +237,16 @@ namespace AcMgdLib.DatabaseServices
                .Editor.WriteMessage($"\nRegion Explode XData propagation {what}abled");
          }
 
+         /// <summary>
+         /// Toggles special handling of Regions by the 
+         /// EXPLODE command on/off. This command must be
+         /// issued to enable the functionality provided
+         /// by this code.
+         /// 
+         /// When enabled, Exploded region will be comprised
+         /// of polylines rather than chains of lines/arcs.
+         /// </summary>
+         
          [CommandMethod("REGIONEXPLODE")]
          public static void StopStart()
          {
@@ -243,8 +260,32 @@ namespace AcMgdLib.DatabaseServices
             Application.DocumentManager.MdiActiveDocument
                .Editor.WriteMessage($"\nExplode Regions to Polylines {what}abled");
          }
-
       }
 
+
+      public static bool IsEqualTo(this Database db, Database other)
+      {
+         if(db is null)
+            return other is null;
+         else if(other is null)
+            return false;
+#if NET8_0_OR_GREATER
+         return db.RuntimeId == other.RuntimeId;
+#else
+         return db.UnmanagedObject == other.UnmanagedObject;
+#endif
+      }
+   }
+
+   /// <summary>
+   /// For future use with explode region loops to
+   /// a single spline (not implemented yet).
+   /// </summary>
+
+   public enum RegionExplodeType
+   {
+      Default = 0, // Default behavior of EXPLODE command 
+      Polylines,   // Convert contiguous lines/arcs to polylines
+      Spline       // Convert each loop to a single Spline
    }
 }
