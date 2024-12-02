@@ -2,8 +2,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.DatabaseServices.Extensions;
-using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.DatabaseServices
