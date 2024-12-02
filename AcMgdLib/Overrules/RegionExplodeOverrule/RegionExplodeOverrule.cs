@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -146,16 +147,25 @@ namespace AcMgdLib.DatabaseServices
                         /// to polylines, so do nothing. To play it safe,
                         /// the BRep is disposed before making the call 
                         /// to base.Explode()
-                        
+
                         handled = false;
                         return;
                      }
                      ResultBuffer xdata = propagateXdata ? entity.XData : null;
                      bool hasXData = xdata != null && xdata.Cast<TypedValue>().Any();
 
-                     foreach(var geCurve in geCurves as Curve3d[] ?? geCurves.ToArray())
+                     // Convert all Curve3ds to Curves and store them in
+                     // an array, in case a call to CreateFromGeCurve()
+                     // fails.
+                     //
+                     // In that case the exception will be thrown before
+                     // any curves have been added to the DBObjectCollection,
+                     // and base.Expode() is called to revert to the default
+                     // behavior without polluting the result.
+                     
+                     Curve3d[] array = geCurves as Curve3d[] ?? geCurves.ToArray();
+                     foreach(var curve in Array.ConvertAll(array, Curve.CreateFromGeCurve))
                      {
-                        Curve curve = Curve.CreateFromGeCurve(geCurve);
                         entitites.Add(curve);
                         if(hasXData)
                            curve.XData = xdata;
@@ -180,8 +190,9 @@ namespace AcMgdLib.DatabaseServices
 
          /// <summary>
          /// The overrule alters the default behavior only
-         /// for the EXPLODE command. In any other context,
-         /// the default behavior prevails.
+         /// for the EXPLODE command with Regions that are
+         /// database-resident. In any other context, the 
+         /// default behavior prevails.
          /// </summary>
 
          static bool CanExplode(Entity entity)
