@@ -127,11 +127,13 @@ namespace AcMgdLib.BoundaryRepresentation
       /// Returns a Curve3d[] array containing all
       /// edge geometry in the Brep, converting all
       /// contiguous sequences of 2 or more lines or
-      /// arcs to a single Polyline, or converting
-      /// an entire loop to a closed spline, depending
-      /// on the type argument.
+      /// arcs to a single Polyline, or entire loops 
+      /// to closed splines, depending on the type 
+      /// argument.
       /// </summary>
       /// <param name="brep"></param>
+      /// <param name="type">The type of conversion to
+      /// create</param>
       /// <returns></returns>
       /// <exception cref="ArgumentNullException"></exception>
       /// <param name="parallel">A value indicating if
@@ -193,6 +195,7 @@ namespace AcMgdLib.BoundaryRepresentation
 
       public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop, bool splines = false)
       {
+         bool hasLinesOrArcs = false;
          if(loop is null)
             throw new ArgumentNullException(nameof(loop));
          return loop.Edges.Select(edge =>
@@ -200,11 +203,37 @@ namespace AcMgdLib.BoundaryRepresentation
             if(splines)
                return edge.GetCurveAsNurb();
             else if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
+            {
                return crv.NativeCurve;
+            }
             else
                throw new NotSupportedException();
          });
       }
+
+      //public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop, out bool HasLinesOrArcs, bool splines = false)
+      //{
+      //   bool hasLinesOrArcs = false;
+      //   if(loop is null)
+      //      throw new ArgumentNullException(nameof(loop));
+      //   HasLinesOrArcs = false;
+      //   return loop.Edges.Select(edge =>
+      //   {
+      //      if(splines)
+      //         return edge.GetCurveAsNurb();
+      //      else if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
+      //      {
+      //         Curve3d nativeCurve = crv.NativeCurve;
+      //         if(nativeCurve.IsPolySegment())
+      //            hasLinesOrArcs = true;
+      //         HasLinesOrArcs = hasLinesOrArcs;
+      //         return crv.NativeCurve;
+      //      }
+      //      else
+      //         throw new NotSupportedException();
+      //   });
+      //}
+
 
       public static bool IsPolyline(this BoundaryLoop loop)
       {
@@ -320,14 +349,20 @@ namespace AcMgdLib.BoundaryRepresentation
       {
          var curve = Curve.CreateFromGeCurve(next);
          var db = HostApplicationServices.WorkingDatabase;
-         using(var tr = new OpenCloseTransaction())
+         try
          {
-            BlockTableRecord btr =
-               (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
-            btr.AppendEntity(curve);
-            tr.AddNewlyCreatedDBObject(curve, true);
-            curve.ColorIndex = 1;
-            tr.Commit();
+            using(var tr = new OpenCloseTransaction())
+            {
+               BlockTableRecord btr =
+                  (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
+               btr.AppendEntity(curve);
+               tr.AddNewlyCreatedDBObject(curve, true);
+               curve.ColorIndex = 1;
+               tr.Commit();
+            }
+         }
+         catch
+         {
          }
       }
 
@@ -340,20 +375,6 @@ namespace AcMgdLib.BoundaryRepresentation
       /// Polyline, this method normalizes the input elements
       /// to be in traversal order and direction before using
       /// them to create the result.
-      /// 
-      /// This method consolidates the operations performed
-      /// by IsPolyline() and Normalize(), and returns a
-      /// CompositeCurve3d representing a Polyline, if the 
-      /// input curves can be joined to form one, or null 
-      /// otherwise.
-      /// 
-      /// If one unconditionally intends to create a Polyline
-      /// from the input if possible, this method should be 
-      /// more efficient as it doesn't require iteration of 
-      /// the input to determine if a Polyline can be created 
-      /// from it in advance. Instead it checks each input 
-      /// curve as they are encountered, and bails out if the 
-      /// curve isn't a line or arc.
       /// 
       /// This method returns null if the input sequence is 
       /// empty or contains a single element, regardless of 
@@ -380,7 +401,7 @@ namespace AcMgdLib.BoundaryRepresentation
          int count = input.Length;
          var joined = new bool[count];
          Curve3d current = input[0];
-         if(current.IsClosed() || !(current is LineSegment3d or CircularArc3d))
+         if(!current.IsPolySegment())
             return null;
          if(validate)
             current.AssertIsValid();
@@ -400,7 +421,7 @@ namespace AcMgdLib.BoundaryRepresentation
                if(spJoined[j])
                   continue;
                current = spInput[j];
-               if(current.IsClosed() || !(current is LineSegment3d or CircularArc3d))
+               if(!current.IsPolySegment())
                   return null;
                if(validate)
                   current.AssertIsValid();
@@ -460,11 +481,12 @@ namespace AcMgdLib.BoundaryRepresentation
 
       /// <summary>
       /// Given a sequence of contiguous Curve3d, this will 
-      /// replace sub-sequences consisting of two or more line 
-      /// or arc segments with a polyline.
+      /// replace sub-sequences consisting of two or more 
+      /// interconnected line or arc segments with a polyline.
       /// 
       /// The input sequence must form a contiguous chain of
-      /// inter-connected curves.
+      /// inter-connected curves. If any curve is disjoint,
+      /// an exception is thrown.
       /// </summary>
       /// <param name="curves"></param>
       /// <returns></returns>
@@ -524,15 +546,10 @@ namespace AcMgdLib.BoundaryRepresentation
       }
    }
 
-   /// <summary>
-   /// For future use with explode region loops to
-   /// a single spline (not implemented yet).
-   /// </summary>
-
    public enum RegionExplodeType
    {
       Default = 0, // Default behavior of EXPLODE command 
-      Polylines,   // Convert contiguous lines/arcs to polylines
+      Polylines,   // Convert interconnected lines/arcs to polylines
       Spline       // Convert each loop to a single Spline
    }
 

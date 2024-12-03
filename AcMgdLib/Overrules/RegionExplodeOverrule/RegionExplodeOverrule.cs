@@ -51,7 +51,11 @@ namespace AcMgdLib.BoundaryRepresentation
    /// build it, and NETLOAD the compiled assembly into 
    /// AutoCAD.
    /// 
-   /// Issue the REGIONEXPLODE command and choose Polyline.
+   /// Issue the REGIONEXPLODE command and choose Polylines:
+   /// 
+   /// Command: REGIONEXPLODE
+   /// Region explode mode [Default/Polylines/Spline/Xdata] <Polylines>: Polylines
+   /// Command:
    /// 
    /// Issue the EXPLODE command, and select one or more
    /// regions with loops containing no splines or ellptical
@@ -106,6 +110,11 @@ namespace AcMgdLib.BoundaryRepresentation
    public class RegionExplodeOverrule : TransformOverrule<Region>
    {
 
+      static RegionExplodeOverrule instance = null;
+      static bool parallel = false;
+      static bool propagateXdata = false;
+      static RegionExplodeType explodeType = RegionExplodeType.Polylines;
+
       static RegionExplodeOverrule()
       {
          instance = new RegionExplodeOverrule();
@@ -133,6 +142,7 @@ namespace AcMgdLib.BoundaryRepresentation
       public override void Explode(Entity entity, DBObjectCollection entitySet)
       {
          bool handled = CanExplode(entity);
+         Curve[] curves = null;
          try
          {
             if(handled && entity is Region region)
@@ -142,10 +152,8 @@ namespace AcMgdLib.BoundaryRepresentation
                   var geCurves = brep.Explode(explodeType, parallel);
                   if(geCurves is null || !geCurves.Any())
                   {
-                     /// Didn't find any loops that can be converted
-                     /// to polylines, so do nothing. To play it safe,
-                     /// the BRep is disposed before making the call 
-                     /// to base.Explode()
+                     /// Didn't find anything that can be converted
+                     /// to splines/polylines, so do nothing. 
 
                      handled = false;
                      return;
@@ -163,13 +171,14 @@ namespace AcMgdLib.BoundaryRepresentation
                   // default EXPLODE behavior without polluting the result.
 
                   Curve3d[] array = geCurves as Curve3d[] ?? geCurves.ToArray();
-                  var curves = Array.ConvertAll(array, Curve.CreateFromGeCurve);
+                  curves = Array.ConvertAll(array, Curve.CreateFromGeCurve);
                   foreach(var curve in curves)
                   {
                      entitySet.Add(curve);
                      if(hasXData)
                         curve.XData = xdata;
                   }
+                  curves = null;
                }
             }
          }
@@ -180,6 +189,11 @@ namespace AcMgdLib.BoundaryRepresentation
          }
          finally
          {
+            if(curves != null)
+            {
+               foreach(var curve in curves)
+                  curve?.Dispose();
+            }
             if(!handled)
                base.Explode(entity, entitySet);
          }
@@ -198,11 +212,6 @@ namespace AcMgdLib.BoundaryRepresentation
          return entity.Database != null
             && doc.CommandInProgress == "EXPLODE";
       }
-
-      static RegionExplodeOverrule instance = null;
-      static bool parallel = false;
-      static bool propagateXdata = false;
-      static RegionExplodeType explodeType = RegionExplodeType.Polylines;
 
 
       /// <summary>
