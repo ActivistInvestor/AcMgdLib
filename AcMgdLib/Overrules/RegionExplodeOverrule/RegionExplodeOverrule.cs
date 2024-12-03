@@ -142,7 +142,6 @@ namespace AcMgdLib.BoundaryRepresentation
                   var geCurves = brep.Explode(explodeType, parallel);
                   if(geCurves is null || !geCurves.Any())
                   {
-                     AcConsole.ReportThis("Explode() return null or empty array");
                      /// Didn't find any loops that can be converted
                      /// to polylines, so do nothing. To play it safe,
                      /// the BRep is disposed before making the call 
