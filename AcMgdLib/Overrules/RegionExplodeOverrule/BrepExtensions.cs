@@ -304,8 +304,6 @@ namespace AcMgdLib.BoundaryRepresentation
             }
             if(!found)
             {
-               AcConsole.TraceProps(next);
-               Actualize(next);
                throw new InvalidOperationException("Disjoint curves");
             }
             idx++;
@@ -313,6 +311,11 @@ namespace AcMgdLib.BoundaryRepresentation
          return output;
       }
 
+      /// <summary>
+      /// For debugging, creates a Curve in the drawing
+      /// when an error is detected.
+      /// </summary>
+      /// <param name="next"></param>
       private static void Actualize(Curve3d next)
       {
          var curve = Curve.CreateFromGeCurve(next);
