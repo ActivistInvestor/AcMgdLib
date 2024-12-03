@@ -9,23 +9,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Runtime;
 using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
-namespace AcMgdLib.DatabaseServices
+namespace AcMgdLib.BoundaryRepresentation
 {
    public static class BrepExtensions
    {
       /// <summary>
-      /// Returns an sequence of Curve3d[] arrays that can be 
+      /// Returns a sequence of Curve3d[] arrays that can be 
       /// used to generate Curve entities. The process has been
       /// refactored to support parallel execution, by moving
       /// the non thread-safe code to the caller (which must
-      /// create the Curve entities, and which cannot be done
-      /// in parallel). 
+      /// create the Curve entities, which cannot be done in 
+      /// parallel). 
       /// 
       /// This method will exploit parallel execution for the
       /// creation of all loops within a complex.
@@ -39,8 +39,8 @@ namespace AcMgdLib.DatabaseServices
       /// connected to splines or ellipses, or the default behavior 
       /// of the EXPLODE command). 
       /// 
-      /// Revised: Callers can explicitly specify if the operation
-      /// should execute in parallel, via the parallel argument.
+      /// Callers can explicitly specify if the operation should 
+      /// execute in parallel, via the parallel argument.
       /// </summary>
       /// <param name="convertToPolylines">A value indicating if
       /// contiguous chains of two or more line/arc segments should
@@ -62,7 +62,6 @@ namespace AcMgdLib.DatabaseServices
       {
          if(complex is null)
             throw new ArgumentNullException(nameof(complex));
-         // bool hasPolylines = false;
          predicate ??= defaultPredicate;
          var loops = complex.Shells
             .SelectMany(shell => shell.Faces)
@@ -89,6 +88,15 @@ namespace AcMgdLib.DatabaseServices
          return results;
       }
 
+      /// <summary>
+      /// Like GetLoops() but always converts interconnected
+      /// lines and arcs to polylines.
+      /// </summary>
+      /// <param name="complex"></param>
+      /// <param name="parallel"></param>
+      /// <returns></returns>
+      /// <exception cref="ArgumentNullException"></exception>
+
       public static IEnumerable<Curve3d[]> GetOptimizedLoops(
          this AcBr.Complex complex,
          bool parallel = false)
@@ -103,8 +111,8 @@ namespace AcMgdLib.DatabaseServices
          var results = new Curve3d[loops.Length][];
          parallel &= loops.Length > 1;
          // Optimize() and TryCreatePolyline() will execute in parallel
-         // but there is still a question regarding whether GetGeCurves()
-         // is thread-safe. 
+         // but there is still question of whether GetGeCurves() is
+         // entirely thread-safe. 
          loops.ForEach(parallel ? 1 : 0, (loop, i) =>
          {
             results[i] = loop.GetGeCurves().Optimize().ToArray();
@@ -119,7 +127,9 @@ namespace AcMgdLib.DatabaseServices
       /// Returns a Curve3d[] array containing all
       /// edge geometry in the Brep, converting all
       /// contiguous sequences of 2 or more lines or
-      /// arcs to a single Polyline.
+      /// arcs to a single Polyline, or converting
+      /// an entire loop to a closed spline, depending
+      /// on the type argument.
       /// </summary>
       /// <param name="brep"></param>
       /// <returns></returns>
@@ -128,24 +138,68 @@ namespace AcMgdLib.DatabaseServices
       /// the operation should execute in parallel</param>
 
       public static IEnumerable<Curve3d> Explode(this Brep brep,
+         RegionExplodeType type = RegionExplodeType.Polylines,
          bool parallel = false)
       {
          if(brep is null || brep.IsDisposed)
             throw new ArgumentNullException(nameof(brep));
-         var result = brep.Complexes.Select(c => c.GetOptimizedLoops(parallel))
-            .SelectMany(level1 => level1)
-            .SelectMany(level2 => level2)
-            .ToArray();
-         return parallel ? result.ToArray() : result;
+         Curve3d[] result = null;
+         if(type == RegionExplodeType.Spline)
+         {
+            result = brep.Complexes
+               .SelectMany(c => c.Shells)
+               .SelectMany(shell => shell.Faces)
+               .SelectMany(face => face.Loops)
+               .Select(loop => loop.GetSpline()) 
+               .ToArray();
+         }
+         else if(type == RegionExplodeType.Polylines)
+         {
+            result = brep.Complexes.Select(c => c.GetOptimizedLoops(parallel))
+               .SelectMany(arrays => arrays)
+               .SelectMany(array => array)
+               .ToArray();
+         }
+         if(result == null)
+            return Array.Empty<Curve3d>();
+         else 
+            return parallel ? result.ToArray() : result;
       }
 
-      public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop)
+      /// <summary>
+      /// Gets the loop geometry as a single, closed spline
+      /// normalized to traversal order and direction.
+      /// 
+      /// Parallelization has yet to be integrated into this,
+      /// and will require refactoring at the call site.
+      /// </summary>
+      /// <param name="loop"></param>
+      /// <returns></returns>
+      /// <exception cref="InvalidOperationException"></exception>
+
+      public static Curve3d GetSpline(this BoundaryLoop loop)
+      {
+         var curves = loop.GetGeCurves(true).Normalize();
+         if(curves.Length == 0)
+            throw new InvalidOperationException("no curves");
+         if(curves.Length == 1)
+            return curves[0];
+         var first = (NurbCurve3d) curves[0];
+         var span = curves.AsSpan();
+         for(int i = 1; i < span.Length; i++)
+            first.JoinWith((NurbCurve3d)span[i]);
+         return first;
+      }
+
+      public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop, bool splines = false)
       {
          if(loop is null)
             throw new ArgumentNullException(nameof(loop));
          return loop.Edges.Select(edge =>
          {
-            if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
+            if(splines)
+               return edge.GetCurveAsNurb();
+            else if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
                return crv.NativeCurve;
             else
                throw new NotSupportedException();
@@ -223,13 +277,14 @@ namespace AcMgdLib.DatabaseServices
          int idx = 1;
          while(idx < count)
          {
+            Curve3d next = null;
             Point3d endPoint = spOutput[idx - 1].EndPoint;
             bool found = false;
             for(int i = 0; i < count; i++)
             {
                if(spJoined[i])
                   continue;
-               var next = spInput[i];
+               next = spInput[i];
                if(validate)
                   next.AssertIsValid();
                if(endPoint.IsEqualTo(next.StartPoint, tol))
@@ -248,10 +303,29 @@ namespace AcMgdLib.DatabaseServices
                }
             }
             if(!found)
+            {
+               AcConsole.TraceProps(next);
+               Actualize(next);
                throw new InvalidOperationException("Disjoint curves");
+            }
             idx++;
          }
          return output;
+      }
+
+      private static void Actualize(Curve3d next)
+      {
+         var curve = Curve.CreateFromGeCurve(next);
+         var db = HostApplicationServices.WorkingDatabase;
+         using(var tr = new OpenCloseTransaction())
+         {
+            BlockTableRecord btr =
+               (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
+            btr.AppendEntity(curve);
+            tr.AddNewlyCreatedDBObject(curve, true);
+            curve.ColorIndex = 1;
+            tr.Commit();
+         }
       }
 
       /// <summary>
@@ -446,4 +520,17 @@ namespace AcMgdLib.DatabaseServices
          }
       }
    }
+
+   /// <summary>
+   /// For future use with explode region loops to
+   /// a single spline (not implemented yet).
+   /// </summary>
+
+   public enum RegionExplodeType
+   {
+      Default = 0, // Default behavior of EXPLODE command 
+      Polylines,   // Convert contiguous lines/arcs to polylines
+      Spline       // Convert each loop to a single Spline
+   }
+
 }
