@@ -8,11 +8,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.Runtime;
 using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
 namespace AcMgdLib.BoundaryRepresentation
@@ -146,13 +146,13 @@ namespace AcMgdLib.BoundaryRepresentation
          if(brep is null || brep.IsDisposed)
             throw new ArgumentNullException(nameof(brep));
          Curve3d[] result = null;
-         if(type == RegionExplodeType.Spline)
+         if(type == RegionExplodeType.Splines)
          {
             result = brep.Complexes
                .SelectMany(c => c.Shells)
                .SelectMany(shell => shell.Faces)
                .SelectMany(face => face.Loops)
-               .Select(loop => loop.GetSpline()) 
+               .Select(loop => loop.ToNurbCurve3d()) 
                .ToArray();
          }
          else if(type == RegionExplodeType.Polylines)
@@ -169,7 +169,7 @@ namespace AcMgdLib.BoundaryRepresentation
       }
 
       /// <summary>
-      /// Gets the loop geometry as a single, closed spline
+      /// Gets the loop geometry as a single, closed spline,
       /// normalized to traversal order and direction.
       /// 
       /// Parallelization has yet to be integrated into this,
@@ -179,23 +179,37 @@ namespace AcMgdLib.BoundaryRepresentation
       /// <returns></returns>
       /// <exception cref="InvalidOperationException"></exception>
 
-      public static Curve3d GetSpline(this BoundaryLoop loop)
+      public static Curve3d ToNurbCurve3d(this BoundaryLoop loop)
       {
-         var curves = loop.GetGeCurves(true).Normalize();
-         if(curves.Length == 0)
-            throw new InvalidOperationException("no curves");
+         if(loop is null)
+            throw new ArgumentNullException(nameof(loop));
+         Edge[] edges = loop.Edges.ToArray();
+         if(edges.Length == 0)
+            throw new InvalidOperationException("No edges");
+         NurbCurve3d[] curves = Array.ConvertAll(edges,
+            edge => edge.GetCurveAsNurb());
          if(curves.Length == 1)
             return curves[0];
-         var first = (NurbCurve3d) curves[0];
-         var span = curves.AsSpan();
-         for(int i = 1; i < span.Length; i++)
-            first.JoinWith((NurbCurve3d)span[i]);
+         curves = curves.Normalize();
+         var first = curves[0];
+         var span = curves.AsSpan(1);
+         for(int i = 0; i < span.Length; i++)
+            first.JoinWith(span[i]);
          return first;
       }
 
+      /// <summary>
+      /// Returns the Curve3d elements comprising the given
+      /// BoundaryLoop. If the splines argument is true, the
+      /// elements are returned as NurbCurve3d instances.
+      /// </summary>
+      /// <param name="loop"></param>
+      /// <param name="splines"></param>
+      /// <returns></returns>
+      /// <exception cref="ArgumentNullException"></exception>
+      /// <exception cref="NotSupportedException"></exception>
       public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop, bool splines = false)
       {
-         bool hasLinesOrArcs = false;
          if(loop is null)
             throw new ArgumentNullException(nameof(loop));
          return loop.Edges.Select(edge =>
@@ -203,38 +217,18 @@ namespace AcMgdLib.BoundaryRepresentation
             if(splines)
                return edge.GetCurveAsNurb();
             else if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
-            {
                return crv.NativeCurve;
-            }
             else
                throw new NotSupportedException();
          });
       }
 
-      //public static IEnumerable<Curve3d> GetGeCurves(this BoundaryLoop loop, out bool HasLinesOrArcs, bool splines = false)
-      //{
-      //   bool hasLinesOrArcs = false;
-      //   if(loop is null)
-      //      throw new ArgumentNullException(nameof(loop));
-      //   HasLinesOrArcs = false;
-      //   return loop.Edges.Select(edge =>
-      //   {
-      //      if(splines)
-      //         return edge.GetCurveAsNurb();
-      //      else if(edge.Curve is ExternalCurve3d crv && crv.IsNativeCurve)
-      //      {
-      //         Curve3d nativeCurve = crv.NativeCurve;
-      //         if(nativeCurve.IsPolySegment())
-      //            hasLinesOrArcs = true;
-      //         HasLinesOrArcs = hasLinesOrArcs;
-      //         return crv.NativeCurve;
-      //      }
-      //      else
-      //         throw new NotSupportedException();
-      //   });
-      //}
-
-
+      /// <summary>
+      /// Returns a value indicating if the BoundaryLoop 
+      /// can be converted to a polyline.
+      /// </summary>
+      /// <param name="loop"></param>
+      /// <returns></returns>
       public static bool IsPolyline(this BoundaryLoop loop)
       {
          return loop.GetGeCurves().IsPolyline();
@@ -265,6 +259,13 @@ namespace AcMgdLib.BoundaryRepresentation
             return curves.All(IsPolySegment);
       }
 
+      /// <summary>
+      /// Returns a value indicating if the argument is a type 
+      /// that can be converted to a polyline segment.
+      /// </summary>
+      /// <param name="curve"></param>
+      /// <returns></returns>
+      
       public static bool IsPolySegment(this Curve3d curve)
          => curve is LineSegment3d or CircularArc3d && !curve.IsClosed();
 
@@ -281,33 +282,32 @@ namespace AcMgdLib.BoundaryRepresentation
       /// <returns>The input curves in order of traversal</returns>
       /// <exception cref="ArgumentNullException"></exception>
 
-      public static Curve3d[] Normalize(this IEnumerable<Curve3d> curves,
+      public static T[] Normalize<T>(this IEnumerable<T> curves,
          bool validate = false,
-         Tolerance tol = default(Tolerance))
+         Tolerance tol = default(Tolerance)) where T: Curve3d
       {
          if(curves is null)
             throw new ArgumentNullException(nameof(curves));
-         var input = curves as Curve3d[] ?? curves.ToArray();
+         var input = curves as T[] ?? curves.ToArray();
          if(input.Length < 2)
             return input;
          if(tol.Equals(default(Tolerance)))
             tol = Tolerance.Global;
-         int count = input.Length;
-         var joined = new bool[count];
-         var output = new Curve3d[count];
          if(validate)
             input[0].AssertIsValid();
-         output[0] = input[0];
+         int count = input.Length;
+         var joined = new bool[count];
+         var result = new T[count];
+         result[0] = input[0];
          joined[0] = true;
-         Point3d startPoint = input[0].StartPoint;
          var spInput = input.AsSpan();
-         var spOutput = output.AsSpan();
+         var spResult = result.AsSpan();
          var spJoined = joined.AsSpan();
-         int idx = 1;
-         while(idx < count)
+         int index = 1;
+         while(index < count)
          {
-            Curve3d next = null;
-            Point3d endPoint = spOutput[idx - 1].EndPoint;
+            T next = null;
+            Point3d endPoint = spResult[index - 1].EndPoint;
             bool found = false;
             for(int i = 0; i < count; i++)
             {
@@ -318,14 +318,14 @@ namespace AcMgdLib.BoundaryRepresentation
                   next.AssertIsValid();
                if(endPoint.IsEqualTo(next.StartPoint, tol))
                {
-                  spOutput[idx] = next;
+                  spResult[index] = next;
                   spJoined[i] = true;
                   found = true;
                   break;
                }
                else if(endPoint.IsEqualTo(next.EndPoint, tol))
                {
-                  spOutput[idx] = next.GetReverseParameterCurve();
+                  spResult[index] = (T) next.GetReverseParameterCurve();
                   spJoined[i] = true;
                   found = true;
                   break;
@@ -335,9 +335,9 @@ namespace AcMgdLib.BoundaryRepresentation
             {
                throw new InvalidOperationException("Disjoint curves");
             }
-            idx++;
+            index++;
          }
-         return output;
+         return result;
       }
 
       /// <summary>
@@ -345,10 +345,14 @@ namespace AcMgdLib.BoundaryRepresentation
       /// when an error is detected.
       /// </summary>
       /// <param name="next"></param>
-      private static void Actualize(Curve3d next)
+
+      [Conditional("DEBUG")]
+      private static void Realize(Curve3d next, Database db = null)
       {
+         if(next == null)
+            return;
          var curve = Curve.CreateFromGeCurve(next);
-         var db = HostApplicationServices.WorkingDatabase;
+         db ??= HostApplicationServices.WorkingDatabase;
          try
          {
             using(var tr = new OpenCloseTransaction())
@@ -411,38 +415,38 @@ namespace AcMgdLib.BoundaryRepresentation
          var spInput = input.AsSpan();
          var spOutput = output.AsSpan();
          var spJoined = joined.AsSpan();
-         int i = 1;
-         while(i < count)
+         int index = 1;
+         while(index < count)
          {
-            Point3d endPoint = spOutput[i - 1].EndPoint;
+            Point3d endPoint = spOutput[index - 1].EndPoint;
             bool found = false;
-            for(int j = 0; j < count; j++)
+            for(int i = 0; i < count; i++)
             {
-               if(spJoined[j])
+               if(spJoined[i])
                   continue;
-               current = spInput[j];
+               current = spInput[i];
                if(!current.IsPolySegment())
                   return null;
                if(validate)
                   current.AssertIsValid();
                if(endPoint.IsEqualTo(current.StartPoint, tol))
                {
-                  spOutput[i] = current;
-                  spJoined[j] = true;
+                  spOutput[index] = current;
+                  spJoined[i] = true;
                   found = true;
                   break;
                }
                else if(endPoint.IsEqualTo(current.EndPoint, tol))
                {
-                  spOutput[i] = current.GetReverseParameterCurve();
-                  spJoined[j] = true;
+                  spOutput[index] = current.GetReverseParameterCurve();
+                  spJoined[i] = true;
                   found = true;
                   break;
                }
             }
             if(!found)
                throw new InvalidOperationException("Disjoint curves");
-            i++;
+            index++;
          }
          return new CompositeCurve3d(output);
       }
@@ -480,13 +484,14 @@ namespace AcMgdLib.BoundaryRepresentation
       }
 
       /// <summary>
-      /// Given a sequence of contiguous Curve3d, this will 
-      /// replace sub-sequences consisting of two or more 
-      /// interconnected line or arc segments with a polyline.
+      /// Given a sequence of contiguous, interconnected Curve3d
+      /// instances, this method will replace all occurrences of
+      /// two or more contiguous, interconnected lines or arcs 
+      /// with polylines.
       /// 
       /// The input sequence must form a contiguous chain of
-      /// inter-connected curves. If any curve is disjoint,
-      /// an exception is thrown.
+      /// interconnected curves. If any curve is disjoint, an 
+      /// exception is thrown.
       /// </summary>
       /// <param name="curves"></param>
       /// <returns></returns>
@@ -496,53 +501,45 @@ namespace AcMgdLib.BoundaryRepresentation
       {
          if(curves is null)
             throw new ArgumentNullException(nameof(curves));
-         if(!curves.Any())
-            yield break;
-         if(!curves.Skip(1).Any())
-            yield return curves.First();
-         List<Curve3d> segments = new List<Curve3d>();
-         foreach(Curve3d curve in curves)
+         if(curves.Any())
          {
-            if(curve is LineSegment3d or CircularArc3d)
+            List<Curve3d> segments = new List<Curve3d>();
+            foreach(Curve3d curve in curves)
             {
-               segments.Add(curve);
-               continue;
-            }
-            if(segments.Count == 0)
-            {
-               yield return curve;
-               continue;
-            }
-            if(segments.Count == 1)
-            {
-               yield return segments[0];
+               if(curve is LineSegment3d or CircularArc3d) // collect lines & arcs
+               {
+                  segments.Add(curve);
+                  continue;
+               }
+               if(segments.Count == 0) 
+               {
+                  yield return curve;
+                  continue;
+               }
+               if(segments.Count == 1) 
+               {
+                  yield return segments[0];
+                  yield return curve;
+                  segments.Clear();
+                  continue;
+               }
+               foreach(var segment in segments.TryConvert())
+                  yield return segment;
                yield return curve;
                segments.Clear();
-               continue;
             }
-            foreach(var segment in segments.TryConvert())
-               yield return segment;
-            yield return curve;
-            segments.Clear();
-         }
-         if(segments.Count > 0)
-         {
-            foreach(var segment in segments.TryConvert())
-               yield return segment;
+            if(segments.Count > 0)
+            {
+               foreach(var segment in segments.TryConvert())
+                  yield return segment;
+            }
          }
       }
 
       static IEnumerable<Curve3d> TryConvert(this IEnumerable<Curve3d> segments)
       {
          var pline = segments.TryCreatePolyline();
-         if(pline != null)
-         {
-            return new Curve3d[] { pline };
-         }
-         else
-         {
-            return segments;
-         }
+         return pline != null ? new Curve3d[] { pline } : segments;
       }
    }
 
@@ -550,7 +547,7 @@ namespace AcMgdLib.BoundaryRepresentation
    {
       Default = 0, // Default behavior of EXPLODE command 
       Polylines,   // Convert interconnected lines/arcs to polylines
-      Spline       // Convert each loop to a single Spline
+      Splines      // Convert each loop to a single Spline
    }
 
 }

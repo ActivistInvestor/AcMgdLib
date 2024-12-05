@@ -289,7 +289,7 @@ namespace AcMgdLib.BoundaryRepresentation
          var pko = new PromptKeywordOptions("Region explode mode");
          pko.Keywords.Add("Default");
          pko.Keywords.Add("Polylines");
-         pko.Keywords.Add("Spline");
+         pko.Keywords.Add("Splines");
          pko.Keywords.Add("Xdata");
          pko.Keywords.Default = explodeType.ToString();
          var pr = ed.GetKeywords(pko);
@@ -306,7 +306,7 @@ namespace AcMgdLib.BoundaryRepresentation
                break;
             case "Spline":
                Enabled = true;
-               explodeType = RegionExplodeType.Spline;
+               explodeType = RegionExplodeType.Splines;
                break;
             case "Xdata":
                propagateXdata ^= true;
