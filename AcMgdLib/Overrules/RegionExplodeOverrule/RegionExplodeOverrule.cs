@@ -224,7 +224,6 @@ namespace AcMgdLib.BoundaryRepresentation
          }
          catch (System.Exception ex)
          {
-            AcConsole.WriteLine(ex.ToString());
             return false;
          }
       }
@@ -270,9 +269,7 @@ namespace AcMgdLib.BoundaryRepresentation
       {
          get 
          {
-            bool result = acedIsLispOrScriptActive();
-            AcConsole.TraceExpr(result);
-            return result;
+            return acedIsLispOrScriptActive();
          }
       }
 
