@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection.Extensions;
+using System.Runtime.InteropServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
+using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.BoundaryRepresentation
 {
@@ -106,7 +107,6 @@ namespace AcMgdLib.BoundaryRepresentation
    /// 
    /// </summary>
 
-   [StartupClass]
    public class RegionExplodeOverrule : TransformOverrule<Region>
    {
 
@@ -114,6 +114,11 @@ namespace AcMgdLib.BoundaryRepresentation
       static bool parallel = false;
       static bool propagateXdata = false;
       static RegionExplodeType explodeType = RegionExplodeType.Polylines;
+      static bool defaultProperties = false;
+
+      public RegionExplodeOverrule(bool enabled = true) : base(enabled)
+      {
+      }
 
       static RegionExplodeOverrule()
       {
@@ -147,17 +152,12 @@ namespace AcMgdLib.BoundaryRepresentation
          {
             if(handled && entity is Region region)
             {
+               handled = false;
                using(var brep = new Brep(region))
                {
                   var geCurves = brep.Explode(explodeType, parallel);
                   if(geCurves is null || !geCurves.Any())
-                  {
-                     /// Didn't find anything that can be converted
-                     /// to splines/polylines, so do nothing. 
-
-                     handled = false;
                      return;
-                  }
                   ResultBuffer xdata = propagateXdata ? entity.XData : null;
                   bool hasXData = xdata != null && xdata.Cast<TypedValue>().Any();
                   
@@ -175,25 +175,27 @@ namespace AcMgdLib.BoundaryRepresentation
                   foreach(var curve in curves)
                   {
                      entitySet.Add(curve);
+                     curve.SetPropertiesFrom(region);
                      if(hasXData)
                         curve.XData = xdata;
                   }
                   curves = null;
+                  handled = true;
                }
             }
          }
          catch(System.Exception ex)
          {
             DebugWrite(ex.ToString());
+            string msg = ex.Message;
+            if(ex is AcRx.Exception rex)
+               msg = rex.ErrorStatus.ToString();
+            Write($"Explode to {explodeType.ToString()} failed ({msg})");
             handled = false;
          }
          finally
          {
-            if(curves != null)
-            {
-               foreach(var curve in curves)
-                  curve?.Dispose();
-            }
+            curves.DisposeItems();
             if(!handled)
                base.Explode(entity, entitySet);
          }
@@ -202,15 +204,29 @@ namespace AcMgdLib.BoundaryRepresentation
       /// <summary>
       /// The overrule alters the default behavior only
       /// for the EXPLODE command with Regions that are
-      /// database-resident. In any other context, the 
-      /// default behavior prevails.
+      /// database-resident and the command is not being
+      /// executed by a script or LISP macro. In any other 
+      /// context, the overrule will defer to the default 
+      /// behavior of Region.Explode(). 
+      /// 
+      /// 
       /// </summary>
 
       static bool CanExplode(Entity entity)
       {
-         Document doc = Application.DocumentManager.MdiActiveDocument;
-         return entity.Database != null
-            && doc.CommandInProgress == "EXPLODE";
+         try
+         {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            return doc.CommandInProgress == "EXPLODE"
+               && !IsLispOrScriptActive
+               && !(entity.Database is null)
+               && entity.Database.UnmanagedObject == doc.Database.UnmanagedObject;
+         }
+         catch (System.Exception ex)
+         {
+            AcConsole.WriteLine(ex.ToString());
+            return false;
+         }
       }
 
 
@@ -226,8 +242,8 @@ namespace AcMgdLib.BoundaryRepresentation
       /// parallel execution, and probably will not
       /// benefit from it. Also remember that because
       /// this code is experimental and has not been
-      /// thoroughly tested in parallel, there is a
-      /// possiblity of failure in that mode.
+      /// thoroughly tested in parallel, there is the
+      /// possiblity of a failure in that mode.
       /// </summary>
 
       [CommandMethod("REGIONEXPLODEPARALLEL")]
@@ -240,12 +256,23 @@ namespace AcMgdLib.BoundaryRepresentation
 
       static bool Enabled
       {
-         get => instance != null && instance.IsOverruling;
+         get => instance?.IsOverruling ?? false;
          set
          {
             if(instance == null)
-               instance = new RegionExplodeOverrule();
-            instance.IsOverruling = value;
+               instance = new RegionExplodeOverrule(value);
+            else
+               instance.IsOverruling = value;
+         }
+      }
+
+      public static bool IsLispOrScriptActive
+      {
+         get 
+         {
+            bool result = acedIsLispOrScriptActive();
+            AcConsole.TraceExpr(result);
+            return result;
          }
       }
 
@@ -262,13 +289,17 @@ namespace AcMgdLib.BoundaryRepresentation
             .Editor.WriteMessage("\n" + fmt, args);
       }
 
+      [DllImport("accore.dll", CallingConvention = CallingConvention.Cdecl,
+         EntryPoint = "?acedIsLispOrScriptActive@@YA_NXZ")]
+      extern static bool acedIsLispOrScriptActive();
+
       /// <summary>
       /// To enable or disable the overrule functionality
       /// specify Polylines, Spline, or Default.
       /// 
-      /// Select Polylines to convert all sequences of 
-      /// 2 or more interconnected line and arc segments 
-      /// to a polylines.
+      /// Select Polylines to convert all occurences of
+      /// 2 or more interconnected line or arc segments 
+      /// to polylines.
       /// 
       /// Select Spline to convert each loop to a single
       /// closed Spline.
@@ -286,12 +317,13 @@ namespace AcMgdLib.BoundaryRepresentation
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          var ed = doc.Editor;
-         var pko = new PromptKeywordOptions("Region explode mode");
+         var pko = new PromptKeywordOptions("\nRegion explode mode");
          pko.Keywords.Add("Default");
          pko.Keywords.Add("Polylines");
          pko.Keywords.Add("Splines");
          pko.Keywords.Add("Xdata");
          pko.Keywords.Default = explodeType.ToString();
+         UpdatePrompt();
          var pr = ed.GetKeywords(pko);
          if(pr.Status != PromptStatus.OK)
             return;
@@ -299,12 +331,13 @@ namespace AcMgdLib.BoundaryRepresentation
          {
             case "Default":
                Enabled = false;
+               explodeType = RegionExplodeType.Default;
                break;
             case "Polylines":
                Enabled = true;
                explodeType = RegionExplodeType.Polylines;
                break;
-            case "Spline":
+            case "Splines":
                Enabled = true;
                explodeType = RegionExplodeType.Splines;
                break;
@@ -315,15 +348,28 @@ namespace AcMgdLib.BoundaryRepresentation
                break;
          }
       }
+
+      static void UpdatePrompt()
+      {
+         string msg = "\nExplode regions to: ";
+         switch(explodeType)
+         {
+            case RegionExplodeType.Splines:
+               msg += "Splines";
+               break;
+            case RegionExplodeType.Polylines:
+               msg += "Polylines";
+               break;
+            case RegionExplodeType.Default:
+               msg += "Lines and arcs (default)";
+               break;
+            default:
+               break;
+         }
+         msg += ", Xdata: ";
+         msg += propagateXdata ? "enabled" : "disabled";
+         Write(msg);
+      }
+
    }
-
-#if !LOCALENV
-
-   [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-   public class StartupClassAttribute : System.Attribute
-   {
-   }
-
-#endif
-
 }
