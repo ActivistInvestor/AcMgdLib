@@ -1,11 +1,16 @@
-﻿using System;
-using System.Collections;
+﻿/// WblockGroupHandler.cs
+/// 
+/// ActivistInvestor / Tony T
+/// 
+/// Distributed unter the terms of the MIT license
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using AcMgdLib.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.DatabaseServices.Extensions;
+// using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 /// <summary>
@@ -62,6 +67,8 @@ namespace AcMgdLib.Common.Examples
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
+      ObjectIdCollection clonableGroupIds = null;
+
       public WblockGroupHandler(Database db) : base(db, true)
       {
       }
@@ -78,48 +85,57 @@ namespace AcMgdLib.Common.Examples
       /// </summary>
       /// <param name="sourceDb"></param>
       /// <returns></returns>
-      
+
       protected override bool OnWblockNotice(Database sourceDb)
       {
-         return HasClonableGroups(sourceDb);
+         clonableGroupIds = GetClonableGroupIds(sourceDb);
+         return clonableGroupIds is not null && clonableGroupIds.Count > 0;
       }
 
       protected override void OnDeepCloneEnded(IdMapping map, bool aborted)
       {
-         if(!aborted && map != null) 
+         if(!aborted && clonableGroupIds is not null)
          {
             int cloned = CloneGroups(map);
             if(cloned > 0)
-               DebugWrite($"Copied {cloned} groups");
+               DebugWrite($"Exported {cloned} groups");
          }
       }
 
       /// <summary>
       /// Clones all groups from the source database
       /// to the destination database, only if all of 
-      /// the member entities in a group were cloned. 
+      /// the entities in the group were cloned. 
       /// </summary>
-      /// <param name="map"></param>
+      /// <param name="idMap"></param>
 
-      int CloneGroups(IdMapping map)
+      int CloneGroups(IdMapping idMap)
       {
+         if(idMap == null)
+            throw new ArgumentNullException(nameof(idMap));
+         if(clonableGroupIds == null || clonableGroupIds.Count == 0)
+            return 0;
          int cloned = 0;
          try
          {
             using(var tr = new OpenCloseTransaction())
             {
-               Database destDb = map.DestinationDatabase;
-               var groups = (DBDictionary) tr.GetObject(
+               Database destDb = idMap.DestinationDatabase;
+               var groupDictionary = (DBDictionary) tr.GetObject(
                   destDb.GroupDictionaryId, OpenMode.ForWrite);
-               foreach(Group srcGroup in GetClonableGroups(map.OriginalDatabase, tr))
+               var map = ToDictionary(idMap);
+               foreach(ObjectId id in clonableGroupIds)
                {
+                  var srcGroup = (Group)tr.GetObject(id, OpenMode.ForRead);
                   var cloneIds = GetCloneIds(srcGroup, map);
-                  if(cloneIds != null)
+                  if(cloneIds is not null)
                   {
                      Group group = new Group(srcGroup.Description, srcGroup.Selectable);
-                     groups.SetAt(srcGroup.Name, group);
-                     tr.AddNewlyCreatedDBObject(group, true);
+                     groupDictionary.SetAt(srcGroup.Name, group);
+                     if(group.Name.StartsWith('*'))
+                        group.SetAnonymous();
                      group.Append(cloneIds);
+                     tr.AddNewlyCreatedDBObject(group, true);
                      ++cloned;
                   }
                }
@@ -140,7 +156,8 @@ namespace AcMgdLib.Common.Examples
       /// not cloned. 
       /// </summary>
 
-      static ObjectIdCollection GetCloneIds(Group source, IdMapping map)
+      static ObjectIdCollection GetCloneIds(Group source, 
+         Dictionary<ObjectId, ObjectId> map)
       {
          var srcIds = source.GetAllEntityIds();
          if(srcIds.Length == 0)
@@ -148,52 +165,54 @@ namespace AcMgdLib.Common.Examples
          var cloneIds = new ObjectId[srcIds.Length];
          for(int i = 0; i < srcIds.Length; i++)
          {
-            var id = srcIds[i];
-            if(!map.Contains(id))
+            if(!map.TryGetValue(srcIds[i], out cloneIds[i]))
                return null;
-            cloneIds[i] = map[id].Value;
          }
          return new ObjectIdCollection(cloneIds);
       }
 
-      public static IEnumerable<Group> GetClonableGroups(Database db, Transaction tr)
+      public static IEnumerable<Group> GetClonableGroups(Database db, Transaction tr = null)
       {
-         var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
-         foreach(var entry in groupDict)
+         bool flag = tr == null;
+         if(flag)
+            tr = new OpenCloseTransaction();
+         try
          {
-            Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-            if(!group.IsNotAccessible && group.NumEntities > 0)
-               yield return group;
+            var groupDict = (DBDictionary)tr.GetObject(db.GroupDictionaryId, OpenMode.ForRead);
+            foreach(var entry in groupDict)
+            {
+               Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
+               if(!group.IsNotAccessible && group.NumEntities > 0)
+                  yield return group;
+            }
          }
+         finally
+         {
+            if(flag)
+            {
+               tr.Commit();
+               tr.Dispose();
+            }
+         }
+      }
+
+      static Dictionary<ObjectId, ObjectId> ToDictionary(IdMapping map)
+      {
+         RXClass entityClass = RXObject.GetClass(typeof(Entity));
+         return map.Cast<IdPair>()
+            .Where(pair => pair.IsPrimary 
+               && pair.IsCloned
+               && pair.Key.ObjectClass.IsDerivedFrom(entityClass))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
       }
 
       public static ObjectIdCollection GetClonableGroupIds(Database db)
       {
-         using(var tr = new OpenCloseTransaction())
-         {
-            try
-            {
-               var groups = GetClonableGroups(db, tr);
-               if(groups.Any())
-                  return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
-               else
-                  return null;
-            }
-            finally
-            {
-               tr.Commit();
-            }
-         }
-      }
-
-      static bool HasClonableGroups(Database db)
-      {
-         using(var tr = new OpenCloseTransaction())
-         {
-            var result = GetClonableGroups(db, tr).Any();
-            tr.Commit();
-            return result;
-         }
+         var groups = GetClonableGroups(db);
+         if(groups.Any())
+            return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
+         else
+            return null;
       }
    }
 
@@ -211,7 +230,6 @@ namespace AcMgdLib.Common.Examples
                doc.UserData[typeof(WblockGroupHandler)] =
                   new WblockGroupHandler(doc.Database);
             }
-
             Application.DocumentManager.DocumentCreated += documentCreated;
          }
       }
