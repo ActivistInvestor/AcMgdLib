@@ -211,11 +211,11 @@ namespace AcMgdLib.Common.Examples
 
       static readonly RXClass entityClass = RXObject.GetClass(typeof(Entity));
 
-      static Func<IdPair, bool> primaryEntitiesOnly =
-         static pair => pair.IsPrimary && pair.Key.ObjectClass.IsDerivedFrom(entityClass);
+      static bool primaryEntitiesOnly(IdPair pair) => 
+         pair.IsPrimary && pair.Key.ObjectClass.IsDerivedFrom(entityClass);
 
-      static Func<IdPair, bool> entitiesOnly =
-         static pair => pair.Key.ObjectClass.IsDerivedFrom(entityClass);
+      static bool entitiesOnly(IdPair pair) => 
+         pair.Key.ObjectClass.IsDerivedFrom(entityClass);
 
       public static ObjectIdCollection GetClonableGroupIds(Database db)
       {
