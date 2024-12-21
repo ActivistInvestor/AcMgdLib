@@ -10,13 +10,12 @@ using System.Linq;
 using AcMgdLib.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-// using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 /// <summary>
 /// An example showing the use of the WblockCloneHandler
 /// base type, which automates the grunt work required to
-/// intervene in a wblock clone operation. 
+/// intervene in a wblock operation. 
 /// 
 /// This example causes groups to be included in a WBLOCK or 
 /// a COPYCLIP operation when all member entities in a group
@@ -45,8 +44,8 @@ using Autodesk.AutoCAD.Runtime;
 /// Because this operation does not technically Clone existing
 /// groups, if there is any type of application-data attached to 
 /// a group (e.g., xdata or extension dictionary) it will not be
-/// copied/cloned or transformed. Supporting that is beyond the
-/// scope of this example.
+/// cloned or have references to/from it translated. Supporting 
+/// that is beyond the scope of this example.
 /// 
 /// Updates:
 /// 
@@ -56,7 +55,8 @@ using Autodesk.AutoCAD.Runtime;
 ///    to distination database.
 ///    
 /// -  Modified code to enable forced copy of database
-///    on full WBLOCK operation.
+///    on full WBLOCK operation, only if there are one
+///    or more cloneable groups in the database.
 ///    
 /// -  Modified code to not act when source database 
 ///    contains no clonable groups.
@@ -73,11 +73,15 @@ namespace AcMgdLib.Common.Examples
       {
       }
 
+      public WblockGroupHandler(Document doc) : this(doc.Database) 
+      {
+      }
+
       /// <summary>
       /// Revised:
       /// 
       /// Returning false causes further notifications to
-      /// be supressed, and the operation is not handled.
+      /// be suppressed, and the operation is not handled.
       /// 
       /// By opting-out of the operation at this point, a
       /// full database copy can be avoided if there's no
@@ -126,17 +130,19 @@ namespace AcMgdLib.Common.Examples
                var map = ToDictionary(idMap);
                foreach(ObjectId id in clonableGroupIds)
                {
-                  var srcGroup = (Group)tr.GetObject(id, OpenMode.ForRead);
-                  var cloneIds = GetCloneIds(srcGroup, map);
+                  var source = (Group)tr.GetObject(id, OpenMode.ForRead);
+                  var cloneIds = GetCloneIds(source, map);
                   if(cloneIds is not null)
                   {
-                     Group group = new Group(srcGroup.Description, srcGroup.Selectable);
-                     groupDictionary.SetAt(srcGroup.Name, group);
-                     if(group.Name.StartsWith('*'))
-                        group.SetAnonymous();
-                     group.Append(cloneIds);
-                     tr.AddNewlyCreatedDBObject(group, true);
-                     ++cloned;
+                     using(Group group = new Group(source.Description, source.Selectable))
+                     {
+                        groupDictionary.SetAt(source.Name, group);
+                        if(group.Name.StartsWith('*'))
+                           group.SetAnonymous();
+                        group.Append(cloneIds);
+                        tr.AddNewlyCreatedDBObject(group, true);
+                        ++cloned;
+                     }
                   }
                }
                tr.Commit();
@@ -174,6 +180,7 @@ namespace AcMgdLib.Common.Examples
       public static IEnumerable<Group> GetClonableGroups(Database db, Transaction tr = null)
       {
          bool flag = tr == null;
+         IntPtr dbImpObj = db.UnmanagedObject;
          if(flag)
             tr = new OpenCloseTransaction();
          try
@@ -182,7 +189,7 @@ namespace AcMgdLib.Common.Examples
             foreach(var entry in groupDict)
             {
                Group group = (Group)tr.GetObject(entry.Value, OpenMode.ForRead);
-               if(!group.IsNotAccessible && group.NumEntities > 0)
+               if(group.NumEntities > 0 && !group.IsNotAccessible)
                   yield return group;
             }
          }
@@ -196,21 +203,25 @@ namespace AcMgdLib.Common.Examples
          }
       }
 
-      static Dictionary<ObjectId, ObjectId> ToDictionary(IdMapping map)
+      static Dictionary<ObjectId, ObjectId> ToDictionary(IdMapping map, bool primaryOnly = false)
       {
-         RXClass entityClass = RXObject.GetClass(typeof(Entity));
-         return map.Cast<IdPair>()
-            .Where(pair => pair.IsPrimary 
-               && pair.IsCloned
-               && pair.Key.ObjectClass.IsDerivedFrom(entityClass))
+         return map.Cast<IdPair>().Where(primaryOnly ? primaryEntitiesOnly : entitiesOnly)
             .ToDictionary(pair => pair.Key, pair => pair.Value);
       }
+
+      static readonly RXClass entityClass = RXObject.GetClass(typeof(Entity));
+
+      static Func<IdPair, bool> primaryEntitiesOnly =
+         static pair => pair.IsPrimary && pair.Key.ObjectClass.IsDerivedFrom(entityClass);
+
+      static Func<IdPair, bool> entitiesOnly =
+         static pair => pair.Key.ObjectClass.IsDerivedFrom(entityClass);
 
       public static ObjectIdCollection GetClonableGroupIds(Database db)
       {
          var groups = GetClonableGroups(db);
          if(groups.Any())
-            return new ObjectIdCollection(groups.Select(gr => gr.Id).ToArray());
+            return new ObjectIdCollection(groups.Select(group => group.Id).ToArray());
          else
             return null;
       }
