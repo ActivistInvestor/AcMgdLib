@@ -5,6 +5,7 @@
 /// Distributed unter the terms of the MIT license
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -52,6 +53,8 @@ namespace AcMgdLib.AutoCAD.DatabaseServices
       bool disposed = false;
       int state = 0;
       bool faulted = false;
+      static DocumentCollection docs = Application.DocumentManager;
+      IndexedHashSet<string> commands = null;
 
       public WblockCloneHandler(Database db, bool forceCopy = false)
       {
@@ -149,6 +152,27 @@ namespace AcMgdLib.AutoCAD.DatabaseServices
 
       protected bool IsFaulted => faulted;
 
+      public IndexedHashSet<string> SupportedCommands =>
+         commands ?? (commands = new IndexedHashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+      /// <summary>
+      /// Indicates if the operation is supported for the
+      /// active command in progress. If no supported commands
+      /// have been added via the SupportedCommands[] property,
+      /// the operation is enabled/supported in all commands.
+      /// </summary>
+      
+      protected bool IsActiveCommandSupported
+      {
+         get
+         {
+            if(commands is null || commands.Count == 0)
+               return true;
+            Document doc = docs.MdiActiveDocument;
+            return doc != null && commands.Contains(doc.CommandInProgress);
+         }
+      }
+
       protected virtual void Reset(bool enable = true)
       {
          destDb.DeepCloneEnded -= deepCloneEnded;
@@ -163,13 +187,16 @@ namespace AcMgdLib.AutoCAD.DatabaseServices
       {
          Report();
          bool result = false;
-         if(Invoke(() => result = OnWblockNotice(sourceDb)) && result)
+         if(IsActiveCommandSupported)
          {
-            if(forceDatabaseCopy)
-               sourceDb.ForceWblockDatabaseCopy();
-            Database.DatabaseConstructed += databaseConstructed;
-            state = 2;
-            Observing = false;
+            if(Invoke(() => result = OnWblockNotice(sourceDb)) && result)
+            {
+               if(forceDatabaseCopy)
+                  sourceDb.ForceWblockDatabaseCopy();
+               Database.DatabaseConstructed += databaseConstructed;
+               state = 2;
+               Observing = false;
+            }
          }
       }
 
@@ -327,10 +354,9 @@ namespace AcMgdLib.AutoCAD.DatabaseServices
       [Conditional("DEBUG")]
       protected static void Report([CallerMemberName] string msg = "(unknown)")
       {
-         DebugWrite($"*** {msg} ***");
       }
 
-      protected static void WriteMessage(string fmt, params object[] args)
+      protected internal static void WriteMessage(string fmt, params object[] args)
       {
          var doc = Application.DocumentManager.MdiActiveDocument;
          doc?.Editor.WriteMessage("\n" + fmt, args);
@@ -368,4 +394,44 @@ namespace AcMgdLib.AutoCAD.DatabaseServices
       }
    }
 
+   /// <summary>
+   /// Allows hashset manipulation using indexer semantics.
+   /// 
+   /// E.g.,
+   /// 
+   ///    this[key] = true;   // adds key to hashset
+   ///    this[key] = false   // removes key from hashset
+   ///    
+   /// </summary>
+   /// <typeparam name="T"></typeparam>
+
+   public class IndexedHashSet<T> : HashSet<T>
+   {
+      public IndexedHashSet(IEqualityComparer<T> comparer = null)
+         : base(comparer)
+      {
+      }
+
+      public IndexedHashSet(IEnumerable<T> items, IEqualityComparer<T> comparer = null)
+         : base(items, comparer) 
+      {
+      }
+
+      public void AddRange(params T [] items)
+      {
+         this.UnionWith(items);
+      }
+
+      public bool this[T key]
+      {
+         get => Contains(key);
+         set
+         {
+            if(value)
+               AddRange(key);
+            else
+               Remove(key);
+         }
+      }
+   }
 }

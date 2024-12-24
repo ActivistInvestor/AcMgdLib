@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using AcMgdLib.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -61,20 +62,29 @@ using Autodesk.AutoCAD.Runtime;
 /// -  Modified code to not act when source database 
 ///    contains no clonable groups.
 ///    
+/// Stress testing:
+/// 
+///   This code was tested with a drawing containing
+///   ~2500 groups, each having between 5 and 10 member
+///   entities, and included named, unnamed/anonymous, 
+///   and unselectable groups.
+///   
+///   Within a COPYCLIP operation, the elapsed time 
+///   required to export all groups in the drawing 
+///   was ~25ms.
+///   
 /// </summary>
 
-namespace AcMgdLib.Common.Examples
+namespace AcMgdLib.GroupExtensions
 {
    public class WblockGroupHandler : WblockCloneHandler
    {
       ObjectIdCollection clonableGroupIds = null;
 
-      public WblockGroupHandler(Database db) : base(db, true)
+      public WblockGroupHandler(Document doc) : base(doc.Database, true) 
       {
-      }
-
-      public WblockGroupHandler(Document doc) : this(doc.Database) 
-      {
+         SupportedCommands.AddRange("WBLOCK", "COPYCLIP", 
+            "CUTCLIP", "COPYBASE", "CUTBASE");
       }
 
       /// <summary>
@@ -86,12 +96,25 @@ namespace AcMgdLib.Common.Examples
       /// By opting-out of the operation at this point, a
       /// full database copy can be avoided if there's no
       /// clonable groups in the source database.
+      /// 
+      /// Support for groups in wblock operations is limited 
+      /// to those performed by/within these commands:
+      /// 
+      ///   WBLOCK
+      ///   COPYCLIP
+      ///   CUTCLIP
+      ///   COPYBASE
+      ///   CUTBASE
+      ///   
       /// </summary>
       /// <param name="sourceDb"></param>
       /// <returns></returns>
 
       protected override bool OnWblockNotice(Database sourceDb)
       {
+         Document doc = Application.DocumentManager.MdiActiveDocument;
+         if(doc is null || doc.Database != sourceDb)
+            return false;
          clonableGroupIds = GetClonableGroupIds(sourceDb);
          return clonableGroupIds is not null && clonableGroupIds.Count > 0;
       }
@@ -102,7 +125,7 @@ namespace AcMgdLib.Common.Examples
          {
             int cloned = CloneGroups(map);
             if(cloned > 0)
-               DebugWrite($"Exported {cloned} groups");
+               DebugWrite($"Copied {cloned} groups");
          }
       }
 
@@ -115,17 +138,18 @@ namespace AcMgdLib.Common.Examples
 
       int CloneGroups(IdMapping idMap)
       {
-         if(idMap == null)
+         if(idMap is null)
             throw new ArgumentNullException(nameof(idMap));
-         if(clonableGroupIds == null || clonableGroupIds.Count == 0)
+         if(clonableGroupIds is null || clonableGroupIds.Count == 0)
             return 0;
          int cloned = 0;
+         Stopwatch st = Stopwatch.StartNew();
          try
          {
             using(var tr = new OpenCloseTransaction())
             {
                Database destDb = idMap.DestinationDatabase;
-               var groupDictionary = (DBDictionary) tr.GetObject(
+               var groups = (DBDictionary) tr.GetObject(
                   destDb.GroupDictionaryId, OpenMode.ForWrite);
                var map = ToDictionary(idMap);
                foreach(ObjectId id in clonableGroupIds)
@@ -136,7 +160,7 @@ namespace AcMgdLib.Common.Examples
                   {
                      using(Group group = new Group(source.Description, source.Selectable))
                      {
-                        groupDictionary.SetAt(source.Name, group);
+                        groups.SetAt(source.Name, group);
                         if(group.Name.StartsWith('*'))
                            group.SetAnonymous();
                         group.Append(cloneIds);
@@ -147,6 +171,9 @@ namespace AcMgdLib.Common.Examples
                }
                tr.Commit();
             }
+            st.Stop();
+            if(Profiling)
+               WriteMessage($"Elapsed: {st.ElapsedMilliseconds} ms");
             return cloned;
          }
          catch(System.Exception ex)
@@ -162,8 +189,7 @@ namespace AcMgdLib.Common.Examples
       /// not cloned. 
       /// </summary>
 
-      static ObjectIdCollection GetCloneIds(Group source, 
-         Dictionary<ObjectId, ObjectId> map)
+      static ObjectIdCollection GetCloneIds(Group source, Dictionary<ObjectId, ObjectId> map)
       {
          var srcIds = source.GetAllEntityIds();
          if(srcIds.Length == 0)
@@ -179,7 +205,7 @@ namespace AcMgdLib.Common.Examples
 
       public static IEnumerable<Group> GetClonableGroups(Database db, Transaction tr = null)
       {
-         bool flag = tr == null;
+         bool flag = tr is null;
          IntPtr dbImpObj = db.UnmanagedObject;
          if(flag)
             tr = new OpenCloseTransaction();
@@ -225,6 +251,8 @@ namespace AcMgdLib.Common.Examples
          else
             return null;
       }
+
+      public static bool Profiling { get; internal set; }
    }
 
    public static class WblockGroupHandlers
@@ -239,7 +267,7 @@ namespace AcMgdLib.Common.Examples
             foreach(Document doc in Application.DocumentManager)
             {
                doc.UserData[typeof(WblockGroupHandler)] =
-                  new WblockGroupHandler(doc.Database);
+                  new WblockGroupHandler(doc);
             }
             Application.DocumentManager.DocumentCreated += documentCreated;
          }
@@ -248,17 +276,26 @@ namespace AcMgdLib.Common.Examples
       private static void documentCreated(object sender, DocumentCollectionEventArgs e)
       {
          e.Document.UserData[typeof(WblockGroupHandler)] =
-            new WblockGroupHandler(e.Document.Database);
+            new WblockGroupHandler(e.Document);
       }
    }
 
-   public static class TestCommand
+   public static class WblockGroupCommands
    {
       [CommandMethod("WBLOCKGROUPS")]
       public static void Initialize()
       {
          WblockGroupHandlers.Initialize();
       }
+
+      [CommandMethod("~WBLOCKGROUPSPROFILE")]
+      public static void ToggleProfiling()
+      {
+         WblockGroupHandler.Profiling ^= true;
+         var what = WblockGroupHandler.Profiling ? "en" : "dis";
+         WblockGroupHandler.WriteMessage($"WBLOCK Group profiling {what}abled");
+      }
+
    }
 
 }
