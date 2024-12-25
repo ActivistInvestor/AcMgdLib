@@ -6,13 +6,9 @@
 /// 
 
 using System;
-using System.ComponentModel;
-using System.Windows.Input;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.EditorInput.Extensions;
-using Autodesk.AutoCAD.Internal;
+using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Extensions;
 using Autodesk.Windows;
 
 namespace Autodesk.AutoCAD.Ribbon.Extensions
@@ -146,6 +142,16 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// and you want to ensure that it is always added when
    /// needed, just handle the InitializeRibbon event, and 
    /// add the content to the ribbon in the event's handler.
+   /// 
+   /// 12/20/24:
+   /// 
+   /// Removed previously-merged CanExecuteManager functionality
+   /// from this class, along with other external dependencies,
+   /// allowing this class to be used without other files from 
+   /// this library.
+   /// 
+   /// The removed CanExecuteManager functionality has been 
+   /// replaced by the EditorUIManager class.
    ///    
    /// Feel free to post comments in the repo discussion
    /// regarding other scenarious not covered, or about
@@ -157,15 +163,10 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    {
       static DocumentCollection documents = Application.DocumentManager;
       static event RibbonStateEventHandler initializeRibbon = null;
-      static bool queryCanExecute = false;
       static bool initialized = false;
-      static readonly EditorStateView stateView;
 
       static RibbonEventManager()
       {
-         AcConsole.Report();
-         stateView = EditorStateView.Instance;
-         stateView.AddRef();
          if(RibbonExists)
             Initialize(RibbonState.Active);
          else
@@ -174,9 +175,9 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void Initialize(RibbonState state)
       {
-         Idle.Invoke(delegate ()
+         DeferredInvoke(delegate ()
          {
-            if(initializeRibbon != null)
+            if(initializeRibbon is not null)
             {
                try
                {
@@ -194,9 +195,9 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       
       static void RaiseInitializeRibbon(RibbonState state)
       {
-         if(initializeRibbon != null)
+         if(initializeRibbon is not null)
          {
-            Idle.Invoke(delegate ()
+            DeferredInvoke(delegate ()
             {
                try
                {
@@ -218,7 +219,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void workspaceLoaded(object sender, EventArgs e)
       {
-         if(RibbonControl != null)
+         if(RibbonControl is not null)
             RaiseInitializeRibbon(RibbonState.WorkspaceLoaded);
       }
 
@@ -236,7 +237,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       {
          add
          {
-            if(value == null)
+            if(value is null)
                throw new ArgumentNullException(nameof(value));
             if(initialized)
                InvokeHandler(value);
@@ -251,7 +252,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void InvokeHandler(RibbonStateEventHandler handler)
       {
-         Idle.Invoke(delegate ()
+         DeferredInvoke(delegate()
          {
             try
             {
@@ -266,82 +267,32 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          });
       }
 
-      /// <summary>
-      /// Forces the WPF framework to requery the CanExecute()
-      /// method of all registered ICommands, to update their 
-      /// associated UI's enabled/disabled state when:
-      /// 
-      ///   1. AutoCAD or LISP commands start and end.
-      ///   2. Dragging starts/ends in the drawing editor.
-      ///   3. The active document changes.
-      ///   4. The lock state of the active document changes.
-      /// 
-      /// To enable updating when one of the above events
-      /// occurs, one only needs to do this:
-      /// 
-      ///   RibbonEventManager.QueryCanExecute = true;
-      ///    
-      /// The default implementation of CanExecute() for the
-      /// RibbonCommandButton always returns true, and most
-      /// other ribbon elements respond similarly, and do not
-      /// become disabled when commands are running. This is
-      /// of course, the intended behavior, because standard
-      /// ribbon command buttons act the same way that AutoCAD 
-      /// menu macros have always worked, which is to cancel 
-      /// any currently-running commands when clicked.
-      /// 
-      /// A specialization of RibbonCommandButton included in
-      /// this library (ModalRibbonCommandButton) provides the
-      /// functionality needed to automatically enable/disable 
-      /// itself depending on if there is a quiescent active 
-      /// document, using the functionality provided by this
-      /// class.
-      /// 
-      /// Example ModalRibbonCommandButtons can be found in 
-      /// the RibbonEventManagerExample.cs file.
-      /// 
-      /// </summary>
-
-      public static bool QueryCanExecute
+      static void DeferredInvoke(Action action)
       {
-         get
+         new IdleHandler(action);
+      }
+
+      class IdleHandler
+      {
+         Action action;
+         public IdleHandler(Action action)
          {
-            return queryCanExecute;
+            this.action = action;
+            Application.Idle += idle;
          }
-         set
+
+         void idle(object sender, EventArgs e)
          {
-            if(queryCanExecute ^ value)
+            Application.Idle -= idle;
+            if(action is not null)
             {
-               if(value)
-                  stateView.PropertyChanged += OnQuiescentStateChanged;
-               else
-                  stateView.PropertyChanged -= OnQuiescentStateChanged;
-               queryCanExecute = value;
+               action();
+               action = null;
             }
          }
       }
 
-      static void OnQuiescentStateChanged(object sender, PropertyChangedEventArgs e)
-      {
-         CommandManager.InvalidateRequerySuggested();
-      }
-
-      /// <summary>
-      /// This can be called at a high frequency by numerous
-      /// ICommands, which can be very expensive. To minimize
-      /// the overhead of referencing this property, the value
-      /// it returns is cached and used until one of the events 
-      /// signaling the state may have changed is raised.
-      /// 
-      /// Returns a value indicating if there is an active
-      /// document, and it is in a quiescent state. If there
-      /// are no documents open, this property returns false.
-      /// </summary>
-
-      public static bool IsQuiescentDocument => 
-         stateView.IsQuiescentDocument;
-
-      public static bool RibbonExists => RibbonControl != null;
+      public static bool RibbonExists => RibbonControl is not null;
 
       public static RibbonPaletteSet RibbonPaletteSet =>
          RibbonServices.RibbonPaletteSet;
