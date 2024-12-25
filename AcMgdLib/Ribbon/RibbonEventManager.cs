@@ -6,6 +6,8 @@
 /// 
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
@@ -300,6 +302,23 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       public static RibbonControl? RibbonControl =>
          RibbonPaletteSet?.RibbonControl;
    }
+
+   public delegate void RibbonStateEventHandler(object sender, RibbonStateEventArgs e);
+
+   public class RibbonStateEventArgs : EventArgs
+   {
+      public RibbonStateEventArgs(RibbonState state)
+      {
+         this.State = state;
+      }
+
+      public RibbonState State { get; private set; }
+      public RibbonPaletteSet RibbonPaletteSet =>
+         RibbonServices.RibbonPaletteSet;
+      public RibbonControl RibbonControl =>
+         RibbonPaletteSet?.RibbonControl;
+   }
+
 
 }
 
