@@ -6,10 +6,7 @@
 /// 
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.Windows;
 
@@ -76,12 +73,12 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    ///      InitializeRibbon event and the ribbon 
    ///      currently exists.
    ///   
-   ///   2. When the ribbon is first created and shown 
-   ///      when it did not exist when the handler was 
+   ///   2. When the ribbon is first created and shown, 
+   ///      if it did not exist when the handler was 
    ///      added to the InitializeRibbon event.
    ///      
-   ///   3. When a workspace is loaded, after having 
-   ///      added content to the ribbon.
+   ///   3. When a workspace is unloaded or loaded, 
+   ///      after having added content to the ribbon.
    ///   
    /// The State property of the event argument indicates
    /// which of the these three conditions triggered the
@@ -147,10 +144,15 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
    /// 
    /// 12/20/24:
    /// 
-   /// Removed previously-merged CanExecuteManager functionality
-   /// from this class, along with other external dependencies,
-   /// allowing this class to be used without other files from 
-   /// this library.
+   /// Removed CanExecuteManager functionality from this class, 
+   /// along with other external dependencies, allowing this 
+   /// class to be used without requiring other files from this 
+   /// library.
+   /// 
+   /// The following files were merged into this file:
+   /// 
+   ///    RibbonState.cs
+   ///    RibbonStateEventArgs.cs
    /// 
    /// The removed CanExecuteManager functionality has been 
    /// replaced by the EditorUIManager class.
@@ -271,13 +273,13 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void DeferredInvoke(Action action)
       {
-         new IdleHandler(action);
+         new DeferredInvokeHandler(action);
       }
 
-      class IdleHandler
+      class DeferredInvokeHandler
       {
          Action action;
-         public IdleHandler(Action action)
+         public DeferredInvokeHandler(Action action)
          {
             this.action = action;
             Application.Idle += idle;
@@ -303,6 +305,10 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
          RibbonPaletteSet?.RibbonControl;
    }
 
+   /// <summary>
+   /// Merged from RibbonStateEventArgs.cs:
+   /// </summary>
+
    public delegate void RibbonStateEventHandler(object sender, RibbonStateEventArgs e);
 
    public class RibbonStateEventArgs : EventArgs
@@ -318,6 +324,43 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       public RibbonControl RibbonControl =>
          RibbonPaletteSet?.RibbonControl;
    }
+
+
+   /// <summary>
+   /// Merged from RibbonState.cs:
+   /// 
+   /// Indicates the context in which the 
+   /// InitializeRibbon event is raised.
+   /// </summary>
+
+   public enum RibbonState
+   {
+      /// <summary>
+      /// The ribbon exists but was not 
+      /// previously-initialized.
+      /// </summary>
+      Active = 0,
+
+      /// <summary>
+      /// The ribbon was just created.
+      /// </summary>
+      Initalizing = 1,
+
+      /// <summary>
+      /// The ribbon exists and was previously
+      /// initialized, and a workspace was just
+      /// loaded, requiring application-provided 
+      /// ribbon content to be added again.
+      /// </summary>
+      WorkspaceLoaded = 2,
+
+      /// <summary>
+      /// Indicates that ribbon content should be
+      /// reloaded for unspecified reasons.
+      /// </summary>
+      RefreshContent = 3
+   }
+
 
 
 }
