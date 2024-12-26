@@ -179,19 +179,9 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void Initialize(RibbonState state)
       {
-         DeferredInvoke(delegate ()
+         Dispatcher.Invoke(delegate ()
          {
-            if(initializeRibbon is not null)
-            {
-               try
-               {
-                  initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state));
-               }
-               catch(System.Exception ex)
-               {
-                  UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
-               }
-            }
+            initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state));
             RibbonPaletteSet.WorkspaceLoaded += workspaceLoaded;
             initialized = true;
          });
@@ -201,17 +191,8 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       {
          if(initializeRibbon is not null)
          {
-            DeferredInvoke(delegate ()
-            {
-               try
-               {
-                  initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state));
-               }
-               catch(System.Exception ex)
-               {
-                  UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
-               }
-            });
+            Dispatcher.Invoke(() => 
+               initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state)));
          }
       }
 
@@ -256,33 +237,44 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void InvokeHandler(RibbonStateEventHandler handler)
       {
-         DeferredInvoke(delegate()
+         Dispatcher.Invoke(delegate()
          {
-            try
-            {
-               handler(RibbonPaletteSet, new RibbonStateEventArgs(RibbonState.Active));
-            }
-            catch(System.Exception ex)
-            {
-               UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
-               return;
-            }
+            handler(RibbonPaletteSet, new RibbonStateEventArgs(RibbonState.Active));
             initializeRibbon += handler;
          });
       }
 
-      static void DeferredInvoke(Action action)
-      {
-         new DeferredInvokeHandler(action);
-      }
-
-      class DeferredInvokeHandler
+      class Dispatcher
       {
          Action action;
-         public DeferredInvokeHandler(Action action)
+         static int depth = 0;
+         bool reportException = false;
+
+         Dispatcher(Action action, bool reportException = true)
          {
             this.action = action;
+            this.reportException = reportException;
             Application.Idle += idle;
+         }
+
+         internal static void Invoke(Action action, bool reportException = true)
+         {
+            if(depth > 0)
+            {
+               try
+               {
+                  action();
+               }
+               catch(System.Exception ex)
+               {
+                  if(reportException)
+                     UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
+               }
+            }
+            else
+            {
+               new Dispatcher(action, reportException);
+            }
          }
 
          void idle(object sender, EventArgs e)
@@ -290,8 +282,21 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             Application.Idle -= idle;
             if(action is not null)
             {
-               action();
-               action = null;
+               ++depth;
+               try
+               {
+                  action();
+               }
+               catch(System.Exception ex)
+               {
+                  if(reportException)
+                     UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
+               }
+               finally
+               {
+                  action = null;
+                  --depth;
+               }
             }
          }
       }
