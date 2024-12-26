@@ -179,7 +179,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void Initialize(RibbonState state)
       {
-         Dispatcher.Invoke(delegate ()
+         Dispatcher.Post(delegate ()
          {
             initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state));
             RibbonPaletteSet.WorkspaceLoaded += workspaceLoaded;
@@ -191,7 +191,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       {
          if(initializeRibbon is not null)
          {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Post(() => 
                initializeRibbon?.Invoke(RibbonPaletteSet, new RibbonStateEventArgs(state)));
          }
       }
@@ -237,12 +237,20 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
 
       static void InvokeHandler(RibbonStateEventHandler handler)
       {
-         Dispatcher.Invoke(delegate()
+         Dispatcher.Post(delegate()
          {
             handler(RibbonPaletteSet, new RibbonStateEventArgs(RibbonState.Active));
             initializeRibbon += handler;
          });
       }
+
+      public static bool RibbonExists => RibbonControl is not null;
+
+      public static RibbonPaletteSet RibbonPaletteSet =>
+         RibbonServices.RibbonPaletteSet;
+
+      public static RibbonControl? RibbonControl =>
+         RibbonPaletteSet?.RibbonControl;
 
       class Dispatcher
       {
@@ -257,7 +265,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             Application.Idle += idle;
          }
 
-         internal static void Invoke(Action action, bool reportException = true)
+         internal static void Post(Action action, bool reportException = true)
          {
             if(depth > 0)
             {
@@ -300,14 +308,6 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
             }
          }
       }
-
-      public static bool RibbonExists => RibbonControl is not null;
-
-      public static RibbonPaletteSet RibbonPaletteSet =>
-         RibbonServices.RibbonPaletteSet;
-
-      public static RibbonControl? RibbonControl =>
-         RibbonPaletteSet?.RibbonControl;
    }
 
    /// <summary>
