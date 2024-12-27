@@ -21,10 +21,11 @@
 
 using Autodesk.AutoCAD.Ribbon.Extensions;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.Windows;
 
 // TODO: This must be uncommented, and if needed
-// changed to specify the actual class that
-// implements IExtensionApplication:
+// changed to the actual class that implements
+// IExtensionApplication:
 
 // [assembly: ExtensionApplication(typeof(Namespace1.MyApplication))]
 
@@ -32,14 +33,36 @@ namespace Namespace1
 {
    public class MyApplication : IExtensionApplication
    {
+      static RibbonTab ribbonTab = null;
+
       public void Initialize()
       {
-         RibbonEventManager.InitializeRibbon += LoadMyRibbonContext;
+         RibbonEventManager.InitializeRibbon += LoadMyRibbonContent;
       }
 
-      private void LoadMyRibbonContext(object sender, RibbonStateEventArgs e)
+      private void LoadMyRibbonContent(object sender, RibbonStateEventArgs e)
       {
-         /// TODO: Add content to ribbon here
+         /// This example creates a RibbonTab the first time 
+         /// this method is called, and stores it in a static 
+         /// variable for use on this and all subsequent calls 
+         /// to this method. 
+         /// 
+         /// This method may be called any number of times 
+         /// during an AutoCAD session whenever ribbon content 
+         /// must be added to the ribbon.
+         
+         if(ribbonTab == null)
+         {
+            ribbonTab = new RibbonTab();
+            ribbonTab.Name = "MyTab";
+            ribbonTab.Id = "ID_MyTab";
+            ribbonTab.Title = "MyTab";
+         }
+        
+         /// Add the tab to the ribbon on every call to
+         /// this method:
+        
+         e.RibbonControl.Tabs.Add(ribbonTab);
       }
 
       public void Terminate()
