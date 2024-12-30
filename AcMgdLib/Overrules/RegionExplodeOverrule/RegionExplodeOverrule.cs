@@ -89,7 +89,7 @@ namespace AcMgdLib.BoundaryRepresentation
    /// 
    /// Because this overrule can be called for any type of
    /// explosion of Regions (something AutoCAD might do when
-   /// needs to look at sub-entities, perform object snap, 
+   /// it needs to look at sub-entities, perform object snap, 
    /// trim/extend, etc.), the overrule is constrained to 
    /// only work during the EXPLODE command.
    /// 
