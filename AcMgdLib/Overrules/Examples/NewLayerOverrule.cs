@@ -28,7 +28,7 @@ namespace MyNamespace
 
          if(!reentered && obj.IsWriteEnabled && obj.IsNewObject
             && obj.IsReallyClosing && doc.Database == obj.Database
-            && IsLongTransactionActive)
+            && IsLongTransactionActive(doc))
          {
             reentered = true;
             try
@@ -64,8 +64,8 @@ namespace MyNamespace
       /// not documented anywhere that I know of:
       /// </summary>
 
-      static bool IsLongTransactionActive => !Application.LongTransactionManager
-         .CurrentLongTransactionFor(docs.MdiActiveDocument).IsNull;
+      static bool IsLongTransactionActive(Document doc) => !Application.LongTransactionManager
+         .CurrentLongTransactionFor(doc).IsNull;
 
       protected override void Dispose(bool disposing)
       {
