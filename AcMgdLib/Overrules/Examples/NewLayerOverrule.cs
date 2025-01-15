@@ -51,8 +51,8 @@ namespace MyNamespace
             {
                reentered = false;
             }
-            base.Close(obj);
          }
+         base.Close(obj);
       }
 
       /// <summary>
