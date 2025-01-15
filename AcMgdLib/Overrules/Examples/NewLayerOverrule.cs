@@ -74,6 +74,10 @@ namespace MyNamespace
          base.Dispose(disposing);
       }
 
+      /// <summary>
+      /// A command that will toggle the above overrule on/off
+      /// </summary>
+      
       [CommandMethod("NEWLAYEROVERRULE")]
       public static void NewLayerOverruleCommand()
       {
