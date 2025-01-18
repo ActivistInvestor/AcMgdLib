@@ -212,11 +212,6 @@ namespace Autodesk.AutoCAD.ApplicationServices
       /// <exception cref="Autodesk.AutoCAD.Runtime.Exception">There is no
       /// active document</exception>
       /// <exception cref="ArgumentNullException">A required parameter was null</exception>
-      public static void block()
-      {
-      }
-      /// <summary>
-      /// Invokes the delegate in the document context
       /// </summary>
 
       public static async Task InvokeAsCommandAsync(this DocumentCollection docs, 
