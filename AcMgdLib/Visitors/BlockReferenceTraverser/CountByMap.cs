@@ -1,11 +1,11 @@
 ﻿
-/// HighlightCirclesVisitor.cs  
+/// CountByMap.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Example showing the use of the EntityVisitor class.
+/// A Collection that counts occurrences of keys.
 
 using System;
 using System.Collections;
