@@ -1,11 +1,11 @@
 ﻿
-/// CountByMap.cs  
+/// HighlightCirclesVisitor.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// A Collection that counts occurrences of keys.
+/// Example showing the use of the EntityVisitor class.
 
 using System;
 using System.Collections;
@@ -91,6 +91,15 @@ namespace AcMgdLib.Collections.Generic
       public Dictionary<T, int> ToDictionary()
       {
          return map.ToDictionary(p => p.Key, p => (int)p.Value);
+      }
+
+      public bool TryGetValue(T key, out int value)
+      {
+         value = 0;
+         bool result = map.TryGetValue(key, out Box box);
+         if(result)
+            value = box.Value;
+         return result;
       }
 
       public IEnumerator<KeyValuePair<T, int>> GetEnumerator()
