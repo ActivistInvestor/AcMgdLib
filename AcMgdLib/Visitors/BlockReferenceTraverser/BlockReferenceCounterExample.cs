@@ -12,6 +12,7 @@
 /// in associative arrays.
 
 using System.Collections.Generic;
+using System.Diagnostics:
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
@@ -38,7 +39,7 @@ namespace AcMgdLib.Visitors.Examples
          }
          catch(System.Exception ex)
          {
-            AcConsole.Write(ex.ToString());
+            Debug.Write(ex.ToString());
          }
       }
 
