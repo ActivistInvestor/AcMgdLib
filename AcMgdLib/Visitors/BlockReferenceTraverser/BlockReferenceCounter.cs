@@ -32,7 +32,7 @@ namespace AcMgdLib.DatabaseServices
       protected override bool VisitBlockReference(Stack<BlockReference> refs)
       {
          if(refs.Count > 0)
-            count.Increment(refs.Peek().BlockTableRecord);
+            count.Increment(GetBlockTableRecordId(refs.Peek()));
          return base.VisitBlockReference(refs);
       }
 
