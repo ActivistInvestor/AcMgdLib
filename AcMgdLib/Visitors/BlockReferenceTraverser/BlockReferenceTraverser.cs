@@ -22,17 +22,34 @@ namespace AcMgdLib.DatabaseServices
       Transaction trans;
       static RXClass blockRefClass = RXObject.GetClass(typeof(BlockReference));
       static bool IsBlockRefId(ObjectId id) => id.ObjectClass == blockRefClass;
+      Dictionary<ObjectId, IEnumerable<ObjectId>> map =
+         new Dictionary<ObjectId, IEnumerable<ObjectId>>();
+      Dictionary<ObjectId, bool> included =
+         new Dictionary<ObjectId, bool>();
 
-      public BlockReferenceTraverser(ObjectId blockId)
+      Func<BlockReference, ObjectId> ResolveBlockId = null;
+      bool resolveDynamic = true;
+      bool faulted = true;
+
+      public BlockReferenceTraverser(ObjectId blockId, bool resolveDynamic = true)
       {
          if(blockId.ObjectClass != RXObject.GetClass(typeof(BlockTableRecord)))
             throw new ArgumentException("Invalid objectId");
          rootBlockId = blockId;
+         this.resolveDynamic = resolveDynamic;
+         if(resolveDynamic)
+            ResolveBlockId = blkref => blkref.DynamicBlockTableRecord;
+         else
+            ResolveBlockId = blkref => blkref.BlockTableRecord;
       }
+
+      protected Database Database => rootBlockId.Database;
+      protected ObjectId RootBlockId => rootBlockId;
 
       public void Visit()
       {
          trans = new OpenCloseTransaction();
+         Clear();
          try
          {
             Stack<BlockReference> refs = new Stack<BlockReference>();
@@ -40,12 +57,21 @@ namespace AcMgdLib.DatabaseServices
             {
                Visit(id, refs);
             }
+            faulted = false;
          }
          finally
          {
-            trans.Commit();
+            if(!faulted)
+               trans.Commit();
+            trans.Dispose();
             trans = null;
          }
+      }
+
+      public virtual void Clear()
+      {
+         map.Clear();
+         faulted = true;
       }
 
       /// <summary>
@@ -55,39 +81,92 @@ namespace AcMgdLib.DatabaseServices
       /// </summary>
       /// <param name="id"></param>
 
-      void Visit(ObjectId blockRefId, Stack<BlockReference> refs)
+      void Visit(ObjectId blockRefId, Stack<BlockReference> path)
       {
          var blkref = GetObject<BlockReference>(blockRefId);
-         refs.Push(blkref);
-         if(VisitBlockReference(refs))
+         path.Push(blkref);
+         if(VisitBlockReference(path))
          {
-            var nested = GetBlockReferenceIds(GetBlockTableRecordId(blkref));
+            var nested = GetBlockReferenceIds(GetReferencedBlockId(blkref));
             foreach(ObjectId id in nested)
-               Visit(id, refs);
+               Visit(id, path);
          }
-         refs.Pop();
+         path.Pop();
       }
+
+      //bool CanVisit(Stack<BlockReference> path) 
+      //{
+      //   if(VisitBlockReference(path))
+      //   { }
+      //   var blkref = path.Peek();
+      //   var blkDefId = GetReferencedBlockId(blkref);
+      //   bool result;
+      //   if(!included.TryGetValue(blkDefId, out result))
+      //   {
+      //      var btr = GetObject<BlockTableRecord>(blkDefId);
+      //      included[blkDefId] = result = VisitBlock(btr);
+      //   }
+      //   return result && VisitBlockReference(path);
+      //}
 
       /// <summary>
-      /// To count dynamic blocks rather than anonymous 
-      /// dynamic blocks, override this and return the 
-      /// argument's DynamicBlockTableRecord property 
-      /// value:
+      /// Override to specify if all references to a given
+      /// BlockTableRecord should be visited. For anonymous
+      /// dynamic blocks, the argument can be either the
+      /// dynamic block definition, or the anonymous block
+      /// definition, depending on what GetReferencedBlockId()
+      /// returns. By default, the argument is the anonymous
+      /// block definition.
+      /// 
+      /// This method will be called only once for each
+      /// BlockTableRecord, the first time a reference to
+      /// it is encountered.
+      /// 
+      /// A common use of overrides of this method is to 
+      /// exclude anonymous and/or external reference 
+      /// block definitions from being traversed.
+      /// 
+      /// The default implementation returns true for all
+      /// BlockTableRecords.
       /// </summary>
-      /// <param name="blockref"></param>
-      
-      protected virtual ObjectId GetBlockTableRecordId(BlockReference blockref)
-      {
-         return blockref.BlockTableRecord;
-      }
+      /// <param name="btr">The BlockTableRecord whose
+      /// references are to be visited.</param>
+      /// <returns>True to visit references to the given
+      /// BlockTableRecord.</returns>
 
-      protected virtual bool VisitBlockReference(Stack<BlockReference> refs)
+      protected virtual bool VisitBlock(BlockTableRecord btr)
       {
          return true;
       }
 
-      Dictionary<ObjectId, IEnumerable<ObjectId>> map = 
-         new Dictionary<ObjectId, IEnumerable<ObjectId>>();
+      /// <summary>
+      /// To traverse dynamic blocks rather than anonymous 
+      /// dynamic blocks, override this and return the 
+      /// argument's DynamicBlockTableRecord property 
+      /// value, or pass true to the second argument to
+      /// the constructor.
+      /// </summary>
+      /// <param name="blockref"></param>
+
+      protected virtual ObjectId GetReferencedBlockId(BlockReference blockref)
+      {
+         return ResolveBlockId(blockref);
+      }
+
+      /// <summary>
+      /// Override this to determine if the BlockReference at
+      /// the top of the given stack should be visited. The
+      /// stack contains the BlockReference which this method
+      /// is being queried about at the top, followed by its 
+      /// container BlockReferences.
+      /// </summary>
+      /// <param name="refs"></param>
+      /// <returns></returns>
+      
+      protected virtual bool VisitBlockReference(Stack<BlockReference> refs)
+      {
+         return true;
+      }
 
       protected Dictionary<ObjectId, IEnumerable<ObjectId>> Map => map;
 
@@ -114,24 +193,23 @@ namespace AcMgdLib.DatabaseServices
          foreach(ObjectId id in btr.Cast<ObjectId>().Where(IsBlockRefId))
          {
             BlockReference blkref = GetObject<BlockReference>(id);
-            if(IsBlockReference(blkref) && OnAddBlockReference(btr, blkref))
+            if(IsBlockReference(blkref)) //  && OnAddBlockReference(btr, blkref))
                list.Add(id);
          }
          return list;
       }
 
-      protected virtual bool OnAddBlockReference(BlockTableRecord btr, BlockReference blkref)
+      //protected virtual bool OnAddBlockReference(BlockTableRecord owner, BlockReference blkref)
+      //{
+      //   return true;
+      //}
+
+      static bool IsBlockReference(BlockReference entity)
       {
-         return true;
+         return !(entity is Table) && !DBObject.IsCustomObject(entity.ObjectId);
       }
 
-      static bool IsBlockReference(Entity entity)
-      {
-         return entity is BlockReference && !(entity is Table)
-            && !DBObject.IsCustomObject(entity.ObjectId);
-      }
-
-      T GetObject<T>(ObjectId id) where T: DBObject
+      protected T GetObject<T>(ObjectId id) where T: DBObject
       {
          return (T)trans.GetObject(id, OpenMode.ForRead);
       }
