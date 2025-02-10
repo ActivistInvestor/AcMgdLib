@@ -1,5 +1,5 @@
 ﻿
-/// DatabaseState.cs (partial)
+/// DBStateView.cs (partial)
 /// 
 /// ActivistInvestor / Tony T.
 /// 
