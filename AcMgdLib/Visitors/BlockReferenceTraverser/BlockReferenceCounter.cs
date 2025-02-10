@@ -33,11 +33,11 @@ namespace AcMgdLib.DatabaseServices
       {
       }
 
-      protected override bool VisitBlockReference(Stack<BlockReference> path)
+      protected override bool VisitBlockReference(ObjectId blockId, Stack<BlockReference> path)
       {
-         bool result = base.VisitBlockReference(path);
+         bool result = base.VisitBlockReference(blockId, path);
          if(result)
-            count += GetReferencedBlockId(path.Peek());
+            count += blockId;
          return result;
       }
 

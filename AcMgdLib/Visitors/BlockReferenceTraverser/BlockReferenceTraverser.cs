@@ -78,9 +78,10 @@ namespace AcMgdLib.DatabaseServices
       {
          var blkref = GetObject<BlockReference>(blockRefId);
          path.Push(blkref);
-         if(VisitBlockReference(path))
+         ObjectId blockId = GetReferencedBlockId(blkref);
+         if(VisitBlockReference(blockId, path))
          {
-            var nested = GetBlockReferenceIds(GetReferencedBlockId(blkref));
+            var nested = GetBlockReferenceIds(blockId);
             foreach(ObjectId id in nested)
                Visit(id, path);
          }
@@ -97,7 +98,7 @@ namespace AcMgdLib.DatabaseServices
          return ResolveBlockId(blockref);
       }
 
-      protected virtual bool VisitBlockReference(Stack<BlockReference> path)
+      protected virtual bool VisitBlockReference(ObjectId blockId, Stack<BlockReference> path)
       {
          return path.Count > 0 && IsBlockReference(path.Peek());
       }
