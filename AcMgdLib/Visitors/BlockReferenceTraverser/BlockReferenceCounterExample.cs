@@ -26,13 +26,13 @@ namespace AcMgdLib.Visitors.Examples
       [CommandMethod("DEEPBCOUNT")]
       public static void DeepBCount()
       {
+         var editor = Application.DocumentManager.MdiActiveDocument.Editor;
          try
          {
             ObjectId id = HostApplicationServices.WorkingDatabase.CurrentSpaceId;
             var counter = new BlockReferenceCounter(id);
             counter.Visit();
             var pairs = GetBlockNames(counter.Count);
-            var editor = Application.DocumentManager.MdiActiveDocument.Editor;
             var format = pairs.GetFormatter();
             foreach(var pair in pairs.OrderBy(p => p.Key))
             {
@@ -46,7 +46,7 @@ namespace AcMgdLib.Visitors.Examples
          }
          catch(System.Exception ex)
          {
-            AcConsole.Write(ex.ToString());
+            editor.WriteMessage(ex.ToString());
          }
       }
 
