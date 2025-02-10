@@ -1,11 +1,11 @@
 ﻿
-/// BlockReferenceCounter.cs  
+/// DatabaseExtensions.cs (partial)
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Example showing the use of the BlockReferenceTraverser class.
+/// Extensions to the Database class
 
 using System;
 using Autodesk.AutoCAD.ApplicationServices;
