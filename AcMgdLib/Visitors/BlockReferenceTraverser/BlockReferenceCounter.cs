@@ -25,7 +25,6 @@ namespace AcMgdLib.DatabaseServices
    {
       CountMap<ObjectId> count;
       DBStateView state;
-      int entmods = -1;
 
       public BlockReferenceCounter(ObjectId blockId, bool resolveDynamic = true)
          : base(blockId, resolveDynamic)
