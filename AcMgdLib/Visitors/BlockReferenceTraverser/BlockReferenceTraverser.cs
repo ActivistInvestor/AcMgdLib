@@ -29,7 +29,6 @@ namespace AcMgdLib.DatabaseServices
 
       Func<BlockReference, ObjectId> ResolveBlockId = null;
       bool resolveDynamic = true;
-      bool faulted = true;
       private IEnumerable<ObjectId> EmptyHashSet;
 
       public BlockReferenceTraverser(ObjectId blockId, bool resolveDynamic = true)
@@ -64,7 +63,6 @@ namespace AcMgdLib.DatabaseServices
       public virtual void Clear()
       {
          map.Clear();
-         faulted = true;
       }
 
       /// <summary>
