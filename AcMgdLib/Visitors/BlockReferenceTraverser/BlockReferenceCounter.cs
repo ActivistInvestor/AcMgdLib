@@ -28,16 +28,17 @@ namespace AcMgdLib.DatabaseServices
       CountMap<ObjectId> count = new CountMap<ObjectId>();
       int entmods = -1;
 
-      public BlockReferenceCounter(ObjectId blockId, bool resolveDynanic = true)
-         : base(blockId, resolveDynanic)
+      public BlockReferenceCounter(ObjectId blockId, bool resolveDynamic = true)
+         : base(blockId, resolveDynamic)
       {
       }
 
-      protected override bool VisitBlockReference(Stack<BlockReference> refs)
+      protected override bool VisitBlockReference(Stack<BlockReference> path)
       {
-         if(refs.Count > 0)
-            count += GetReferencedBlockId(refs.Peek());
-         return base.VisitBlockReference(refs);
+         bool result = base.VisitBlockReference(path);
+         if(result)
+            count += GetReferencedBlockId(path.Peek());
+         return result;
       }
 
       public override void Clear()
