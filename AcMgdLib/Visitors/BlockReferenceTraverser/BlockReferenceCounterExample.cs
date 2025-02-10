@@ -31,7 +31,6 @@ namespace AcMgdLib.Visitors.Examples
          {
             ObjectId id = HostApplicationServices.WorkingDatabase.CurrentSpaceId;
             var counter = new BlockReferenceCounter(id);
-            counter.Visit();
             var pairs = GetBlockNames(counter.Count);
             var format = pairs.GetFormatter();
             foreach(var pair in pairs.OrderBy(p => p.Key))
@@ -39,10 +38,10 @@ namespace AcMgdLib.Visitors.Examples
                editor.WriteMessage($"\n{format(pair)}");
             }
             var total = new KeyValuePair<string, int>("  Total:", pairs.Values.Sum());
-            string totstr = format(total);
-            string rule = new string('-', totstr.Length);
-            editor.WriteMessage($"\n{rule}\n");
-            editor.WriteMessage(totstr);
+            string totaltext = format(total);
+            string lines = new string('-', totaltext.Length);
+            editor.WriteMessage($"\n{lines}\n");
+            editor.WriteMessage(totaltext);
          }
          catch(System.Exception ex)
          {

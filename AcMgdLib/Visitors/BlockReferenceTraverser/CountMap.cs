@@ -1,11 +1,9 @@
 ﻿
-/// HighlightCirclesVisitor.cs  
+/// CountMap.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
-/// 
-/// Example showing the use of the EntityVisitor class.
 
 using System;
 using System.Collections;
@@ -15,8 +13,8 @@ using System.Linq;
 namespace AcMgdLib.Collections.Generic
 {
    /// <summary>
-   /// A class that accumulates the 
-   /// count of multiple keys.
+   /// A class that accumulates the count of 
+   /// multiple keys.
    /// 
    /// The generic argument is the type of the
    /// key to be counted. Create an instance of

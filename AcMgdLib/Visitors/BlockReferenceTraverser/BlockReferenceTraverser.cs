@@ -24,17 +24,16 @@ namespace AcMgdLib.DatabaseServices
       static bool IsBlockRefId(ObjectId id) => id.ObjectClass == blockRefClass;
       Dictionary<ObjectId, IEnumerable<ObjectId>> map =
          new Dictionary<ObjectId, IEnumerable<ObjectId>>();
-      Dictionary<ObjectId, bool> included =
-         new Dictionary<ObjectId, bool>();
-
       Func<BlockReference, ObjectId> ResolveBlockId = null;
       bool resolveDynamic = true;
-      private IEnumerable<ObjectId> EmptyHashSet;
+      bool visiting = false;
 
       public BlockReferenceTraverser(ObjectId blockId, bool resolveDynamic = true)
       {
+         if(blockId.IsNull || !blockId.IsValid)
+            throw new ArgumentException("Null or Invalid ObjectId");
          if(blockId.ObjectClass != RXObject.GetClass(typeof(BlockTableRecord)))
-            throw new ArgumentException("Invalid objectId");
+            throw new ArgumentException("Wrong object type");
          rootBlockId = blockId;
          this.resolveDynamic = resolveDynamic;
          if(resolveDynamic)
@@ -46,17 +45,26 @@ namespace AcMgdLib.DatabaseServices
       protected Database Database => rootBlockId.Database;
       protected ObjectId RootBlockId => rootBlockId;
 
-      public void Visit()
+      public virtual void Visit()
       {
          Clear();
-         using(trans = new OpenCloseTransaction())
+         visiting = true;
+         try
          {
-            Stack<BlockReference> refs = new Stack<BlockReference>();
-            foreach(var id in GetBlockReferenceIds(rootBlockId))
+            using(trans = new OpenCloseTransaction())
             {
-               Visit(id, refs);
+               Stack<BlockReference> refs = new Stack<BlockReference>();
+               var root = GetObject<BlockTableRecord>(rootBlockId);
+               foreach(var id in GetBlockReferenceIds(root))
+               {
+                  Visit(id, refs);
+               }
+               trans.Commit();
             }
-            trans.Commit();
+         }
+         finally
+         {
+            visiting = false;
          }
       }
 
@@ -65,25 +73,18 @@ namespace AcMgdLib.DatabaseServices
          map.Clear();
       }
 
-      /// <summary>
-      /// Takes the ObjectId of a BlockReference and
-      /// processes the nested BlockReferences contained
-      /// in the referenced block's definition, recursively.
-      /// </summary>
-      /// <param name="id"></param>
-
-      void Visit(ObjectId blockRefId, Stack<BlockReference> path)
+      void Visit(ObjectId blockRefId, Stack<BlockReference> containers)
       {
          var blkref = GetObject<BlockReference>(blockRefId);
-         path.Push(blkref);
          ObjectId blockId = GetReferencedBlockId(blkref);
-         if(VisitBlockReference(blockId, path))
+         var block = GetObject<BlockTableRecord>(blockId);
+         containers.Push(blkref);
+         if(VisitBlockReference(block, containers))
          {
-            var nested = GetBlockReferenceIds(blockId);
-            foreach(ObjectId id in nested)
-               Visit(id, path);
+            foreach(ObjectId id in GetBlockReferenceIds(block))
+               Visit(id, containers);
          }
-         path.Pop();
+         containers.Pop();
       }
 
       protected virtual bool VisitBlock(BlockTableRecord btr)
@@ -96,24 +97,25 @@ namespace AcMgdLib.DatabaseServices
          return ResolveBlockId(blockref);
       }
 
-      protected virtual bool VisitBlockReference(ObjectId blockId, Stack<BlockReference> path)
+      protected virtual bool VisitBlockReference(
+         BlockTableRecord block, 
+         Stack<BlockReference> path)
       {
-         return path.Count > 0 && IsBlockReference(path.Peek());
+         return path.Count > 0 && IsTrueBlockReference(path.Peek());
       }
 
       protected Dictionary<ObjectId, IEnumerable<ObjectId>> Map => map;
 
-      private IEnumerable<ObjectId> GetBlockReferenceIds(ObjectId blockId)
+      private IEnumerable<ObjectId> GetBlockReferenceIds(BlockTableRecord btr)
       {
          IEnumerable<ObjectId> result;
-         if(!map.TryGetValue(blockId, out result))
+         if(!map.TryGetValue(btr.ObjectId, out result))
          {
-            var btr = GetObject<BlockTableRecord>(blockId);
             if(VisitBlock(btr))
                result = GetNestedBlockRefIds(btr);
             else
                result = Enumerable.Empty<ObjectId>();
-            map[blockId] = result;
+            map[btr.ObjectId] = result;
          }
          return result;
       }
@@ -124,13 +126,13 @@ namespace AcMgdLib.DatabaseServices
          foreach(ObjectId id in btr.Cast<ObjectId>().Where(IsBlockRefId))
          {
             BlockReference blkref = GetObject<BlockReference>(id);
-            if(IsBlockReference(blkref)) 
+            if(IsTrueBlockReference(blkref)) 
                list.Add(id);
          }
          return list;
       }
 
-      static bool IsBlockReference(BlockReference entity)
+      static bool IsTrueBlockReference(BlockReference entity)
       {
          return !(entity is Table) && !DBObject.IsCustomObject(entity.ObjectId);
       }

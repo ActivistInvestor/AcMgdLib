@@ -24,18 +24,22 @@ namespace AcMgdLib.DatabaseServices
    public class BlockReferenceCounter : BlockReferenceTraverser
    {
       CountMap<ObjectId> count;
+      DBStateView state;
       int entmods = -1;
 
       public BlockReferenceCounter(ObjectId blockId, bool resolveDynamic = true)
          : base(blockId, resolveDynamic)
       {
+         state = new DBStateView(blockId.Database);
       }
 
-      protected override bool VisitBlockReference(ObjectId blockId, Stack<BlockReference> path)
+      protected override bool VisitBlockReference(
+         BlockTableRecord block, 
+         Stack<BlockReference> path)
       {
-         bool result = base.VisitBlockReference(blockId, path);
+         bool result = base.VisitBlockReference(block, path);
          if(result)
-            count += blockId;
+            count += block.ObjectId;
          return result;
       }
 
@@ -49,7 +53,7 @@ namespace AcMgdLib.DatabaseServices
       {
          get
          {
-            if(count == null || this.Database.IsModified())
+            if(count == null || state.IsModified)
             {
                base.Visit();
             }
