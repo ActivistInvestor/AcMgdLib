@@ -27,8 +27,6 @@ namespace AcMgdLib.DatabaseServices
          id.ObjectClass.UnmanagedObject == blkRefClassPtr;
       Dictionary<ObjectId, IEnumerable<ObjectId>> map =
          new Dictionary<ObjectId, IEnumerable<ObjectId>>();
-      Func<BlockReference, ObjectId> ResolveBlockId = null;
-      bool resolveDynamic = true;
       bool visiting = false;
       Stack<BlockReference> path;
       Database db;
@@ -49,14 +47,13 @@ namespace AcMgdLib.DatabaseServices
       /// dynamic block definition</param>
       /// <exception cref="ArgumentException"></exception>
       
-      public BlockReferenceVisitor(ObjectId blockId, bool resolveDynamic = true)
+      public BlockReferenceVisitor(ObjectId blockId)
       {
          if(blockId.IsNull || !blockId.IsValid)
             throw new ArgumentException("Null or Invalid ObjectId");
          if(blockId.ObjectClass != RXObject.GetClass(typeof(BlockTableRecord)))
             throw new ArgumentException("Wrong object type");
          rootBlockId = blockId;
-         this.resolveDynamic = resolveDynamic;
          Initialize();
       }
 
@@ -75,23 +72,18 @@ namespace AcMgdLib.DatabaseServices
       /// dynamic block definition</param>
       /// <exception cref="ArgumentNullException"></exception>
      
-      public BlockReferenceVisitor(IEnumerable<ObjectId> blockRefIds, bool resolveDynamic = true)
+      public BlockReferenceVisitor(IEnumerable<ObjectId> blockRefIds)
       {
          if(blockRefIds is null)
             throw new ArgumentNullException(nameof(blockRefIds));
          var ids = blockRefIds.Distinct().ToArray();
          Validate(ids);
          this.blockRefIds = ids;
-         this.resolveDynamic = resolveDynamic;
          Initialize();
       }
 
       private void Initialize()
       {
-         if(this.resolveDynamic)
-            ResolveBlockId = blkref => blkref.DynamicBlockTableRecord;
-         else
-            ResolveBlockId = blkref => blkref.BlockTableRecord;
          if(!rootBlockId.IsNull)
             this.db = rootBlockId.Database;
          else
@@ -123,7 +115,6 @@ namespace AcMgdLib.DatabaseServices
       public Database Database => this.db;
       public ObjectId RootBlockId => rootBlockId;
       public IEnumerable<ObjectId> BlockReferenceIds => blockRefIds;
-      public bool ResolveDynamicBlocks => resolveDynamic;
       public int Depth => path?.Count ?? 0;
       public bool IsVisiting => visiting;
 
@@ -178,18 +169,26 @@ namespace AcMgdLib.DatabaseServices
          map.Clear();
       }
 
+      /// <summary>
+      /// Requires refactoring. Anonymous dynamic block references
+      /// should be counted as references to the dynamic block, but
+      /// the contents of the anonymous block definition must be
+      /// visited.
+      /// </summary>
+      /// <param name="blockRefId"></param>
+      /// <param name="containers"></param>
+      
       void Visit(ObjectId blockRefId, Stack<BlockReference> containers)
       {
          var blkref = GetObject<BlockReference>(blockRefId);
-         ObjectId blockId = GetReferencedBlockId(blkref);
-         var block = GetObject<BlockTableRecord>(blockId);
-         containers.Push(blkref);
-         if(VisitBlockReference(containers, block))
+         if(VisitBlockReference(blkref, containers))
          {
+            containers.Push(blkref); 
+            var block = GetObject<BlockTableRecord>(blkref.BlockTableRecord);
             foreach(ObjectId id in GetBlockReferenceIds(block))
                Visit(id, containers);
+            containers.Pop();
          }
-         containers.Pop();
       }
 
       protected virtual bool VisitBlock(BlockTableRecord btr)
@@ -197,16 +196,11 @@ namespace AcMgdLib.DatabaseServices
          return true;
       }
 
-      protected ObjectId GetReferencedBlockId(BlockReference blockref)
+      protected virtual bool VisitBlockReference(BlockReference blockReference,
+         Stack<BlockReference> containers)
       {
-         return ResolveBlockId(blockref);
-      }
-
-      protected virtual bool VisitBlockReference(
-         Stack<BlockReference> path,
-         BlockTableRecord block)
-      {
-         return path.Count > 0 && IsTrueBlockReference(path.Peek());
+         return IsTrueBlockReference(blockReference);
+         // return containers.Count > 0 && IsTrueBlockReference(containers.Peek());
       }
 
       protected Dictionary<ObjectId, IEnumerable<ObjectId>> Map => map;

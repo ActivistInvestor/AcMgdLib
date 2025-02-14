@@ -12,6 +12,8 @@ using System.Collections.Generic;
 using System.Linq;
 using AcMgdLib.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Diagnostics.Extensions;
+using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.DatabaseServices
 {
@@ -21,6 +23,18 @@ namespace AcMgdLib.DatabaseServices
    /// 
    /// See the BlockReferenceCounterExample.cs file for an
    /// exammple showing its use.
+   /// 
+   /// Revisions:
+   /// 
+   /// 2.13.25:
+   /// 
+   /// The resolveDynamic parameter and property has been
+   /// removed from this class, because accurate counting 
+   /// of blocks requires that the definitions of anonymous
+   /// dynamic blocks be visited, to accomodate cases where
+   /// there can be a variable number of nested inserions
+   /// of blocks in each anonymous variation's definition
+   /// (e.g., parameterized arrays).
    /// </summary>
 
    public class BlockReferenceCounter : BlockReferenceVisitor
@@ -29,27 +43,33 @@ namespace AcMgdLib.DatabaseServices
       DBStateView state;
       int entmods = -1;
 
-      public BlockReferenceCounter(ObjectId blockId, bool resolveDynamic = true)
-         : base(blockId, resolveDynamic)
+      /// <summary>
+      /// Counts all BlockReferences nested in the BlockTableRecord
+      /// whose ObjectId is passed as the argument. The argument can
+      /// be the ObjectId of a layout block, or the Id of any block 
+      /// in the block table.
+      /// </summary>
+      
+      public BlockReferenceCounter(ObjectId blockId)
+         : base(blockId) 
       {
          state = new DBStateView(blockId.Database);
       }
 
-      public BlockReferenceCounter(IEnumerable<ObjectId> ids, bool resolveDynamic = true)
-         : base(ids, resolveDynamic)
+      public BlockReferenceCounter(IEnumerable<ObjectId> ids)
+         : base(ids)
       {
          if(ids == null || !ids.Any())
             throw new ArgumentException("null or empty sequence");
          state = new DBStateView(ids.First().Database);
       }
 
-      protected override bool VisitBlockReference(
-         Stack<BlockReference> path,
-         BlockTableRecord block)
+      protected override bool VisitBlockReference(BlockReference blockref,
+         Stack<BlockReference> containers)
       {
-         bool result = base.VisitBlockReference(path, block);
+         bool result = base.VisitBlockReference(blockref, containers);
          if(result)
-            count += block.ObjectId;
+            count += blockref.DynamicBlockTableRecord;
          return result;
       }
 
@@ -74,13 +94,13 @@ namespace AcMgdLib.DatabaseServices
 
       public Dictionary<string, int> CountWithNames(bool includingAnonymous = false)
       {
-         var cnt = Count;
+         var counts = Count;
          Dictionary<string, int> result = new Dictionary<string, int>();
-         if(cnt.Count > 0)
+         if(counts.Count > 0)
          {
             using(var tr = new OpenCloseTransaction())
             {
-               foreach(var pair in cnt)
+               foreach(var pair in counts)
                {
                   var btr = (BlockTableRecord)tr.GetObject(pair.Key, OpenMode.ForRead);
                   if(includingAnonymous || !btr.IsAnonymous)
