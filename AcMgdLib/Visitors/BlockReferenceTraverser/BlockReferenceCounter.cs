@@ -7,7 +7,9 @@
 /// 
 /// Example showing the use of the BlockReferenceTraverser class.
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using AcMgdLib.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
 
@@ -21,10 +23,11 @@ namespace AcMgdLib.DatabaseServices
    /// exammple showing its use.
    /// </summary>
 
-   public class BlockReferenceCounter : BlockReferenceTraverser
+   public class BlockReferenceCounter : BlockReferenceVisitor
    {
       CountMap<ObjectId> count;
       DBStateView state;
+      int entmods = -1;
 
       public BlockReferenceCounter(ObjectId blockId, bool resolveDynamic = true)
          : base(blockId, resolveDynamic)
@@ -32,11 +35,19 @@ namespace AcMgdLib.DatabaseServices
          state = new DBStateView(blockId.Database);
       }
 
-      protected override bool VisitBlockReference(
-         BlockTableRecord block, 
-         Stack<BlockReference> path)
+      public BlockReferenceCounter(IEnumerable<ObjectId> ids, bool resolveDynamic = true)
+         : base(ids, resolveDynamic)
       {
-         bool result = base.VisitBlockReference(block, path);
+         if(ids == null || !ids.Any())
+            throw new ArgumentException("null or empty sequence");
+         state = new DBStateView(ids.First().Database);
+      }
+
+      protected override bool VisitBlockReference(
+         Stack<BlockReference> path,
+         BlockTableRecord block)
+      {
+         bool result = base.VisitBlockReference(path, block);
          if(result)
             count += block.ObjectId;
          return result;
@@ -52,6 +63,7 @@ namespace AcMgdLib.DatabaseServices
       {
          get
          {
+            CheckVisiting(false);
             if(count == null || state.IsModified)
             {
                base.Visit();
@@ -59,6 +71,27 @@ namespace AcMgdLib.DatabaseServices
             return count;
          }
       }
+
+      public Dictionary<string, int> CountWithNames(bool includingAnonymous = false)
+      {
+         var cnt = Count;
+         Dictionary<string, int> result = new Dictionary<string, int>();
+         if(cnt.Count > 0)
+         {
+            using(var tr = new OpenCloseTransaction())
+            {
+               foreach(var pair in cnt)
+               {
+                  var btr = (BlockTableRecord)tr.GetObject(pair.Key, OpenMode.ForRead);
+                  if(includingAnonymous || !btr.IsAnonymous)
+                     result[btr.Name] = pair.Value;
+               }
+               tr.Commit();
+            }
+         }
+         return result;
+      }
+
    }
 
 }
