@@ -2,5 +2,4 @@ The files in this folder aim to replicate the results displayed by AutoCAD's COU
 
 Known issues that have been addressed in the latest commit:
 
-1.  Blocks that are part of arrays within a dynamic block that are controlled by an
-    array parameter are not counted correctly.
+1.  Blocks that are part of parameterized arrays within dynamic blocks were not counted correctly.
