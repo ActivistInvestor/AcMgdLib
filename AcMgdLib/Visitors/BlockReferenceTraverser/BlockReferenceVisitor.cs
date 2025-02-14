@@ -1,5 +1,5 @@
 ﻿
-/// BlockReferenceTraverser.cs
+/// BlockReferenceVisitor.cs
 /// 
 /// ActivistInvestor / Tony T.
 /// 
