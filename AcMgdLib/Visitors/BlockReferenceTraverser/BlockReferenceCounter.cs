@@ -41,13 +41,16 @@ namespace AcMgdLib.DatabaseServices
    {
       CountMap<ObjectId> count;
       DBStateView state;
-      int entmods = -1;
 
       /// <summary>
       /// Counts all BlockReferences nested in the BlockTableRecord
       /// whose ObjectId is passed as the argument. The argument can
       /// be the ObjectId of a layout block, or the Id of any block 
       /// in the block table.
+      /// 
+      /// The result contains values for non-dynamic anonymous block
+      /// references, but not anonymous dynamic block references, as
+      /// they always resolve to the dynamic block definition.
       /// </summary>
       
       public BlockReferenceCounter(ObjectId blockId)
@@ -67,10 +70,8 @@ namespace AcMgdLib.DatabaseServices
       protected override bool VisitBlockReference(BlockReference blockref,
          Stack<BlockReference> containers)
       {
-         bool result = base.VisitBlockReference(blockref, containers);
-         if(result)
-            count += blockref.DynamicBlockTableRecord;
-         return result;
+         count += blockref.DynamicBlockTableRecord;
+         return true;
       }
 
       public override void Clear()

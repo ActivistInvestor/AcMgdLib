@@ -58,7 +58,7 @@ namespace AcMgdLib.Visitors.Examples
                counter = new BlockReferenceCounter(selection);
             else
                counter = new BlockReferenceCounter(doc.Database.CurrentSpaceId);
-            var pairs = counter.CountWithNames();
+            var pairs = counter.CountWithNames(true);
             var format = pairs.GetFormatter();
             foreach(var pair in pairs.OrderBy(p => p.Key))
             {

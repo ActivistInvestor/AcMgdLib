@@ -25,10 +25,10 @@ namespace AcMgdLib.DatabaseServices
          RXObject.GetClass(typeof(BlockReference)).UnmanagedObject;
       static bool IsBlockRefId(ObjectId id) => 
          id.ObjectClass.UnmanagedObject == blkRefClassPtr;
-      Dictionary<ObjectId, IEnumerable<ObjectId>> map =
-         new Dictionary<ObjectId, IEnumerable<ObjectId>>();
+      Dictionary<ObjectId, IEnumerable<BlockReference>> map =
+         new Dictionary<ObjectId, IEnumerable<BlockReference>>();
       bool visiting = false;
-      Stack<BlockReference> path;
+      Stack<BlockReference> containers;
       Database db;
 
       /// <summary>
@@ -101,29 +101,36 @@ namespace AcMgdLib.DatabaseServices
          if(!blockRefIds.Any())
             throw new ArgumentException($"{nameof(blockRefIds)}: empty sequence.");
          var ids = blockRefIds.Distinct().ToArray();
-         if(!ids.All(IsBlockRefId))
+         if(!ids.All(id => !id.IsNull && IsBlockRefId(id)))
             throw new ArgumentException($"{nameof(blockRefIds)}: Wrong object type.");
+         System.Exception ex = null;
          using(var tr = new OpenCloseTransaction())
          {
-            if(!AreAllEqual(GetObjects<BlockReference>(ids, tr), br => br.OwnerId))
-               throw new ArgumentException(
-                  $"{nameof(blockRefIds)}: All elements must have the same owner.");
+            var blockrefs = GetObjects<BlockReference>(ids, tr);
+            if(!blockrefs.All(IsTrueBlockReference))
+               ex = new ArgumentException(
+                  $"{nameof(blockRefIds)}: One or more invalid BlockReferences.");
+            else if(!IsEqual(blockrefs, blockref => blockref.OwnerId))
+               ex = new ArgumentException(
+                  $"{nameof(blockRefIds)}: Elements must have a common owner.");
             tr.Commit();
          }
+         if(ex != null)
+            throw ex;
       }
 
       public Database Database => this.db;
       public ObjectId RootBlockId => rootBlockId;
       public IEnumerable<ObjectId> BlockReferenceIds => blockRefIds;
-      public int Depth => path?.Count ?? 0;
+      public int Depth => containers?.Count ?? 0;
       public bool IsVisiting => visiting;
 
-      public Stack<BlockReference> Path
+      public Stack<BlockReference> Containers
       {
          get
          {
             CheckVisiting();
-            return path;
+            return containers;
          }
       }
 
@@ -136,31 +143,32 @@ namespace AcMgdLib.DatabaseServices
          {
             using(trans = new OpenCloseTransaction())
             {
-               path = new Stack<BlockReference>();
-               foreach(var id in GetRootBlockReferenceIds())
-                  Visit(id, path);
+               containers = new Stack<BlockReference>();
+               foreach(var blockref in GetRootBlockReferences())
+                  Visit(blockref, containers);
                trans.Commit();
             }
          }
          finally
          {
             visiting = false;
-            path = null;
+            map.Clear();
+            containers = null;
             trans = null;
          }
       }
 
-      IEnumerable<ObjectId> GetRootBlockReferenceIds()
+      IEnumerable<BlockReference> GetRootBlockReferences()
       {
          if(rootBlockId.IsNull)
          {
             if(blockRefIds is null || !blockRefIds.Any())
                throw new InvalidOperationException("No block or block references specified");
-            return blockRefIds;
+            return GetObjects<BlockReference>(blockRefIds).Where(IsTrueBlockReference);
          }
          else
          {
-            return GetBlockReferenceIds(GetObject<BlockTableRecord>(rootBlockId));
+            return GetBlockReferences(GetObject<BlockTableRecord>(rootBlockId));
          }
       }
 
@@ -169,24 +177,14 @@ namespace AcMgdLib.DatabaseServices
          map.Clear();
       }
 
-      /// <summary>
-      /// Requires refactoring. Anonymous dynamic block references
-      /// should be counted as references to the dynamic block, but
-      /// the contents of the anonymous block definition must be
-      /// visited.
-      /// </summary>
-      /// <param name="blockRefId"></param>
-      /// <param name="containers"></param>
-      
-      void Visit(ObjectId blockRefId, Stack<BlockReference> containers)
+      void Visit(BlockReference blockReference, Stack<BlockReference> containers)
       {
-         var blkref = GetObject<BlockReference>(blockRefId);
-         if(VisitBlockReference(blkref, containers))
+         if(VisitBlockReference(blockReference, containers))
          {
-            containers.Push(blkref); 
-            var block = GetObject<BlockTableRecord>(blkref.BlockTableRecord);
-            foreach(ObjectId id in GetBlockReferenceIds(block))
-               Visit(id, containers);
+            containers.Push(blockReference); 
+            var block = GetObject<BlockTableRecord>(blockReference.BlockTableRecord);
+            foreach(BlockReference blkref in GetBlockReferences(block))
+               Visit(blkref, containers);
             containers.Pop();
          }
       }
@@ -199,35 +197,24 @@ namespace AcMgdLib.DatabaseServices
       protected virtual bool VisitBlockReference(BlockReference blockReference,
          Stack<BlockReference> containers)
       {
-         return IsTrueBlockReference(blockReference);
-         // return containers.Count > 0 && IsTrueBlockReference(containers.Peek());
+         return true;
       }
 
-      protected Dictionary<ObjectId, IEnumerable<ObjectId>> Map => map;
+      protected Dictionary<ObjectId, IEnumerable<BlockReference>> Map => map;
 
-      private IEnumerable<ObjectId> GetBlockReferenceIds(BlockTableRecord btr)
+      private IEnumerable<BlockReference> GetBlockReferences(BlockTableRecord btr)
       {
-         IEnumerable<ObjectId> result;
+         IEnumerable<BlockReference> result;
          if(!map.TryGetValue(btr.ObjectId, out result))
          {
             if(VisitBlock(btr))
-               result = GetNestedBlockRefIds(btr);
+               result = GetObjects<BlockReference>(btr.Cast<ObjectId>())
+                  .Where(IsTrueBlockReference).ToList();
             else
-               result = Enumerable.Empty<ObjectId>();
+               result = Enumerable.Empty<BlockReference>();
             map[btr.ObjectId] = result;
          }
          return result;
-      }
-
-      List<ObjectId> GetNestedBlockRefIds(BlockTableRecord btr)
-      {
-         List<ObjectId> list = new List<ObjectId>();
-         foreach(var blkref in GetObjects<BlockReference>(btr.Cast<ObjectId>()))
-         {
-            if(IsTrueBlockReference(blkref)) 
-               list.Add(blkref.ObjectId);
-         }
-         return list;
       }
 
       static bool IsTrueBlockReference(BlockReference blkref)
@@ -258,7 +245,7 @@ namespace AcMgdLib.DatabaseServices
 
       protected void CheckVisiting(bool mustBeVisiting = true)
       {
-         if((!visiting && mustBeVisiting) || (!mustBeVisiting && visiting))
+         if(mustBeVisiting ^ visiting)
             throw new InvalidOperationException("Invalid context");
       }
 
@@ -283,7 +270,7 @@ namespace AcMgdLib.DatabaseServices
       /// from all elements are all equal</returns>
       /// <exception cref="ArgumentNullException"></exception>
 
-      static bool AreAllEqual<T, TElement>(IEnumerable<T> source,
+      static bool IsEqual<T, TElement>(IEnumerable<T> source,
          Func<T, TElement> selector,
          IEqualityComparer<TElement> comparer = null)
       {
