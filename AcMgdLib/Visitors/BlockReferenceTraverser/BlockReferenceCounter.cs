@@ -5,7 +5,7 @@
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Example showing the use of the BlockReferenceTraverser class.
+/// Example showing the use of the BlockReferenceVisitor class.
 
 using System;
 using System.Collections.Generic;
