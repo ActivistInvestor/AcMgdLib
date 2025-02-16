@@ -67,16 +67,30 @@ namespace AcMgdLib.DatabaseServices
          state = new DBStateView(ids.First().Database);
       }
 
-      protected override bool VisitBlockReference(BlockReference blockref,
+      /// <summary>
+      /// This override visits the definitions of anonymous
+      /// dynamic blocks, but treats insertions of them as
+      /// insertions of the dynamic block definition.
+      /// </summary>
+      /// <param name="blockref"></param>
+      /// <param name="block"></param>
+      /// <param name="containers"></param>
+      /// <returns></returns>
+      
+      protected override bool VisitBlockReference(
+         BlockReference blockref,
+         BlockTableRecord block, 
          Stack<BlockReference> containers)
       {
-         count += blockref.DynamicBlockTableRecord;
-         return true;
+         bool result = !block.IsFromExternalReference;
+         if(result)
+            count += blockref.DynamicBlockTableRecord;
+         return result;
       }
 
-      public override void Clear()
+      public override void BeginVisit()
       {
-         base.Clear();
+         base.BeginVisit();
          count = new CountMap<ObjectId>();
       }
 

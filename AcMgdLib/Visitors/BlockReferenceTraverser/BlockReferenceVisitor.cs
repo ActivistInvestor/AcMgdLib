@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AcMgdLib.Interop.Examples;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 
@@ -100,23 +101,35 @@ namespace AcMgdLib.DatabaseServices
             throw new ArgumentNullException(nameof(blockRefIds));
          if(!blockRefIds.Any())
             throw new ArgumentException($"{nameof(blockRefIds)}: empty sequence.");
-         var ids = blockRefIds.Distinct().ToArray();
-         if(!ids.All(id => !id.IsNull && IsBlockRefId(id)))
-            throw new ArgumentException($"{nameof(blockRefIds)}: Wrong object type.");
-         System.Exception ex = null;
+         var ids = blockRefIds as ObjectId[] ?? blockRefIds.ToArray();
          using(var tr = new OpenCloseTransaction())
          {
-            var blockrefs = GetObjects<BlockReference>(ids, tr);
-            if(!blockrefs.All(IsTrueBlockReference))
-               ex = new ArgumentException(
-                  $"{nameof(blockRefIds)}: One or more invalid BlockReferences.");
-            else if(!IsEqual(blockrefs, blockref => blockref.OwnerId))
-               ex = new ArgumentException(
-                  $"{nameof(blockRefIds)}: Elements must have a common owner.");
-            tr.Commit();
+            try
+            {
+               ObjectId ownerId = ObjectId.Null;
+               for(int i = 0; i < ids.Length; i++)
+               {
+                  var id = ids[i];
+                  if(id.IsNull)
+                     throw new ArgumentException($"{nameof(blockRefIds)}[{i}]: Null ObjectId.");
+                  if(!IsBlockRefId(id))
+                     throw new ArgumentException($"{nameof(blockRefIds)}[{i}]: Wrong object type.");
+                  var blkref = (BlockReference) tr.GetObject(id, OpenMode.ForRead);
+                  if(!IsTrueBlockReference(blkref))
+                     throw new ArgumentException(
+                        $"{nameof(blockRefIds)}[{i}]: Invalid BlockReferences.");
+                  if(i == 0)
+                     ownerId = blkref.OwnerId;
+                  else if(ownerId != blkref.OwnerId)
+                     throw new ArgumentException(
+                        $"{nameof(blockRefIds)}[{i}]: Invalid owner.");
+               }
+            }
+            finally
+            {
+               tr.Commit();
+            }
          }
-         if(ex != null)
-            throw ex;
       }
 
       public Database Database => this.db;
@@ -124,6 +137,7 @@ namespace AcMgdLib.DatabaseServices
       public IEnumerable<ObjectId> BlockReferenceIds => blockRefIds;
       public int Depth => containers?.Count ?? 0;
       public bool IsVisiting => visiting;
+      protected Dictionary<ObjectId, IEnumerable<BlockReference>> Map => map;
 
       public Stack<BlockReference> Containers
       {
@@ -137,16 +151,25 @@ namespace AcMgdLib.DatabaseServices
       public virtual void Visit()
       {
          CheckVisiting(false);
-         Clear();
-         visiting = true;
+         bool failed = true;
          try
          {
             using(trans = new OpenCloseTransaction())
             {
-               containers = new Stack<BlockReference>();
-               foreach(var blockref in GetRootBlockReferences())
-                  Visit(blockref, containers);
-               trans.Commit();
+               visiting = true;
+               BeginVisit();
+               try
+               {
+                  containers = new Stack<BlockReference>();
+                  foreach(var blockref in GetRootBlockReferences())
+                     Visit(blockref, containers);
+                  trans.Commit();
+                  failed = false;
+               }
+               finally
+               {
+                  EndVisit(failed);
+               }
             }
          }
          finally
@@ -163,7 +186,7 @@ namespace AcMgdLib.DatabaseServices
          if(rootBlockId.IsNull)
          {
             if(blockRefIds is null || !blockRefIds.Any())
-               throw new InvalidOperationException("No block or block references specified");
+               throw new InvalidOperationException("No root block/block reference(s) specified");
             return GetObjects<BlockReference>(blockRefIds).Where(IsTrueBlockReference);
          }
          else
@@ -172,42 +195,45 @@ namespace AcMgdLib.DatabaseServices
          }
       }
 
-      public virtual void Clear()
+      public virtual void BeginVisit()
       {
          map.Clear();
       }
 
+      public virtual void EndVisit(bool failed)
+      {
+      }
+
       void Visit(BlockReference blockReference, Stack<BlockReference> containers)
       {
-         if(VisitBlockReference(blockReference, containers))
+         var block = GetObject<BlockTableRecord>(blockReference.BlockTableRecord);
+         if(VisitBlockReference(blockReference, block, containers))
          {
-            containers.Push(blockReference); 
-            var block = GetObject<BlockTableRecord>(blockReference.BlockTableRecord);
-            foreach(BlockReference blkref in GetBlockReferences(block))
+            containers.Push(blockReference);
+            foreach(var blkref in GetBlockReferences(block))
                Visit(blkref, containers);
             containers.Pop();
          }
       }
 
-      protected virtual bool VisitBlock(BlockTableRecord btr)
-      {
-         return true;
-      }
-
       protected virtual bool VisitBlockReference(BlockReference blockReference,
+         BlockTableRecord block,
          Stack<BlockReference> containers)
       {
          return true;
       }
 
-      protected Dictionary<ObjectId, IEnumerable<BlockReference>> Map => map;
+      protected virtual bool VisitBlockContents(BlockTableRecord btr)
+      {
+         return true;
+      }
 
       private IEnumerable<BlockReference> GetBlockReferences(BlockTableRecord btr)
       {
          IEnumerable<BlockReference> result;
          if(!map.TryGetValue(btr.ObjectId, out result))
          {
-            if(VisitBlock(btr))
+            if(VisitBlockContents(btr))
                result = GetObjects<BlockReference>(btr.Cast<ObjectId>())
                   .Where(IsTrueBlockReference).ToList();
             else

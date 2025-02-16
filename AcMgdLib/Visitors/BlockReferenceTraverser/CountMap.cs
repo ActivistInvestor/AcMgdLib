@@ -40,35 +40,45 @@ namespace AcMgdLib.Collections.Generic
 
       public int Increment(T key, int delta = 1)
       {
-         Box box;
-         if(map.TryGetValue(key, out box))
+         if(delta != 0)
          {
-            box.Value += delta;
-            if(box.Value < 1)
-               map.Remove(key);
-            return box.Value;
+            Box box;
+            if(map.TryGetValue(key, out box))
+            {
+               box.Value += delta;
+               if(box.Value < 1)
+                  map.Remove(key);
+               return box.Value;
+            }
+            else
+            {
+               box = new Box(delta);
+               if(box.Value > 0)
+                  map.Add(key, box);
+               return box.Value > 0 ? box.Value : 0;
+            }
          }
          else
-         {
-            box = new Box(delta);
-            if(box.Value > 0)
-               map.Add(key, box);
-            return box.Value > 0 ? box.Value : 0;
+         { 
+            return 0; 
          }
       }
 
       public int Decrement(T key, int delta = 1)
       {
-         Box box;
-         if(map.TryGetValue(key, out box))
+         if(delta != 0)
          {
-            box.Value -= delta;
-            if(box.Value < 1)
+            Box box;
+            if(map.TryGetValue(key, out box))
             {
-               map.Remove(key);
-               return 0;
+               box.Value -= delta;
+               if(box.Value < 1)
+               {
+                  map.Remove(key);
+                  return 0;
+               }
+               return box.Value;
             }
-            return box.Value;
          }
          return 0;
       }
@@ -102,7 +112,7 @@ namespace AcMgdLib.Collections.Generic
       {
          if(other is null)
             throw new ArgumentNullException(nameof(other));
-         foreach(var pair in other)
+         foreach(var pair in other.Where(p => p.Value != 0))
          {
             Box box;
             if(map.TryGetValue(pair.Key, out box))
@@ -121,7 +131,7 @@ namespace AcMgdLib.Collections.Generic
       {
          if(other is null)
             throw new ArgumentNullException(nameof(other));
-         foreach(var pair in other)
+         foreach(var pair in other.Where(p => p.Value != 0))
          {
             Box box;
             if(map.TryGetValue(pair.Key, out box))

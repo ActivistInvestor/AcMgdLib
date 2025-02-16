@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AcMgdLib.DatabaseServices;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ApplicationServices.EditorInputExtensions;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
@@ -37,11 +38,9 @@ namespace AcMgdLib.Visitors.Examples
          Document doc = Application.DocumentManager.MdiActiveDocument;
          var editor = doc.Editor;
          PromptSelectionOptions pso = new PromptSelectionOptions();
-         TypedValue[] array = new TypedValue[] { (new TypedValue(0, "INSERT")) };
-         SelectionFilter filt = new SelectionFilter(array);
          pso.RejectObjectsFromNonCurrentSpace = true;
-         editor.WriteMessage("\nSelect block references or press ENTER for all,");
-         var psr = editor.GetSelection(pso, new SelectionFilter(array));
+         editor.WriteMessage("\nSelect block references or ENTER for all,");
+         var psr = editor.GetSelection(pso, (0, "INSERT"));
          ObjectId[] selection = null;
          if(psr.Status == PromptStatus.OK && psr.Value.Count > 0)
          {
@@ -58,17 +57,13 @@ namespace AcMgdLib.Visitors.Examples
                counter = new BlockReferenceCounter(selection);
             else
                counter = new BlockReferenceCounter(doc.Database.CurrentSpaceId);
-            var pairs = counter.CountWithNames(true);
-            var format = pairs.GetFormatter();
-            foreach(var pair in pairs.OrderBy(p => p.Key))
-            {
-               editor.WriteMessage($"\n{format(pair)}");
-            }
+            var pairs = counter.CountWithNames();
+            var formatter = pairs.GetFormatter();
+            foreach(var pair in pairs.OrderBy(p => p.Key)) 
+               editor.WriteMessage("\n" + formatter(pair));
             var total = new KeyValuePair<string, int>("  Total:", pairs.Values.Sum());
-            string totaltext = format(total);
-            string lines = new string('-', totaltext.Length);
-            editor.WriteMessage($"\n{lines}\n");
-            editor.WriteMessage(totaltext);
+            string txt = formatter(total);
+            editor.WriteMessage($"\n{new string('-', txt.Length)}\n{txt}");
          }
          catch(System.Exception ex)
          {
@@ -76,30 +71,33 @@ namespace AcMgdLib.Visitors.Examples
          }
       }
 
-      /// <summary>
-      /// Helper for formatting console output
-      /// </summary>
-
       public static Func<KeyValuePair<string, int>, string> GetFormatter(
          this Dictionary<string, int> data,
          string prefix = "\n",
-         int padding = 3)
+         int margin = 3)
       {
-         int maxKey = data.Keys.Max(key => key.Length) + padding;
+         int maxKey = data.Keys.Max(key => key.Length) + margin;
          int maxVal = data.Values.Max().ToString().Length;
          return p => string.Format(
             "{0,-" + maxKey + "}{1," + maxVal + "}", p.Key, p.Value);
       }
 
-      public static Func<KeyValuePair<string, double>, string> GetFormatter(
-         this Dictionary<string, double> data,
-         string prefix = "\n",
-         int padding = 3)
+   }
+
+   public static partial class EditorInputExtensions
+   {
+      public static SelectionFilter GetFilter(this Editor ed,
+         params (DxfCode code, object value)[] values)
       {
-         int maxKey = data.Keys.Max(key => key.Length) + padding;
-         int maxVal = data.Values.Max().ToString().Length;
-         return p => string.Format(
-            "{0,-" + maxKey + "}{1," + maxVal + "}", p.Key, p.Value);
+         return new SelectionFilter(
+            values.Select(t => new TypedValue((short)t.code, t.value)).ToArray());
+      }
+
+      public static PromptSelectionResult GetSelection(this Editor ed,
+         PromptSelectionOptions pso,
+         params (DxfCode code, object value)[] values)
+      {
+         return ed.GetSelection(pso, GetFilter(ed, values));
       }
    }
 
