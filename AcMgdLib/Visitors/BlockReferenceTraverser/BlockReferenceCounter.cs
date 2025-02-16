@@ -12,7 +12,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AcMgdLib.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
-using Autodesk.AutoCAD.Diagnostics.Extensions;
 using Autodesk.AutoCAD.Runtime;
 
 namespace AcMgdLib.DatabaseServices
