@@ -275,52 +275,6 @@ namespace AcMgdLib.DatabaseServices
             throw new InvalidOperationException("Invalid context");
       }
 
-      /// <summary>
-      /// (Excerpted from EnumerableExtensions)
-      /// 
-      /// Returns a value indicating if all values obtained
-      /// from elements in the sequence are equal, according 
-      /// to the supplied equality comparer or the default 
-      /// comparer for the element type.
-      /// </summary>
-      /// <typeparam name="T"></typeparam>
-      /// <typeparam name="TElement"></typeparam>
-      /// <param name="source">The sequence whose elements
-      /// are to be compared</param>
-      /// <param name="selector">A function that takes an
-      /// element and returns the value to be compared to
-      /// values obtained from other elements.</param>
-      /// <param name="comparer">The IEqualityComperer used
-      /// to compare values.</param>
-      /// <returns>A value indicating if the values obtained
-      /// from all elements are all equal</returns>
-      /// <exception cref="ArgumentNullException"></exception>
-
-      static bool IsEqual<T, TElement>(IEnumerable<T> source,
-         Func<T, TElement> selector,
-         IEqualityComparer<TElement> comparer = null)
-      {
-         if(source == null)
-            throw new ArgumentNullException(nameof(source));
-         if(selector == null)
-            throw new ArgumentNullException(nameof(selector));
-         comparer = comparer ?? EqualityComparer<TElement>.Default;
-         using(var e = source.GetEnumerator())
-         {
-            if(!e.MoveNext())
-               return true;
-            var current = selector(e.Current);
-            while(e.MoveNext())
-            {
-               var next = selector(e.Current);
-               if(!comparer.Equals(current, next))
-                  return false;
-               current = next;
-            }
-            return true;
-         }
-      }
-
    }
 
 }
