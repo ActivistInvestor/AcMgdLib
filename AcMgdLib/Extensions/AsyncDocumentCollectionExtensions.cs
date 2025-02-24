@@ -6,8 +6,7 @@
 
 using System;
 using System.Threading.Tasks;
-using Autodesk.AutoCAD.ApplicationServices.Extensions;
-using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Internal;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
@@ -54,32 +53,29 @@ namespace Autodesk.AutoCAD.ApplicationServices
          Action<Document> action,
          bool showExceptionDialog = true)
       {
+         if(!docs.IsApplicationContext)
+            throw new AcRx.Exception(AcRx.ErrorStatus.InvalidContext);
          if(docs == null)
             throw new ArgumentNullException(nameof(docs));
          if(action == null)
             throw new ArgumentNullException(nameof(action));
-         Document doc = ActiveDocumentChecked;
-         if(docs.IsApplicationContext)
+         Document doc = docs.MdiActiveDocument;
+         if(doc == null)
+            throw new AcRx.Exception(AcRx.ErrorStatus.NoDocument);
+         docs.ExecuteInCommandContextAsync(delegate (object o)
          {
-            docs.ExecuteInCommandContextAsync(delegate (object o)
+            try
             {
-               try
-               {
-                  action(doc);
-                  return Task.CompletedTask;
-               }
-               catch(System.Exception ex)
-               {
-                  if(showExceptionDialog)
-                     UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
-                  return Task.FromException(ex);
-               }
-            }, null);
-         }
-         else
-         {
-            action(doc);
-         }
+               action(doc);
+               return Task.CompletedTask;
+            }
+            catch(System.Exception ex)
+            {
+               if(showExceptionDialog)
+                  UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
+               return Task.FromException(ex);
+            }
+         }, null);
       }
 
       /// <summary>
@@ -96,12 +92,12 @@ namespace Autodesk.AutoCAD.ApplicationServices
       /// <remarks>
       /// Handling Exceptions:
       /// 
-      /// This API mitigates a significant problem associated with
-      /// the use of async/await in AutoCAD. If you try the example
-      /// code shown below, you'll see that problem, which is that 
-      /// exceptions that are thrown by delegates passed into an
-      /// awaited call to ExecuteInCommandContextAsync() cannot be 
-      /// caught by the calling code, and will terminate AutoCAD. 
+      /// This API mitigates a problem associated with the use of 
+      /// async/await in AutoCAD. If you try the example code shown 
+      /// below, you'll see that problem, which is that exceptions 
+      /// that are thrown by delegates passed into an awaited call 
+      /// to ExecuteInCommandContextAsync() cannot be caught by the 
+      /// calling code, and will terminate AutoCAD. 
       /// 
       /// <code>
       /// 
@@ -128,15 +124,13 @@ namespace Autodesk.AutoCAD.ApplicationServices
       /// passes a delegate that simulates an unhandled exception.
       /// If you run this code, you will see that the exception that
       /// is thrown by the delegate is not caught by the enclosing
-      /// try/catch block (it can't be because the delegate executes
-      /// after the async method returns). Instead of the exception
-      /// being caught and handled, AutoCAD terminates.
-      /// 
+      /// try/catch block. Instead of the exception being caught and 
+      /// handled, AutoCAD terminates.
       /// 
       /// In fact, the problem is not specific to any AutoCAD managed
       /// API, including ExecuteInCommandContextAsync(). It applies 
-      /// to any use of await in AutoCAD, where a delegate is passed 
-      /// to an asynchrnous awaited method.
+      /// to any use of async/await in AutoCAD, where a delegate is 
+      /// passed to an asynchrnous awaited method.
       /// 
       /// The InvokeAsCommandAsync() wrapper solves that problem by
       /// propagating exceptions thrown by the delegate passed to it, 
@@ -180,13 +174,13 @@ namespace Autodesk.AutoCAD.ApplicationServices
       ///         // do stuff here after the REGEN command 
       ///         // has completed.
       ///         
-      ///         Document doc = Application.DocumentManager.MdiActiveDocument;
+      ///         Document doc = docs.MdiActiveDocument;
       ///         doc.Editor.WriteMessage("\nREGEN complete");
       ///            
       ///      }
       ///      catch(System.Exception ex)
       ///      {
-      ///         // deal with the exception and do NOT re-throw it!!!
+      ///         // deal with the exception and do not re-throw it.
       ///         
       ///         // For example, you can do this:
       ///         UnhandledExceptionFilter.CerOrShowExceptionDialog(ex);
@@ -212,7 +206,6 @@ namespace Autodesk.AutoCAD.ApplicationServices
       /// <exception cref="Autodesk.AutoCAD.Runtime.Exception">There is no
       /// active document</exception>
       /// <exception cref="ArgumentNullException">A required parameter was null</exception>
-      /// </summary>
 
       public static async Task InvokeAsCommandAsync(this DocumentCollection docs, 
          Action<Document> action)
@@ -221,128 +214,123 @@ namespace Autodesk.AutoCAD.ApplicationServices
             throw new ArgumentNullException(nameof(docs));
          if(action == null)
             throw new ArgumentNullException(nameof(action));
-         Document doc = ActiveDocumentChecked;
-         if(docs.IsApplicationContext)
-         {
-            Task task = Task.CompletedTask;
-            await docs.ExecuteInCommandContextAsync(
-               delegate (object unused)
-               {
-                  try
-                  {
-                     action(doc);
-                     return task;
-                  }
-                  catch(System.Exception ex)
-                  {
-                     return task = Task.FromException(ex);
-                  }
-               },
-               null
-            );
-            if(task.IsFaulted)
+         Document doc = docs.MdiActiveDocument;
+         if(doc == null)
+            throw new AcRx.Exception(AcRx.ErrorStatus.NoDocument);
+         if(!docs.IsApplicationContext)
+            throw new AcRx.Exception(AcRx.ErrorStatus.InvalidContext);
+         Task task = Task.CompletedTask;
+         await docs.ExecuteInCommandContextAsync(
+            delegate (object unused)
             {
-               throw task.Exception ?? 
-                  new AggregateException(
-                     new InvalidOperationException("Unspecified error"));
-            }
-         }
-         else
+               try
+               {
+                  action(doc);
+                  return task;
+               }
+               catch(System.Exception ex)
+               {
+                  return task = Task.FromException(ex);
+               }
+            },
+            null
+         );
+         if(task.IsFaulted)
          {
-            action(doc);
+            throw task.Exception;
          }
       }
 
       /// <summary>
-      /// An overload of InvokeAsCommandAsync that internally 
-      /// starts and manages a DocumentTransaction, that is 
-      /// passed to the delegate argument.
+      /// A version of the Editor's Command() method that
+      /// can be safely called from the application context. 
       /// 
-      /// The delegate must accept a single argument of the type
-      /// DocumentTransaction. It can obtain the active Document
-      /// from the DocumentTransaction's Document property.
+      /// This method targets the DocumentCollection and 
+      /// always operates on the active document. 
       /// 
-      /// Just before the delegate is called, the transaction is
-      /// started and is then passed in the call to the delegate. 
-      /// When the delegate returns normally, the transaction is 
-      /// commited, if it was not committed or aborted by the 
-      /// delegate. 
+      /// Calls to the method can be awaited to execute 
+      /// code that follows after the command sequence 
+      /// has executed.
       /// 
-      /// The delegate can commit or abort the transaction if it 
-      /// chooses to do so. If the delegate does not commit the
-      /// transaction, it is commited after the delegate returns.
-      /// If an exception is thrown from within the delegate, the 
-      /// transaction is aborted. 
+      /// Important:
+      ///
+      /// Calls to this method should _always_ be wrapped
+      /// in a try{} block, that's followed by a catch{}
+      /// block that handles any exception that may be
+      /// thrown by the Editor's Command() method (e.g.,
+      /// ErrorStatus.InvalidInput).
+      ///
+      /// Failing to catch exceptions thrown by this method,
+      /// or by any statements that follow an await'ed call 
+      /// to it will most-likely crash AutoCAD.
       /// 
-      /// The delegate must not dispose the DocumentTransaction
-      /// argument.
+      /// A simple example:
+      /// 
+      /// This example was intended to be called from the
+      /// click handler of a button on a modeless UI such
+      /// as a PaletteSet or modeless window. Note the use
+      /// of 'async' in the method's declaration, which is
+      /// required.
+      /// 
+      ///   public static async void DrawCircle()
+      ///   {
+      ///      var docs = Application.DocumentManager;
+      ///      Document doc = docs.MdiActiveDocument;
+      ///      Point3d center = new Point3d(10, 10, 0);
+      ///      Point3d radius = 5.0;
+      ///      try
+      ///      {
+      ///         await docs.CommandAsync("._CIRCLE", center, radius);
+      ///         doc.Editor.WriteMessage("\nCircle created");
+      ///      }
+      ///      catch(System.Exception ex)
+      ///      {
+      ///         doc.Editor.WriteMessage($"\nError: {ex.Message}");
+      ///      }
+      ///   }
+      ///   
+      /// The use of await in the call to CommandAsync() allows
+      /// the code that follows that call to not run until the 
+      /// command has fully-executed and the circle is created.
+      /// 
+      /// The use of try/catch in the above example is required,
+      /// to prevent AutoCAD from crashing if the Command() method
+      /// throws an exception.
       /// 
       /// </summary>
-      /// <param name="docs">The DocumentCollection</param>
-      /// <param name="action">A delegate that takes a 
-      /// DocumentTransaction as its only argument. The delegate
-      /// must not dispose the DocumentTransaction</param>
-      /// <returns>A task representing the the asynchronous operation</returns>
-      /// <exception cref="Autodesk.AutoCAD.Runtime.Exception">There is no
-      /// active document</exception>
-      /// <exception cref="ArgumentNullException">A required parameter was null</exception>
-      
-      public static async Task DocTransInvokeAsCommandAsync(this DocumentCollection docs,
-         Action<DocumentTransaction> action)
+      /// <param name="args">The command arguments.</param>
+
+      public static async Task CommandAsync(this DocumentCollection docs,
+         params object[] args)
       {
          if(docs == null)
             throw new ArgumentNullException(nameof(docs));
-         if(action == null)
-            throw new ArgumentNullException(nameof(action));
-         if(docs.IsApplicationContext)
-         {
-            Task task = Task.CompletedTask;
-            await docs.ExecuteInCommandContextAsync(
-               delegate (object unused)
+         if(!docs.IsApplicationContext)
+            throw new AcRx.Exception(AcRx.ErrorStatus.InvalidContext);
+         Document doc = docs.MdiActiveDocument;
+         if(doc == null)
+            throw new AcRx.Exception(AcRx.ErrorStatus.NoDocument);
+         Task task = Task.CompletedTask;
+         await docs.ExecuteInCommandContextAsync(
+            delegate (object unused)
+            {
+               try
                {
-                  try
-                  {
-                     using(var tr = new DocumentTransaction())
-                     {
-                        action(tr);
-                        tr.TryCommit();
-                        return task;
-                     }
-                  }
-                  catch(System.Exception ex)
-                  {
-                     return task = Task.FromException(ex);
-                  }
-               },
-               null
-            );
-            if(task.IsFaulted)
-            {
-               throw task.Exception ?? 
-                  new AggregateException(new InvalidOperationException("Unspecified"));
-            }
-         }
-         else
+                  doc.Editor.Command(args);
+                  return task;
+               }
+               catch(System.Exception ex)
+               {
+                  return task = Task.FromException(ex);
+               }
+            },
+            null
+         );
+         if(task.IsFaulted)
          {
-            using(var tr = new DocumentTransaction())
-            {
-               action(tr);
-               tr.TryCommit();
-            }
+            throw task.Exception;
          }
       }
-
-      public static Document ActiveDocumentChecked
-      {
-         get
-         {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            AcRx.ErrorStatus.NoDocument.ThrowIf(doc == null);
-            return doc;
-         }
-      }
-
-
    }
 
 
