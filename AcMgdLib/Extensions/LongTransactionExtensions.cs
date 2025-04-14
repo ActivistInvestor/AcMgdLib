@@ -101,7 +101,7 @@ public static class LongTransactionExtensions
    /// Works like the Editor's GetSelection() method, except that
    /// if there is a current workset, the selection is constrained
    /// to objects in the workset. If there's no current workset, 
-   /// the behavior is intentical to the Editor's GetSelection()
+   /// the behavior is identical to the Editor's GetSelection()
    /// method.
    /// </summary>
    /// <param name="ed"></param>
