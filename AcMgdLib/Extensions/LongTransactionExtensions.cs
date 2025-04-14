@@ -174,7 +174,7 @@ public static class LongTransactionExtensionsExamples
    }
 
    /// <summary>
-   /// SelectFromWorkSet() usage example:
+   /// GetWorkingSetSelection() usage example:
    /// </summary>
 
    [CommandMethod("SELECTFROMWORKSET", CommandFlags.Redraw)]
