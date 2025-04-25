@@ -59,12 +59,16 @@ namespace AcMgdLib.DatabaseServices
       {
          if(db is null)
          {
-            if(originalWorkingDb != null && originalWorkingDb != HostApplicationServices.WorkingDatabase)
+            if(originalWorkingDb != null && !originalWorkingDb.IsDisposed)
+            {
                HostApplicationServices.WorkingDatabase = originalWorkingDb;
+               originalWorkingDb = null;
+            }
          }
-         else if(originalWorkingDb is null)
+         else
          {
-            originalWorkingDb = HostApplicationServices.WorkingDatabase;
+            if(originalWorkingDb is null)
+               originalWorkingDb = HostApplicationServices.WorkingDatabase;
             HostApplicationServices.WorkingDatabase = db;
          }
       }
