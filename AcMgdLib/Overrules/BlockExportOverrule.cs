@@ -30,13 +30,24 @@ namespace AcMgdLib.DatabaseServices
    /// exporting of entities to a new Database.
    /// 
    /// Put more-simply, this class combines the
-   /// functionality of the WBLOCK and EXPLODE 
-   /// commands, to automate a series of complex
+   /// functionality of the WBLOCK, EXPLODE and
+   /// GROUP commands, automating several complex
    /// operations. To do what this class does 
-   /// maually would involve using the WBLOCK
-   /// command to export selected objects to a
-   /// new DWG file, and then opening that file
-   /// and exploding all block references.
+   /// maually would involve:
+   /// 
+   /// 1. Using the WBLOCK command to export 
+   ///    selected objects to a new DWG file.
+   ///    
+   /// 2. Opening the new DWG file.
+   /// 
+   /// 3. Exploding each block reference 
+   ///    exported by WBLOCK.
+   ///    
+   /// 4. Creating a group from the entities 
+   ///    produced by exploding each exported 
+   ///    block reference.
+   ///    
+   /// 5. Saving and closing the new DWG file.
    /// 
    /// </summary>
 
@@ -68,7 +79,7 @@ namespace AcMgdLib.DatabaseServices
          }
          else
          {
-            if(originalWorkingDb is null)
+            if(originalWorkingDb is null || originalWorkingDb.IsDisposed) 
                originalWorkingDb = HostApplicationServices.WorkingDatabase;
             HostApplicationServices.WorkingDatabase = db;
          }
@@ -135,20 +146,26 @@ namespace AcMgdLib.DatabaseServices
       /// order objects using ObjectIds as sort keys. The included
       /// ObjectIdComparer class is the workaround.
       /// 
-      /// Code was revised to support exporting  any type of
+      /// Other revisions:
+      /// 
+      /// Code was revised to support exporting any type of
       /// entity. Entities that are not block references are
       /// exported in the same way they are by AutoCAD's WBLOCK
-      /// (objects) command. Block references are exploded and
-      /// are replaced with the entities produced by exploding
-      /// them.
+      /// (objects) command. All exported block references are 
+      /// exploded and are replaced with the entities produced 
+      /// by exploding them.
       /// 
-      /// Another revision causes all objects resulting from 
-      /// exploding each block to be placed into an anonymous 
-      /// Group in the destination file.
+      /// An optional Basepoint argument is accepted that is 
+      /// used to translate the exported objects by a specified 
+      /// displacement from the WCS origin.
       /// 
-      /// Yet another revision causes groups in the source file
-      /// to be exported to the destination file, provided that
-      /// all entities in the group are exported.
+      /// Optionally, all objects resulting from exploding each 
+      /// exported block reference are placed into an anonymous 
+      /// group in the destination file.
+      /// 
+      /// Existing groups in the source file will be exported to 
+      /// the destination file, provided that all entities in the 
+      /// group are exported.
       /// 
       /// </remarks>
       /// <param name="objectIds">The ObjectIds of the
