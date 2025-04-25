@@ -12,6 +12,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
+using AcMgdLib.BoundaryRepresentation;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
@@ -192,6 +193,7 @@ namespace AcMgdLib.DatabaseServices
          if(hasBasePoint)
             transform = Matrix3d.Displacement(basePoint.GetVectorTo(Point3d.Origin));
          Database result = db ?? new Database(true, true);
+         bool aborted = db is null;
          ObjectId target = SymbolUtilityServices.GetBlockModelSpaceId(result);
          try
          {
@@ -246,7 +248,8 @@ namespace AcMgdLib.DatabaseServices
                               DuplicateRecordCloning.Ignore, false);
                            if(exportGroups)
                            {
-                              var ids = map.Cast<IdPair>().Where(p => p.IsPrimary)
+                              var ids = map.Cast<IdPair>()
+                                 .Where(p => p.IsPrimary)
                                  .Select(p => p.Value).ToArray();
                               GroupAPI.CreateGroup(ids, tr, btr.Name);
                            }
@@ -267,14 +270,17 @@ namespace AcMgdLib.DatabaseServices
                finally
                {
                   tr.Commit();
+                  aborted = false;
                }
             }
          }
-         catch(System.Exception)
+         finally
          {
-            if(db != result)
+            if(aborted && db != result)
+            {
                result.Dispose();
-            throw;
+               result = null;
+            }
          }
          return result;
       }
@@ -357,19 +363,17 @@ namespace AcMgdLib.DatabaseServices
          Database db = ids.First().Database;
          if(db is null)
             throw new AcRx.Exception(AcRx.ErrorStatus.NotInDatabase);
-         var groupDictionarId = db.GroupDictionaryId;
-         var groups = (DBDictionary)tr.GetObject(groupDictionarId, OpenMode.ForWrite);
+         var groupsId = db.GroupDictionaryId;
+         var groups = (DBDictionary)tr.GetObject(groupsId, OpenMode.ForWrite);
          Group group = new Group("Exploded block reference {name}", true);
-         groups.SetAt("*U", group);
          var collection = new ObjectIdCollection(ids as ObjectId[] ?? ids.ToArray());
          group.Append(collection);
+         groups.SetAt("*U", group);
+         group.SetAnonymous();
          tr.AddNewlyCreatedDBObject(group, true);
          return group.ObjectId;
       }
 
-      /// <summary>
-      /// Begin proposed encapsulation of reusable WblockGroupHandler APIs
-      /// </summary>
       public static int CloneGroups(IdMapping idMap, Transaction trans)
       {
          if(idMap is null)
@@ -381,6 +385,8 @@ namespace AcMgdLib.DatabaseServices
          try
          {
             Database destDb = idMap.DestinationDatabase;
+            if(destDb is null)
+               throw new AcRx.Exception(AcRx.ErrorStatus.NoDatabase);
             var groups = (DBDictionary)trans.GetObject(
                destDb.GroupDictionaryId, OpenMode.ForWrite);
             var map = ToDictionary(idMap);
@@ -537,7 +543,6 @@ namespace AcMgdLib.DatabaseServices
             return;
          Point3d basePoint = ppr.Value.TransformBy(editor.CurrentUserCoordinateSystem);
          selection = psr.Value.GetObjectIds();
-         int cnt = selection.Length;
          try
          {
             using(var db = BlockExportOverrule.Export(selection, basePoint, true))
