@@ -19,7 +19,9 @@ namespace AcMgdLib.EditorInput
 
       public static void WriteMessageAsync(this Editor editor, string msg, params object[] args)
       {
-         context.Post(o => editor.WriteMessage(msg, args), null);
+         context ??= AcRx.SynchronizationContext.Current;
+         if(context != null)
+            context.Post(o => editor.WriteMessage(msg, args), null);
       }
 
       /// <summary>
