@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <DEFAULT_AC_2025_REFERENCE_PATH>
+		C:\Program Files\Autodesk\AutoCAD 2025
+	</DEFAULT_AC_2025_REFERENCE_PATH>
+    <DEFAULT_AC_2020_REFERENCE_PATH>
+		C:\Program Files\Autodesk\AutoCAD 2020
+	</DEFAULT_AC_2020_REFERENCE_PATH>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net8.0'))">
+    <AcReferencePath>$(DEFAULT_AC_2025_REFERENCE_PATH)</AcReferencePath>
+    <AcadMinVer>2025</AcadMinVer>
+    <AcadMaxVer>2026</AcadMaxVersion>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2025</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2026</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2025_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net4'))">
+    <AcReferencePath>$(DEFAULT_AC_2020_REFERENCE_PATH)</AcReferencePath>
+    <AcadMinVer>2020</AcadMinVer>
+    <AcadMaxVer>2024</AcadMaxVer>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2020</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2021</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2022</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2023</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2024</DefineConstants>
+    <DefineConstants>$(DefineConstants);AUTOCAD_2020_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+</Project>

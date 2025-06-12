@@ -1,0 +1,276 @@
+﻿<!--
+
+SharedMultiTargetExample.csproj
+
+ActivistInvestor / Tony T
+
+Distributed under the terms and 
+conditions of the MIT License
+-->
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Multi-targeting example: A project that targets both
+    AutoCAD 2025/NET 8.0 and AutoCAD 2020-2024/NET Framework 4.8 
+    
+    This will produce different binaries for each of the two
+    targeted frameworks. The binaries are output to child folders
+    within both the \Debug and \Release folders having the names
+    'net4.8' and 'net8.0':
+    
+    ProjectRootFolder\
+      bin\
+        Debug\
+          net4.8\
+          net8.0\
+        Release\
+          net4.8\
+          net8.0\
+    
+    Note that the <TargetFrameWorks> element is used, rather than
+    the <TargetFrameWork> element, to enable multi-targeting.
+	
+	Dependencies:
+	
+	This .csproj file uses shared/common elements defined
+	in the following files:
+	
+	   Directory.Build.props
+	   Directory.Build.targets
+	   
+	The above files must reside in a folder above the folder
+	containing the project that shares the project definitions
+	contained in those files. Note that because these two files
+	define elements specific to AutoCAD projects targeting one
+	or more framework/product release versions, all projects in
+	the folder containing these files will use them. For that
+	reason, the directory containing these two files should not 
+	contain projects that are not AutoCAD managed extensions.
+	
+    
+    -->
+
+    <PropertyGroup>
+        <TargetFrameworks>net4.8;net8.0</TargetFrameworks>
+        <LangVersion>12</LangVersion>
+        <RunAnalyzersDuringLiveAnalysis>False</RunAnalyzersDuringLiveAnalysis>
+        <NoWarn>1701;1702;CA1416</NoWarn>
+    </PropertyGroup>
+
+    <!-- 
+    
+    Assumptions:
+    
+    In this example, AutoCAD reference assemblies are presumed 
+    to be in folders under 'C:\Program Files\Autodesk' with the 
+    folder names 'AutoCAD 2025' and 'AutoCAD 2020':
+    
+       Targeted product   Reference assembly location
+       =========================================================
+       AutoCAD 2025:      C:\Program Files\Autodesk\AutoCAD 2025
+       AutoCAD 2020:      C:\Program Files\Autodesk\AutoCAD 2020
+    
+    In order to allow these paths to be referenced from any project
+    that uses multi-targeting to target the two product releases, and
+    to support portability to different machines where reference paths
+    may not be in the same location, paths are referenced indirectly
+    via environment variables whose values are assigned to a Property,
+    and referenced via that Property in the <HintPath> element of each
+    <Reference> element.
+    
+    By avoiding hard-coding the reference paths directly into projects, 
+    one can easily change the location where the referenced assemblies 
+    reside, by simply editing the environment variables.
+    
+       Targeted           Environent variable 
+       product            containing reference path:
+       =============================================
+       AutoCAD 2025:      AC_2025_REFERENCE_PATH
+       AutoCAD 2020:      AC_2020_REFERENCE_PATH
+       
+    The following PropertyGroup elements assign the value stored in
+    one of the above environment variables to the 'AcReferencePath'
+    property, depending on the build target. The AcReferencePath
+    property is then referenced from each reference's <HintPath> 
+    element
+
+    The same PropertyGroups define another property having the
+    name 'AcadMinVer' that holds the product version 
+    (e.g., 2020, 2025), and a compiler constant that can be used 
+    in source code to do conditional compilation.
+    
+    The compiler constants allow simplified conditional
+    code compilation, for example:
+    
+        #if AUTOCAD_2025
+            // Code here is included only when the
+            // targeted product is AutoCAD 2025+
+        #endif
+        
+        #if AUTOCAD_2020
+            // Code here is included only when the
+            // targeted product is AutoCAD 2020-2024
+        #endif
+        
+    -->
+
+    <!-- Adding assembly references using the Visual Studio UI:
+    
+    A single ItemGroup is used to reference the AutoCAD assemblies 
+    for all targeted platforms. The actual path to the assemblies is 
+    defined by the AcReferencePath property, which is conditionally 
+    assigned to one of two values depending on the target build.
+    
+    If you use the Visual Studio UI to add an assembly reference, it 
+    will create a <Reference> element having a <HintPath> containing
+    an explicit path to the specified assembly, as it doesn't know 
+    about the AcReferencePath property.
+    
+    For example, this <Reference> element was created by using 
+    the UI to add a reference to acdbmgdbrep.dll (in this case,
+    for AutoCAD 2025):
+    
+       <Reference Include="acdbmgdbrep">
+         <HintPath>..\..\..\Program Files\Autodesk\AutoCAD 2025\acdbmgdbrep.dll</HintPath>
+       </Reference>
+
+    We can then open the csproj file; edit the <HintPath> 
+    element; and replace the explicit path to the assembly
+    with the $(AcReferencePath) property:
+
+       <Reference Include="acdbmgdbrep">
+          <HintPath>$(AcReferencePath)\acdbmgdbrep.dll</HintPath>
+       </Reference>
+       
+    Once edited, the same Reference element will work
+    for either targeted product release/framework version.
+    
+    What follows is an ItemGroup that contains references
+    to the basic AutoCAD assemblies that are required for
+    most managed extensions. This ItemGroup can be used as-
+    is, and/or as a starting point for adding additional 
+    references to other AutoCAD assemblies.
+    -->
+
+    <ItemGroup>
+        <Reference Include="acmgd">
+            <HintPath>$(AcReferencePath)\acmgd.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="accoremgd">
+            <HintPath>$(AcReferencePath)\accoremgd.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="acdbmgd">
+            <HintPath>$(AcReferencePath)\acdbmgd.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+
+        <!-- 
+        TODO: Add additional <Reference> elements for 
+        AutoCAD assemblies that need to be referenced
+        in both targeted product releases, following 
+        the same pattern used above.
+        -->
+        
+    </ItemGroup>
+
+    <!-- Conditional per-release includes:
+    
+    To include certain reference files in only one of
+    the targeted releses, you can use a condition in
+    a seperate ItemGroup. This can be useful for cases
+    where AutoCAD uses different versions of 3rd party 
+    components (e.g., Json, Entity framework, MS Sql, 
+    Excel, etc.).
+    
+    -->
+
+    <!-- AutoCAD 2925 only-->
+    <ItemGroup Condition="'$(AcadMinVer)' == '2025'">
+
+        <!--  TODO: Include references for AutoCAD 2025+ only: -->
+
+    </ItemGroup>
+
+    <!-- AutoCAD 2920-2024 only-->
+    <ItemGroup Condition="'$(AcadMinVer)' == '2020'">
+
+        <!--  TODO: Include references for AutoCAD 2020-2024 only: -->
+
+    </ItemGroup>
+
+    <!-- Optional: 
+    
+    Using different output filenames for each targeted
+    framework. The following example property group will set the
+    output .DLL filename to a different name based on the target
+    framework and AutoCAD product version:
+
+        <PropertyGroup>
+            <AssemblyName>$(MSBuildProjectName)$(AcadMinVer)</AssemblyName>
+        </PropertyGroup>
+
+    Assuming that the project name is 'MyAutoCADPlugIn', the above 
+    PropertyGroups will generate these output filenames:
+    
+        MyAutoCADPlugIn2020.dll
+        MyAutoCADPlugIn2025.dll
+    
+    -->
+
+    <ItemGroup>
+        <Reference Update="System">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Core">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Data">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Drawing">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.IO.Compression.FileSystem">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Numerics">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Runtime.Serialization">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Xml">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="System.Xml.Linq">
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+</Project>

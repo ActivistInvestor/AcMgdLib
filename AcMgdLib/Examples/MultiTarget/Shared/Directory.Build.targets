@@ -1,0 +1,12 @@
+<Project>
+  <Target Name="CheckRequiredEnvironmentVariables" BeforeTargets="Build">
+    <Error Condition="'$(AC_2025_REFERENCE_PATH)' == ''"
+           Text="Error: The environment variable AC_2025_REFERENCE_PATH is not defined or is empty."
+           Code="ENVVAR002" />
+
+    <Error Condition="'$(AC_2020_REFERENCE_PATH)' == ''"
+           Text="Error: The environment variable AC_2020_REFERENCE_PATH is not defined or is empty."
+           Code="ENVVAR002" />
+  </Target>
+
+</Project>
