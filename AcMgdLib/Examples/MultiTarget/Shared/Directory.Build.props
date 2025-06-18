@@ -1,253 +1,253 @@
 <Project>
 
-	<!--
-	Directory.Build.props
-	
-	AcMgdLib
-	
-	ActivistInvestor / Tony T.
-	
-	Distributed under the terms of the MIT license*
-	
-	*Republication or redistribution 
-	without attrition is not permitted.
-	
-	Directory.Build.props example for AutoCAD managed extensions
-	that optionally useS multi-targeting to target multiple AutoCAD
-	releases that use different .NET framework versions
-	
-	See: https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-your-build?view=vs-2022#directorybuildprops-and-directorybuildtargets
-	     https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory?view=vs-2022
-	
-	This file is used to define common properties and item groups
-	that are inherited by all projects in the folder where this 
-	file is located, including all subfolders.
-	
-	For example, to share this file across all projects in a single
-	solution, it can be placed in the solution folder (assuming all 
-	projects in the solution reside in the solution folder or in a 
-	subfolder of the solution folder).
-	
-	This file can also be shared by projects in multiple solutions,
-	by placing it in a folder that contains the solutions that are
-	to share and use the file. 
-	
-	Note that because this file is specifically designed for use 
-	with AutoCAD extensions, it cannot be used with non-AutoCAD 
-	projects, and non-AutoCAD projects should not reside in the 
-	folder where this file is located, or any of its subfolders.
-	
-	If your current project organizational structure does not 
-	support the use of a single Directory.Build.props file that 
-	can be shared by all AutoCAD extension projects, you can also 
-	copy this file to each solution or project folder that you wish 
-	to use it with, and it will be used only by the solution(s)
-	or project(s) contained in that folder or any subfolders.
-	
-	Directory.Build.props verses Visual Studio project templates:
-	
-	Using a common/shared Directory.Build.props file has several
-	advantages over using Visual Studio project templates containing
-	assembly references with hard-coded paths:
-	
-		Centralized configuration:
+   <!--
+   Directory.Build.props
+   
+   AcMgdLib
+   
+   ActivistInvestor / Tony T.
+   
+   Distributed under the terms of the MIT license*
+   
+   *Republication or redistribution 
+   without attrition is not permitted.
+   
+   Directory.Build.props example for AutoCAD managed extensions
+   that optionally useS multi-targeting to target multiple AutoCAD
+   releases that use different .NET framework versions
+   
+   See: https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-your-build?view=vs-2022#directorybuildprops-and-directorybuildtargets
+        https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory?view=vs-2022
+   
+   This file is used to define common properties and item groups
+   that are inherited by all projects in the folder where this 
+   file is located, including all subfolders.
+   
+   For example, to share this file across all projects in a single
+   solution, it can be placed in the solution folder (assuming all 
+   projects in the solution reside in the solution folder or in a 
+   subfolder of the solution folder).
+   
+   This file can also be shared by projects in multiple solutions,
+   by placing it in a folder that contains the solutions that are
+   to share and use the file. 
+   
+   Note that because this file is specifically designed for use 
+   with AutoCAD extensions, it cannot be used with non-AutoCAD 
+   projects, and non-AutoCAD projects should not reside in the 
+   folder where this file is located, or any of its subfolders.
+   
+   If your current project organizational structure does not 
+   support the use of a single Directory.Build.props file that 
+   can be shared by all AutoCAD extension projects, you can also 
+   copy this file to each solution or project folder that you wish 
+   to use it with, and it will be used only by the solution(s)
+   or project(s) contained in that folder or any subfolders.
+   
+   Directory.Build.props verses Visual Studio project templates:
+   
+   Using a common/shared Directory.Build.props file has several
+   advantages over using Visual Studio project templates containing
+   assembly references with hard-coded paths:
+   
+      Centralized configuration:
 
-			- Directory.Build.props applies shared settings, 
-			  properties, and item includes/excludes across 
-			  all projects in a directory tree.
-			
-			- Changes in one place automatically apply to all 
-			  child projects — no need to regenerate or edit 
-			  individual .csproj files.
+         - Directory.Build.props applies shared settings, 
+           properties, and item includes/excludes across 
+           all projects in a directory tree.
 
-		No hard-coded paths:
+         - Changes in one place automatically apply to all 
+           child projects — no need to regenerate or edit 
+           individual .csproj files.
 
-			- Directory.Build.props can define properties and 
-			  reference paths dynamically, using environment 
-			  variables or MSBuild properties.
-			
-			- Templates with hard-coded paths risk breaking on 
-			  different machines, folders, or versions.
+      No hard-coded paths:
 
-		Easier maintenance:
+         - Directory.Build.props can define properties and 
+           reference paths dynamically, using environment 
+           variables or MSBuild properties.
+         
+         - Templates with hard-coded paths risk breaking on 
+           different machines, folders, or versions.
 
-			- Update Directory.Build.props once → all projects 
-			  pick up changes. With templates, each new project 
-			  starts with a snapshot of the template, but any 
-			  updates to references or settings require manual 
-			  edits or recreating projects.
+      Easier maintenance:
 
-		Flexible and version-aware:
+         - Update Directory.Build.props once → all projects 
+           pick up changes. With templates, each new project 
+           starts with a snapshot of the template, but any 
+           updates to references or settings require manual 
+           edits or recreating projects.
 
-			- Directory.Build.props can use conditions to set 
-			  properties or references based on $(TargetFramework), 
-			  $(Configuration), $(AutoCADVersion), or other MSBuild 
-			  properties. Templates typically bake in static settings 
-			  at project creation.
+      Flexible and version-aware:
 
-		Works with existing projects:
+         - Directory.Build.props can use conditions to set 
+           properties or references based on $(TargetFramework), 
+           $(Configuration), $(AutoCADVersion), or other MSBuild 
+           properties. Templates typically bake in static settings 
+           at project creation.
 
-			- You can introduce or modify Directory.Build.props 
-			  without recreating projects.
-			  
-			- Updating a project template only affects new projects 
-			  created from that template, while updating a shared
-			  Directory.Build.props file affects all existing projects
-			  that inherit project items from that file.
+      Works with existing projects:
 
-		Encourages consistency:
+         - You can introduce or modify Directory.Build.props 
+           without recreating projects.
+           
+         - Updating a project template only affects new projects 
+           created from that template, while updating a shared
+           Directory.Build.props file affects all existing projects
+           that inherit project items from that file.
 
-			- Ensures all projects under a directory tree stay in 
-			  sync with common rules, avoiding the drift that happens 
-			  when generated project files are modified independently.
+      Encourages consistency:
 
-	
-	
-	Custom Build Properties:
-	
-	The following build properties are conditionally defined,
-	depending on the targeted Framework version/AutoCAD release.
-	
-	In all cases, .NET 8.0 is associated with AutoCAD 2025 and
-	2026, .NET 4.x is associated with AutoCAD 2020-2024, and
-	.NET 10.0 is associated with AutoCAD 2027 or later.
-	
-	   AcMinVer:				Minimum AutoCAD version targeted by the project
-	   AcMaxVer:				Maximum AutoCAD version targeted by the project
-	   
-	   AcReferencePath:			Path to AutoCAD reference assemblies for 
-								the targeted AutoCAD/Framework version.
-								
-	   AUTOCAD_2020:			Defined if project supports AutoCAD 2020
-	   AUTOCAD_2021:			Defined if project supports AutoCAD 2021
-	   AUTOCAD_2022:			Defined if project supports AutoCAD 2022
-	   AUTOCAD_2023:			Defined if project supports AutoCAD 2023
-	   AUTOCAD_2024:			Defined if project supports AutoCAD 2024
-	   AUTOCAD_NET4X:			Defined if project targets AutoCAD releases using .NET Framework 4.x
-	   AUTOCAD_2025:			Defined if project supports AutoCAD 2025
-	   AUTOCAD_2026:			Defined if project supports AutoCAD 2026
-	   AUTOCAD_NET8:			Defined if project supports AutoCAD releases using .NET 8.0
-	   AUTOCAD_2027:			Defined if project supports AutoCAD 2027
-	   AUTOCAD_NET10:			Defined if project supports AutoCAD releases using .NET 10.0
-	   
-	-->
+         - Ensures all projects under a directory tree stay in 
+           sync with common rules, avoiding the drift that happens 
+           when generated project files are modified independently.
 
-	<!-- 
-	
-	External dependencies:
-	
-	This file is dependent on the following properties,	that can 
-	be defined in environment variables, or be explicitly defined 
-	in this file (see below):
-	
-	   AC_2020_REFERENCE_PATH:   Path to AutoCAD 2020 reference assemblies
-	   AC_2025_REFERENCE_PATH:   Path to AutoCAD 2025 reference assemblies
-	   AC_2027_REFERENCE_PATH:   Path to AutoCAD 2027 reference assemblies
-	
-	If you prefer to not use environment variables to define the
-	above properties, they can be defined in this file instead, by
-	uncommenting the following property group, and editing the paths
-	to point to the locations where the AutoCAD assemblies reside.
-	
-	Note that the AutoCAD 2027 variable merely serves as a 
-	placeholder	for future use, as the product does not yet
-	exist.
-	
-	-->
+   
+   
+   Custom Build Properties:
+   
+   The following build properties are conditionally defined,
+   depending on the targeted Framework version/AutoCAD release.
+   
+   In all cases, .NET 8.0 is associated with AutoCAD 2025 and
+   2026, .NET 4.x is associated with AutoCAD 2020-2024, and
+   .NET 10.0 is associated with AutoCAD 2027 or later.
+   
+      AcMinVer:            Minimum AutoCAD version targeted by the project
+      AcMaxVer:            Maximum AutoCAD version targeted by the project
+      
+      AcReferencePath:     Path to AutoCAD reference assemblies for 
+                           the targeted AutoCAD/Framework version.
+                        
+      AUTOCAD_2020:        Defined if project supports AutoCAD 2020
+      AUTOCAD_2021:        Defined if project supports AutoCAD 2021
+      AUTOCAD_2022:        Defined if project supports AutoCAD 2022
+      AUTOCAD_2023:        Defined if project supports AutoCAD 2023
+      AUTOCAD_2024:        Defined if project supports AutoCAD 2024
+      AUTOCAD_NET4X:       Defined if project targets AutoCAD releases using .NET Framework 4.x
+      AUTOCAD_2025:        Defined if project supports AutoCAD 2025
+      AUTOCAD_2026:        Defined if project supports AutoCAD 2026
+      AUTOCAD_NET8:        Defined if project supports AutoCAD releases using .NET 8.0
+      AUTOCAD_2027:        Defined if project supports AutoCAD 2027
+      AUTOCAD_NET10:       Defined if project supports AutoCAD releases using .NET 10.0
+      
+   -->
 
-	<!-- Uncomment and edit to use hardcoded paths instead of environment variables 
-	
-	<PropertyGroup>
-		<AC_2020_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2020<AC_2020_REFERENCE_PATH>
-		<AC_2025_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2025<AC_2025_REFERENCE_PATH>
-		<AC_2027_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2027<AC_2027_REFERENCE_PATH>
-	</PropertyGroup>
-	
-	-->
+   <!-- 
+   
+   External dependencies:
+   
+   This file is dependent on the following properties,   that can 
+   be defined in environment variables, or be explicitly defined 
+   in this file (see below):
+   
+      AC_2020_REFERENCE_PATH:   Path to AutoCAD 2020 reference assemblies
+      AC_2025_REFERENCE_PATH:   Path to AutoCAD 2025 reference assemblies
+      AC_2027_REFERENCE_PATH:   Path to AutoCAD 2027 reference assemblies
+   
+   If you prefer to not use environment variables to define the
+   above properties, they can be defined in this file instead, by
+   uncommenting the following property group, and editing the paths
+   to point to the locations where the AutoCAD assemblies reside.
+   
+   Note that the AutoCAD 2027 variable merely serves as a 
+   placeholder for future use, as the product does not yet
+   exist.
+   
+   -->
 
-	<!--
-	In a multi-target project one of the following three property groups
-	will be defined, depending on the targeted framwork version of the
-	current build configuration.
-	
-	When used in a single-target project, one of the three property groups 
-	will be used depending on the targeted framwork version.
-	-->
+   <!-- Uncomment and edit to use hardcoded paths instead of environment variables 
+   
+   <PropertyGroup>
+      <AC_2020_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2020<AC_2020_REFERENCE_PATH>
+      <AC_2025_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2025<AC_2025_REFERENCE_PATH>
+      <AC_2027_REFERENCE_PATH>C:\Program Files\Autodesk\AutoCAD 2027<AC_2027_REFERENCE_PATH>
+   </PropertyGroup>
+   
+   -->
 
-	<!-- AutoCAD 2020-2024 / .NET 4.X -->
-	<PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net4'))">
-		<AcReferencePath>$(AC_2020_REFERENCE_PATH)</AcReferencePath>
-		<AcMinVer>2020</AcMinVer>
-		<AcMaxVer>2024</AcMaxVer>
-		<AcNetVer>4</AcNetVer>
-		<DefineConstants>
-			$(DefineConstants);
-			AUTOCAD_NET4;AUTOCAD_2020;AUTOCAD_2021;AUTOCAD_2022;
-			AUTOCAD_2023;AUTOCAD_2024
-		</DefineConstants>
-	</PropertyGroup>
+   <!--
+   In a multi-target project one of the following three property groups
+   will be defined, depending on the targeted framwork version of the
+   current build configuration.
+   
+   When used in a single-target project, one of the three property groups 
+   will be used depending on the targeted framwork version.
+   -->
 
-	<!-- AutoCAD 2025 and 2026 / .NET 8.0 -->
-	<PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net8.0'))">
-		<AcReferencePath>$(AC_2025_REFERENCE_PATH)</AcReferencePath>
-		<AcMinVer>2025</AcMinVer>
-		<AcMaxVer>2026</AcMaxVer>
-		<AcNetVer>8</AcNetVer>
-		<DefineConstants>
-			$(DefineConstants);
-			AUTOCAD_NET8;AUTOCAD_2025;AUTOCAD_2026
-		</DefineConstants>
-	</PropertyGroup>
+   <!-- AutoCAD 2020-2024 / .NET 4.X -->
+   <PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net4'))">
+      <AcReferencePath>$(AC_2020_REFERENCE_PATH)</AcReferencePath>
+      <AcMinVer>2020</AcMinVer>
+      <AcMaxVer>2024</AcMaxVer>
+      <AcNetVer>4</AcNetVer>
+      <DefineConstants>
+         $(DefineConstants);
+         AUTOCAD_NET4;AUTOCAD_2020;AUTOCAD_2021;AUTOCAD_2022;
+         AUTOCAD_2023;AUTOCAD_2024
+      </DefineConstants>
+   </PropertyGroup>
 
-	<!-- AutoCAD 2027 / .NET 10.0 -->
-	<PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net10.'))">
-		<AcReferencePath>$(AC_2027_REFERENCE_PATH)</AcReferencePath>
-		<AcMinVer>2027</AcMinVer>
-		<AcMaxVer>2027</AcMaxVer>
-		<AcNetVer>10</AcNetVer>
-		<DefineConstants>
-			$(DefineConstants);
-			AUTOCAD_2027;AUTOCAD_NET10
-		</DefineConstants>
-	</PropertyGroup>
+   <!-- AutoCAD 2025 and 2026 / .NET 8.0 -->
+   <PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net8.0'))">
+      <AcReferencePath>$(AC_2025_REFERENCE_PATH)</AcReferencePath>
+      <AcMinVer>2025</AcMinVer>
+      <AcMaxVer>2026</AcMaxVer>
+      <AcNetVer>8</AcNetVer>
+      <DefineConstants>
+         $(DefineConstants);
+         AUTOCAD_NET8;AUTOCAD_2025;AUTOCAD_2026
+      </DefineConstants>
+   </PropertyGroup>
 
-	<!--
-	Example showing how to set ouput path depending on target framework
-	
-	<PropertyGroup Condition="'$(AcNetVer)' == '8'">
-		<OutputPath>bin\Plugins2025\</OutputPath>
-	</PropertyGroup>
-	-->
+   <!-- AutoCAD 2027 / .NET 10.0 -->
+   <PropertyGroup Condition="$([System.String]::new('$(TargetFramework)').StartsWith('net10.'))">
+      <AcReferencePath>$(AC_2027_REFERENCE_PATH)</AcReferencePath>
+      <AcMinVer>2027</AcMinVer>
+      <AcMaxVer>2027</AcMaxVer>
+      <AcNetVer>10</AcNetVer>
+      <DefineConstants>
+         $(DefineConstants);
+         AUTOCAD_2027;AUTOCAD_NET10
+      </DefineConstants>
+   </PropertyGroup>
+
+   <!--
+   Example showing how to set ouput path depending on target framework
+   
+   <PropertyGroup Condition="'$(AcNetVer)' == '8'">
+      <OutputPath>bin\Plugins2025\</OutputPath>
+   </PropertyGroup>
+   -->
 
 
-	<!--
-	
-	The three basic AutoCAD assembly references used by most 
-	or all AutoCAD managed extensions are included here, which 
-	allows any project using this file to inherit them. 
-	
-	These Reference elements will work with any/all targeted 
-	framework verions/AutoCAD releases. 
-	
-	Note that these references are not copied to the build 
-	output (e.g., CopyLocal = NO).
-	
-	-->
+   <!--
+   
+   The three basic AutoCAD assembly references used by most 
+   or all AutoCAD managed extensions are included here, which 
+   allows any project using this file to inherit them. 
+   
+   These Reference elements will work with any/all targeted 
+   framework verions/AutoCAD releases. 
+   
+   Note that these references are not copied to the build 
+   output (e.g., CopyLocal = NO).
+   
+   -->
 
-	<ItemGroup>
-		<Reference Include="acmgd">
-			<HintPath>$(AcReferencePath)\acmgd.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="accoremgd">
-			<HintPath>$(AcReferencePath)\accoremgd.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-		<Reference Include="acdbmgd">
-			<HintPath>$(AcReferencePath)\acdbmgd.dll</HintPath>
-			<Private>False</Private>
-		</Reference>
-	</ItemGroup>
+   <ItemGroup>
+      <Reference Include="acmgd">
+         <HintPath>$(AcReferencePath)\acmgd.dll</HintPath>
+         <Private>False</Private>
+      </Reference>
+      <Reference Include="accoremgd">
+         <HintPath>$(AcReferencePath)\accoremgd.dll</HintPath>
+         <Private>False</Private>
+      </Reference>
+      <Reference Include="acdbmgd">
+         <HintPath>$(AcReferencePath)\acdbmgd.dll</HintPath>
+         <Private>False</Private>
+      </Reference>
+   </ItemGroup>
 
 
 </Project>
