@@ -11,7 +11,6 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime.Extensions;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.Runtime.NativeInterop
@@ -473,3 +472,4 @@ namespace Autodesk.AutoCAD.Runtime.NativeInterop
 
    }
 }
+
