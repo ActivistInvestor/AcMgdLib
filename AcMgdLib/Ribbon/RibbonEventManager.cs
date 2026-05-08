@@ -247,7 +247,7 @@ namespace Autodesk.AutoCAD.Ribbon.Extensions
       public static bool RibbonExists => RibbonControl is not null;
 
       public static RibbonPaletteSet RibbonPaletteSet =>
-         RibbonServices.RibbonPaletteSet;
+         RibbonServices?.RibbonPaletteSet;
 
       public static RibbonControl? RibbonControl =>
          RibbonPaletteSet?.RibbonControl;
