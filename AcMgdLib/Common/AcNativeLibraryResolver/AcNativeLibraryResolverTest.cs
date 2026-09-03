@@ -6,9 +6,9 @@
 
 
 using System.Runtime.InteropServices;
+using AcMgdLib.Runtime;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
-using AcMgdLib.Runtime;
 
 /// <summary>
 /// This assembly-level attribute registers the containing assembly 
@@ -39,12 +39,13 @@ using AcMgdLib.Runtime;
 /// 
 /// </code>
 
+/// Enable dynamic DllImport module name resolution for the
+/// containing assembly:
+
 [assembly: AcNativeLibraryResolver]
 
 namespace AcNativeLibraryResolverTest
 {
-   using AcMgdLib.Runtime;
-
    /// <summary>
    /// Tests the AcNativeLibraryResolver's support for use of
    /// wcmatch-style wildcards in the [DLLImport] attribute's 
