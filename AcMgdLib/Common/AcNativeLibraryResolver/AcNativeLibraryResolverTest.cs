@@ -5,6 +5,7 @@
 /// Distributed under the terms of the MIT license
 
 
+using System;
 using System.Runtime.InteropServices;
 using AcMgdLib.Runtime;
 using Autodesk.AutoCAD.DatabaseServices;

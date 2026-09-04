@@ -1,10 +1,12 @@
-﻿/// AcNativeLibraryResolverAttribute.cs  
+﻿
+
+using System;
+
+/// AcNativeLibraryResolverAttribute.cs  
 /// 
 /// Activist Investor / Tony T
 /// 
 /// Distributed under the terms of the MIT license
-
-
 namespace AcMgdLib.Runtime
 {
    /// <summary>
