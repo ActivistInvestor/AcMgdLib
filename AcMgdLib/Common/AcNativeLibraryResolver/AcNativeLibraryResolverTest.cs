@@ -5,21 +5,15 @@
 /// Distributed under the terms of the MIT license
 
 
-using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using AcMgdLib.Runtime;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Runtime;
 
 /// <summary>
-/// This assembly-level attribute registers the containing assembly 
-/// to enable the use of wcmatch-style wildcards in the [DllImport] 
-/// attribute's dllname argument. 
-/// 
-/// This attribute can applied to an assembly in lieu of calling the 
-/// AcNativeLibraryResolver.Register() method. 
-/// 
-/// In order for this attribute to work, the AcNativeLibraryResolver's
+/// In order for this code to work, the AcNativeLibraryResolver's
 /// Initialize() method must be called, which is usually done from an 
 /// IExtensionApplication's Initialize() method, as shown in this
 /// example:
@@ -39,11 +33,6 @@ using Autodesk.AutoCAD.Runtime;
 ///   }
 /// 
 /// </code>
-
-/// Enable dynamic DllImport module name resolution for the
-/// containing assembly:
-
-[assembly: AcNativeLibraryResolver]
 
 namespace AcNativeLibraryResolverTest
 {
@@ -79,20 +68,35 @@ namespace AcNativeLibraryResolverTest
    {
       class NativeMethods
       {
-         /// Note the use of the "acdb##.dll" wildcard in the DllImport 
+         /// Note the use of the "acdb2#.dll" wildcard in the DllImport 
          /// attribute, which will be resolved to the correct version 
-         /// of acdbXX.dll at runtime.
+         /// of acdbXX.dll at runtime. This allows this code to target
+         /// any AutoCAD release from 2025 onward.
 
-         [DllImport("acdb##.dll", 
+         [DllImport("acdb2#.dll", 
             EntryPoint = "?acdbSetDbmod@@YAHPEAVAcDbDatabase@@H@Z",
             CallingConvention = CallingConvention.Cdecl)]
          public static extern int acdbSetDbmod(IntPtr database, int newval);
       }
 
-      public static int SetDbmod(this Database db, int newval)
+      /// <summary>
+      /// Extension method wrapper for the Database class. 
+      /// </summary>
+      
+      public static int SetDbmod(this Database database, int newval)
       {
-         IntPtr dbPtr = db.UnmanagedObject;
-         return NativeMethods.acdbSetDbmod(dbPtr, newval);
+         return NativeMethods.acdbSetDbmod(Validate(database).UnmanagedObject, newval);
+      }
+
+      static Database Validate(Database database, [CallerArgumentExpression(nameof(database))] string name = "database")
+      {
+         if(database is null)
+            throw new ArgumentNullException(name);
+         if(database.IsDisposed)
+            throw new ObjectDisposedException(name);
+         if(Database.IdFromDb(database) == 0)
+            throw new ArgumentException($"{name}: Underlying AcDbDatabase was destroyed");
+         return database;
       }
 
 
